@@ -1,0 +1,27 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/guides/configure-coderabbit
+language: en-US
+early_access: false
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+  path_instructions:
+    - path: "**/*.{ts,tsx}"
+      instructions: >-
+        Enforce TypeScript best practices and proper error handling. Flag any
+        hardcoded secrets, API keys, or tokens. Prefer the shared helpers in
+        lib/ and the repos in lib/repos over ad-hoc queries.
+    - path: "worker/**"
+      instructions: >-
+        This is a long-running BullMQ worker (not serverless). Verify graceful
+        shutdown, retry/backoff, and that connections use maxRetriesPerRequest=null.
+chat:
+  auto_reply: true
