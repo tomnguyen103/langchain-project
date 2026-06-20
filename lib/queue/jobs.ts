@@ -59,3 +59,42 @@ export async function cancelPublish(postTargetId: string): Promise<void> {
   }
   await deleteSchedule(QueueName.Publish, jobId);
 }
+
+export type ResearchJobData = { researchTopicId: string };
+
+/** Enqueue a niche-research run (search + ideation) on the worker. */
+export async function enqueueResearch(opts: {
+  researchTopicId: string;
+  clerkUserId: string;
+}): Promise<string> {
+  const jobId = `research:${opts.researchTopicId}`;
+
+  await recordSchedule({
+    clerkUserId: opts.clerkUserId,
+    queue: QueueName.Research,
+    bullJobId: jobId,
+    refType: "research_topic",
+    refId: opts.researchTopicId,
+    runAt: new Date(),
+    status: "pending",
+  });
+
+  try {
+    await getQueue(QueueName.Research).add(
+      "research",
+      { researchTopicId: opts.researchTopicId } satisfies ResearchJobData,
+      {
+        jobId,
+        attempts: 2,
+        backoff: { type: "exponential", delay: 10_000 },
+        removeOnComplete: { age: 24 * 3600 },
+        removeOnFail: false,
+      },
+    );
+  } catch (error) {
+    await deleteSchedule(QueueName.Research, jobId).catch(() => {});
+    throw error;
+  }
+
+  return jobId;
+}

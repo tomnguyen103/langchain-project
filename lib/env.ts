@@ -53,6 +53,9 @@ const EnvSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
 
+  // Web research (Goal 5) — optional; research falls back to LLM knowledge if unset.
+  TAVILY_API_KEY: z.string().optional(),
+
   // LangSmith observability (Goal 4) — optional
   LANGCHAIN_TRACING_V2: z.string().optional(),
   LANGCHAIN_API_KEY: z.string().optional(),

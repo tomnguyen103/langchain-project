@@ -1,0 +1,1 @@
+ALTER TABLE "generated_content" ADD CONSTRAINT "generated_content_research_topic_id_research_topics_id_fk" FOREIGN KEY ("research_topic_id") REFERENCES "public"."research_topics"("id") ON DELETE set null ON UPDATE no action;

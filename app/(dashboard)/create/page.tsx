@@ -3,9 +3,16 @@ import { listSocialAccounts } from "@/lib/repos/accounts";
 import type { AccountView } from "@/components/accounts/account-card";
 import { Composer } from "@/components/composer/composer";
 
-export default async function CreatePage() {
+export default async function CreatePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ topic?: string }>;
+}) {
   const userId = await requireUserId();
-  const accounts = await listSocialAccounts(userId);
+  const [accounts, sp] = await Promise.all([
+    listSocialAccounts(userId),
+    searchParams,
+  ]);
   const views: AccountView[] = accounts.map((a) => ({
     id: a.id,
     platform: a.platform,
@@ -22,7 +29,7 @@ export default async function CreatePage() {
         Compose a post, pick platforms, and schedule it.
       </p>
       <div className="mt-6">
-        <Composer accounts={views} />
+        <Composer accounts={views} initialTopic={sp.topic} />
       </div>
     </div>
   );

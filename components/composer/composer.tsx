@@ -26,7 +26,13 @@ function defaultScheduleLocal(): string {
   )}:${pad(d.getMinutes())}`;
 }
 
-export function Composer({ accounts }: { accounts: AccountView[] }) {
+export function Composer({
+  accounts,
+  initialTopic,
+}: {
+  accounts: AccountView[];
+  initialTopic?: string;
+}) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>(() =>
     accounts.map((a) => a.id),
@@ -105,6 +111,7 @@ export function Composer({ accounts }: { accounts: AccountView[] }) {
           <CardContent className="space-y-3 pt-6">
             <GeneratePanel
               platforms={selectedPlatforms}
+              initialTopic={initialTopic}
               onGenerated={(drafts) =>
                 setBodyByPlatform((prev) => ({ ...prev, ...drafts }))
               }

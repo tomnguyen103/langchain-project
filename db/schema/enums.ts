@@ -51,6 +51,13 @@ export const contentKindEnum = pgEnum("content_kind", [
   "hashtags",
 ]);
 
+export const researchStatusEnum = pgEnum("research_status", [
+  "pending",
+  "researching",
+  "done",
+  "failed",
+]);
+
 export type Platform = (typeof platformEnum.enumValues)[number];
 export type AccountStatus = (typeof accountStatusEnum.enumValues)[number];
 export type PostStatus = (typeof postStatusEnum.enumValues)[number];

@@ -22,6 +22,14 @@ export const critiquePrompt = (drafts: string) =>
 
 ${drafts}`;
 
+export const ideationPrompt = (niche: string, context: string) =>
+  `You are a content strategist. Based on the niche and any sources below, generate 6 distinct, specific content ideas — each a single engaging angle or hook on its own line, with no numbering or bullets. Output ONLY the ideas.
+
+Niche: ${niche}
+
+Sources:
+${context}`;
+
 export const refinePrompt = (args: {
   platform: string;
   maxLength: number;
