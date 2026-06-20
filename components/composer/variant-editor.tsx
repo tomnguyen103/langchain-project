@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Copy } from "lucide-react";
 
 import type { Platform } from "@/db/schema";
@@ -20,6 +21,12 @@ export function VariantEditor({
   onChange: (platform: Platform, body: string) => void;
   onCopyToAll: (platform: Platform) => void;
 }) {
+  const [active, setActive] = useState<string>(platforms[0] ?? "");
+  // Derive a valid active tab during render (falls back if a platform was removed).
+  const effectiveActive = platforms.includes(active as Platform)
+    ? active
+    : (platforms[0] ?? "");
+
   if (platforms.length === 0) {
     return (
       <p className="text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm">
@@ -40,7 +47,7 @@ export function VariantEditor({
   }
 
   return (
-    <Tabs defaultValue={platforms[0]}>
+    <Tabs value={effectiveActive} onValueChange={setActive}>
       <TabsList>
         {platforms.map((p) => (
           <TabsTrigger key={p} value={p}>

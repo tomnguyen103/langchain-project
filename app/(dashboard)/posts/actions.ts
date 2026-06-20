@@ -28,6 +28,9 @@ function revalidate(postId: string) {
 export async function cancelTarget(targetId: string) {
   const userId = await requireUserId();
   const target = await loadOwnedTarget(targetId, userId);
+  if (target.status !== "queued" && target.status !== "pending") {
+    throw new Error("Only scheduled targets can be canceled.");
+  }
   await cancelPublish(target.id);
   await updatePostTarget(target.id, {
     status: "pending",
@@ -42,6 +45,9 @@ export async function cancelTarget(targetId: string) {
 export async function retryTarget(targetId: string) {
   const userId = await requireUserId();
   const target = await loadOwnedTarget(targetId, userId);
+  if (target.status !== "failed") {
+    throw new Error("Only failed targets can be retried.");
+  }
   const runAt = new Date();
   const jobId = await enqueuePublish({
     postTargetId: target.id,
@@ -70,7 +76,8 @@ export async function reschedulePost(postId: string, scheduledAtIso: string) {
   }
 
   for (const target of post.targets) {
-    if (target.status === "published") continue;
+    // Only reschedule still-pending targets (failed → use Retry).
+    if (target.status !== "queued" && target.status !== "pending") continue;
     await cancelPublish(target.id);
     const jobId = await enqueuePublish({
       postTargetId: target.id,

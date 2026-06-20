@@ -11,7 +11,13 @@ const entries: ProviderEntry[] = [
 ];
 
 export function getProvider(id: string): OAuthProvider | undefined {
-  return entries.find((e) => e.id === id)?.provider;
+  const entry = entries.find((e) => e.id === id);
+  if (!entry) return undefined;
+  // Treat an unconfigured provider as unknown so callers 404 instead of 500.
+  if (entry.provider.isConfigured && !entry.provider.isConfigured()) {
+    return undefined;
+  }
+  return entry.provider;
 }
 
 /** Providers whose credentials are configured — used to render connect buttons. */

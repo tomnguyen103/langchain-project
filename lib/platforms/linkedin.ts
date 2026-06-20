@@ -62,12 +62,13 @@ class LinkedInConnector extends AbstractConnector {
     }
 
     // The created post URN is returned in the x-restli-id header.
-    const postId = res.headers.get("x-restli-id") ?? "";
+    const postId = res.headers.get("x-restli-id");
+    if (!postId) {
+      throw new Error("LinkedIn publish returned no post id");
+    }
     return {
       externalPostId: postId,
-      url: postId
-        ? `https://www.linkedin.com/feed/update/${postId}`
-        : undefined,
+      url: `https://www.linkedin.com/feed/update/${postId}`,
       raw: { id: postId },
     };
   }
