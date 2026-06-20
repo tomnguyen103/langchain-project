@@ -37,4 +37,12 @@ describe("verifyMetaSignature", () => {
     const raw = "{}";
     assert.equal(verifyMetaSignature(raw, "sha256=abcd", SECRET), false);
   });
+
+  it("rejects trailing junk after a valid-length digest", () => {
+    const raw = '{"entry":[{"id":"123"}]}';
+    const valid = sign(raw);
+    // Node's hex decoder truncates at the junk, so the bytes would otherwise match.
+    assert.equal(verifyMetaSignature(raw, `${valid}zz`, SECRET), false);
+    assert.equal(verifyMetaSignature(raw, `${valid} `, SECRET), false);
+  });
 });

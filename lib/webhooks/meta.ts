@@ -15,10 +15,15 @@ export function verifyMetaSignature(
   header: string | null | undefined,
   appSecret: string,
 ): boolean {
-  if (!header?.startsWith("sha256=")) return false;
+  if (!header) return false;
+  // Enforce the exact `sha256=<64 hex>` shape: Buffer.from(_, "hex") silently
+  // truncates at the first invalid character, so without this a header like
+  // `sha256=<valid digest><junk>` would decode to the same bytes and pass.
+  const match = /^sha256=([a-f0-9]{64})$/i.exec(header);
+  if (!match) return false;
   const expected = createHmac("sha256", appSecret).update(raw).digest("hex");
   const a = Buffer.from(expected, "hex");
-  const b = Buffer.from(header.slice("sha256=".length), "hex");
+  const b = Buffer.from(match[1], "hex");
   // timingSafeEqual throws on length mismatch, so guard length first.
-  return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
