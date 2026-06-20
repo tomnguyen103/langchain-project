@@ -10,3 +10,4 @@ export * from "./schema/post-targets";
 export * from "./schema/media-assets";
 export * from "./schema/schedules";
 export * from "./schema/generated-content";
+export * from "./schema/research";

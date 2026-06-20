@@ -11,11 +11,13 @@ import { Input } from "@/components/ui/input";
 export function GeneratePanel({
   platforms,
   onGenerated,
+  initialTopic,
 }: {
   platforms: Platform[];
   onGenerated: (drafts: Record<string, string>) => void;
+  initialTopic?: string;
 }) {
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(initialTopic ?? "");
   const [loading, setLoading] = useState(false);
 
   async function generate() {

@@ -6,6 +6,7 @@ import { Worker, type Job, type Processor } from "bullmq";
 import { connection } from "@/lib/queue/connection";
 import { QueueName } from "@/lib/queue/queues";
 import { publishProcessor } from "./processors/publish";
+import { researchProcessor } from "./processors/research";
 import { logger } from "./logger";
 
 const workers: Worker[] = [];
@@ -54,7 +55,7 @@ const stub =
 
 startWorker(QueueName.Publish, publishProcessor, 5);
 startWorker(QueueName.Generate, stub("generate"), 2);
-startWorker(QueueName.Research, stub("research"), 2);
+startWorker(QueueName.Research, researchProcessor, 2);
 startWorker(QueueName.CommentPoll, stub("comment-poll"), 5);
 startWorker(QueueName.Reply, stub("reply"), 5);
 

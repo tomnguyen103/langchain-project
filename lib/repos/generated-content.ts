@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -6,6 +6,21 @@ import {
   type GeneratedContent,
   type NewGeneratedContent,
 } from "@/db/schema";
+
+export async function listIdeas(
+  clerkUserId: string,
+): Promise<GeneratedContent[]> {
+  return db
+    .select()
+    .from(generatedContent)
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.kind, "idea"),
+      ),
+    )
+    .orderBy(desc(generatedContent.createdAt));
+}
 
 export async function saveGeneratedContent(
   rows: NewGeneratedContent[],
