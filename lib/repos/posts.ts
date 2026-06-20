@@ -12,7 +12,7 @@ import {
   lte,
 } from "drizzle-orm";
 
-import { db } from "@/db";
+import { db, runAtomicWrite } from "@/db";
 import {
   posts,
   postTargets,
@@ -44,12 +44,13 @@ export async function createPostWithTargets({
     return { ...createdPost, targets: [] };
   }
 
-  // Pre-generate ids so the post + its targets insert in one batched
-  // transaction — a post is never persisted without its targets.
+  // Pre-generate ids so the post + its targets insert atomically (one batch on
+  // HTTP, one transaction on the pooled worker driver) — a post is never
+  // persisted without its targets.
   const targetRows = targets.map((t) => ({ ...t, id: randomUUID(), postId }));
-  const [createdPosts, createdTargets] = await db.batch([
-    db.insert(posts).values({ ...post, id: postId }).returning(),
-    db.insert(postTargets).values(targetRows).returning(),
+  const [createdPosts, createdTargets] = await runAtomicWrite((tx) => [
+    tx.insert(posts).values({ ...post, id: postId }).returning(),
+    tx.insert(postTargets).values(targetRows).returning(),
   ]);
   return { ...createdPosts[0], targets: createdTargets };
 }

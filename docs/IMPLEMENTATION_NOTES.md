@@ -139,6 +139,61 @@ exceeding `maxPerDay` / violating cooldown.
 state machine + idempotency; "`replied` only set on confirmed success".
 
 **Gates:** lint ✓ · typecheck ✓ · test ✓ (46) · build ✓
+**Merged:** PR #18 (squash, `6d7cd9e`). CodeRabbit: rate-limited (no review) — see note above.
+
+## Goal 5 — Worker pooled DB driver (M3)
+
+**Branch:** `claude/fix-goal-5-worker-db-pool`
+
+**Goal:** the always-on worker issues many sequential queries per job; the
+neon-http driver pays an HTTPS round-trip per query. Give the worker a pooled
+WebSocket connection while the serverless app keeps the stateless HTTP driver.
+
+**What I built**
+- `db/index.ts` selects the driver from `DB_DRIVER`: `pool` ⇒
+  `drizzle-orm/neon-serverless` over a `Pool`; otherwise `neon-http` (default).
+  One shared `db` type (`NeonHttpDatabase`) so all repos stay driver-agnostic.
+- `closeDbPool()` — closed in the worker's SIGTERM/SIGINT handler after workers stop.
+- `worker/load-env.ts` sets `neonConfig.webSocketConstructor = ws` and defaults
+  `DB_DRIVER=pool` (host can override) before `db` is constructed.
+- `DB_DRIVER` added to `lib/env.ts` + `.env.example`. Added `ws`/`@types/ws` deps.
+
+**The hard part — `db.batch()` vs `.transaction()` (the thing the spec told me to verify)**
+- The two drivers are **mutually exclusive**: `neon-http` has `.batch()` but no
+  interactive transactions; `neon-serverless` has `.transaction()` but no
+  `.batch()`. The worker's research processor calls `replaceIdeasForTopic`,
+  which used `db.batch()` — so a naive driver swap would break it at runtime.
+- Both batch sites (`createPostWithTargets`, `replaceIdeasForTopic`) use
+  **independent** statements (ids are pre-generated), so I unified them behind a
+  new **`runAtomicWrite(build)`** helper in `db/index.ts`: `.batch()` on HTTP,
+  an interactive `.transaction()` on the pool. `build` receives the executor so
+  the pooled path binds statements to the `tx` (not the auto-commit connection).
+
+**Decisions / deviations not in the spec**
+- **Process-env driver flag, not repo dependency-injection.** The plan offered
+  "env flag" or "inject db into repos." The env flag (selected once in
+  `db/index.ts`) needs **zero** repo changes — every repo importing `db` gets the
+  right driver per process. Far smaller blast radius than threading a `db` arg
+  through every repo function.
+- **`ws` is imported worker-only** (`worker/load-env.ts`), not in `db/index.ts`,
+  so the Next app bundle never pulls it in. `neonConfig` is global, so setting
+  the constructor there still configures the pool built later in `db/index.ts`.
+- **One `db` type via a cast.** The pooled client is cast to `NeonHttpDatabase`
+  so `db` has a single type. Safe: the worker only uses the shared query builder
+  + `runAtomicWrite` (which uses `.transaction()` on the pool, never `.batch()`),
+  so `.batch()` is never called on the pooled instance at runtime.
+- **Worker defaults to `pool`.** Delivers the perf win out of the box; the host
+  can set `DB_DRIVER=http` to fall back. App is unaffected (driver unset ⇒ http).
+
+**Do not break — preserved:** app keeps the stateless HTTP driver; all repo
+signatures unchanged; `createPostWithTargets` atomicity holds on both drivers
+(batch on HTTP, transaction on pool).
+
+**Runtime note:** the pooled path is code-verified only (lint/typecheck/test/
+build). Live worker verification (WebSocket pool against real Neon) is deferred
+with the rest of go-live, per this project's norm.
+
+**Gates:** lint ✓ · typecheck ✓ · test ✓ (46) · build ✓
 
 > ⚠️ **CodeRabbit rate limit (heads-up for you).** By PR #18, CodeRabbit hit its
 > per-developer review rate limit (today's burst across PRs #13–#18 tripped the
