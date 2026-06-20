@@ -7,7 +7,12 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/pricing",
   "/legal(.*)",
-  "/api/health",
+  // Health probes (liveness + queue depth) for uptime monitors. The queue
+  // endpoint self-enforces HEALTH_CHECK_TOKEN / a session — see its route.
+  "/api/health(.*)",
+  // Inbound platform webhooks (e.g. Meta comments) authenticate via their own
+  // HMAC signature, not a Clerk session, so they must bypass auth here.
+  "/api/webhooks(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

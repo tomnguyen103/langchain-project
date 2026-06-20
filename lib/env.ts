@@ -83,6 +83,11 @@ const EnvSchema = z.object({
   LANGSMITH_ORG_ID: z.uuid().optional(),
   LANGSMITH_PROJECT_ID: z.uuid().optional(),
 
+  // Optional bearer token guarding /api/health/queues so external uptime
+  // monitors can scrape queue depths without a Clerk session. When unset, the
+  // endpoint falls back to requiring an authenticated session.
+  HEALTH_CHECK_TOKEN: z.string().optional(),
+
   // Public
   NEXT_PUBLIC_APP_URL: z.string().optional(),
 });
