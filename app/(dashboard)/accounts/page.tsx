@@ -10,13 +10,15 @@ import { OAuthResultToast } from "@/components/accounts/oauth-result-toast";
 export default async function AccountsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ connected?: string; error?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const userId = await requireUserId();
   const [accounts, sp] = await Promise.all([
     listSocialAccounts(userId),
     searchParams,
   ]);
+  const firstValue = (v: string | string[] | undefined) =>
+    Array.isArray(v) ? v[0] : v;
 
   const views: AccountView[] = accounts.map((a) => ({
     id: a.id,
@@ -29,7 +31,10 @@ export default async function AccountsPage({
 
   return (
     <div>
-      <OAuthResultToast connected={sp.connected} error={sp.error} />
+      <OAuthResultToast
+        connected={firstValue(sp.connected)}
+        error={firstValue(sp.error)}
+      />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

@@ -22,6 +22,11 @@ export async function publishProcessor(job: Job): Promise<void> {
   const target = await getPostTarget(postTargetId);
   if (!target) {
     logger.warn("publish: target not found", { postTargetId });
+    await updateScheduleStatus(QueueName.Publish, jobId, {
+      status: "completed",
+      finishedAt: new Date(),
+      lastError: "post target not found",
+    });
     return;
   }
 

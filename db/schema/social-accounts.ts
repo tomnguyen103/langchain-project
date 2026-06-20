@@ -8,7 +8,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
-import { platformEnum } from "./enums";
+import { accountStatusEnum, platformEnum } from "./enums";
 import { timestamps } from "./_helpers";
 
 /** A connected social account. OAuth tokens are stored encrypted at rest. */
@@ -29,7 +29,7 @@ export const socialAccounts = pgTable(
     tokenExpiresAt: timestamp("token_expires_at", { withTimezone: true }),
     scopes: text("scopes").array(),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
-    status: text("status").notNull().default("active"), // active | expired | revoked
+    status: accountStatusEnum("status").notNull().default("active"),
     lastValidatedAt: timestamp("last_validated_at", { withTimezone: true }),
     ...timestamps,
   },

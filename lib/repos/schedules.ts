@@ -15,6 +15,12 @@ export async function recordSchedule(data: NewSchedule): Promise<void> {
         refId: data.refId,
         runAt: data.runAt,
         status: "pending",
+        // Clear terminal fields so a re-queued job isn't both pending + finished.
+        startedAt: null,
+        finishedAt: null,
+        attempts: 0,
+        lastError: null,
+        result: null,
         updatedAt: new Date(),
       },
     });

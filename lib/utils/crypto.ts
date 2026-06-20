@@ -15,6 +15,8 @@ import { env } from "@/lib/env";
  * Format: base64(iv):base64(tag):base64(ciphertext)
  */
 const ALGORITHM = "aes-256-gcm";
+// Version marker so the payload format can evolve (e.g. key rotation) later.
+const VERSION = "v1";
 const KEY = scryptSync(env.ENCRYPTION_KEY, "socialflow-token-kdf", 32);
 
 export function encrypt(plaintext: string): string {
@@ -26,6 +28,7 @@ export function encrypt(plaintext: string): string {
   ]);
   const tag = cipher.getAuthTag();
   return [
+    VERSION,
     iv.toString("base64"),
     tag.toString("base64"),
     ciphertext.toString("base64"),
@@ -33,9 +36,9 @@ export function encrypt(plaintext: string): string {
 }
 
 export function decrypt(payload: string): string {
-  const [ivB64, tagB64, dataB64] = payload.split(":");
-  if (!ivB64 || !tagB64 || !dataB64) {
-    throw new Error("Invalid encrypted payload");
+  const [version, ivB64, tagB64, dataB64] = payload.split(":");
+  if (version !== VERSION || !ivB64 || !tagB64 || !dataB64) {
+    throw new Error("Invalid or unsupported encrypted payload");
   }
   const decipher = createDecipheriv(
     ALGORITHM,

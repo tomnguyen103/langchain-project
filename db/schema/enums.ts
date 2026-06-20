@@ -37,7 +37,14 @@ export const jobStatusEnum = pgEnum("job_status", [
   "failed",
 ]);
 
+export const accountStatusEnum = pgEnum("account_status", [
+  "active",
+  "expired",
+  "revoked",
+]);
+
 export type Platform = (typeof platformEnum.enumValues)[number];
+export type AccountStatus = (typeof accountStatusEnum.enumValues)[number];
 export type PostStatus = (typeof postStatusEnum.enumValues)[number];
 export type TargetStatus = (typeof targetStatusEnum.enumValues)[number];
 export type MediaType = (typeof mediaTypeEnum.enumValues)[number];

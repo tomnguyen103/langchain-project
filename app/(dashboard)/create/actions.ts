@@ -7,7 +7,7 @@ import { requireUserId } from "@/lib/clerk";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { enqueuePublish } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
-import { createMediaAsset } from "@/lib/repos/media";
+import { createMediaAsset, getMediaAssets } from "@/lib/repos/media";
 import { createPostWithTargets, updatePostTarget } from "@/lib/repos/posts";
 
 export type SavedMedia = {
@@ -93,6 +93,17 @@ export async function createPost(
       throw new Error(
         `Caption is too long for ${account.platform} (max ${caps.maxBodyLength} chars).`,
       );
+    }
+  }
+
+  // Verify every attached media id exists and belongs to this user.
+  if (input.mediaIds.length > 0) {
+    const media = await getMediaAssets(input.mediaIds);
+    const ownedIds = new Set(
+      media.filter((m) => m.clerkUserId === userId).map((m) => m.id),
+    );
+    if (input.mediaIds.some((id) => !ownedIds.has(id))) {
+      throw new Error("Some attached media could not be found.");
     }
   }
 

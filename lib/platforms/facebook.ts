@@ -14,7 +14,8 @@ class FacebookConnector extends AbstractConnector {
 
   readonly capabilities: PlatformCapabilities = {
     maxBodyLength: 63206,
-    media: { images: true, video: true, maxImages: 1, required: false },
+    // Video posting is not implemented yet (text + single image only).
+    media: { images: true, video: false, maxImages: 1, required: false },
     supportsComments: true,
     supportsNativeSchedule: true,
   };

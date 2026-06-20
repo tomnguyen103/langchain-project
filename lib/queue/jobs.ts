@@ -17,19 +17,8 @@ export async function enqueuePublish(opts: {
   const delay = Math.max(0, opts.runAt.getTime() - Date.now());
   const jobId = publishJobId(opts.postTargetId);
 
-  await getQueue(QueueName.Publish).add(
-    "publish",
-    { postTargetId: opts.postTargetId } satisfies PublishJobData,
-    {
-      delay,
-      jobId,
-      attempts: 4,
-      backoff: { type: "exponential", delay: 30_000 },
-      removeOnComplete: { age: 24 * 3600 },
-      removeOnFail: false,
-    },
-  );
-
+  // Record the durable ledger entry first; roll it back if enqueue fails so we
+  // never leave a ledger row without a job (or vice-versa).
   await recordSchedule({
     clerkUserId: opts.clerkUserId,
     queue: QueueName.Publish,
@@ -39,6 +28,24 @@ export async function enqueuePublish(opts: {
     runAt: opts.runAt,
     status: "pending",
   });
+
+  try {
+    await getQueue(QueueName.Publish).add(
+      "publish",
+      { postTargetId: opts.postTargetId } satisfies PublishJobData,
+      {
+        delay,
+        jobId,
+        attempts: 4,
+        backoff: { type: "exponential", delay: 30_000 },
+        removeOnComplete: { age: 24 * 3600 },
+        removeOnFail: false,
+      },
+    );
+  } catch (error) {
+    await deleteSchedule(QueueName.Publish, jobId).catch(() => {});
+    throw error;
+  }
 
   return jobId;
 }

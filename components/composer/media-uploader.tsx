@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,7 +12,7 @@ export function MediaUploader({
   onChange,
 }: {
   value: SavedMedia[];
-  onChange: (media: SavedMedia[]) => void;
+  onChange: Dispatch<SetStateAction<SavedMedia[]>>;
 }) {
   const [uploading, setUploading] = useState(false);
 
@@ -33,7 +33,7 @@ export function MediaUploader({
         size: result.size,
         mimeType: file.type,
       });
-      onChange([...value, saved]);
+      onChange((prev) => [...prev, saved]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Upload failed");
     } finally {
@@ -57,7 +57,9 @@ export function MediaUploader({
           <button
             type="button"
             aria-label="Remove media"
-            onClick={() => onChange(value.filter((m) => m.id !== media.id))}
+            onClick={() =>
+              onChange((prev) => prev.filter((m) => m.id !== media.id))
+            }
             className="bg-background/80 absolute top-1 right-1 rounded-full p-0.5"
           >
             <X className="size-3" />

@@ -1,4 +1,12 @@
-import { index, integer, jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import {
+  type AnyPgColumn,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { mediaTypeEnum } from "./enums";
 import { timestamps } from "./_helpers";
@@ -20,7 +28,10 @@ export const mediaAssets = pgTable(
     mimeType: text("mime_type"),
     transformations: jsonb("transformations"),
     // Set when this asset was derived from another (AI transform — Goal 8).
-    sourceAssetId: uuid("source_asset_id"),
+    sourceAssetId: uuid("source_asset_id").references(
+      (): AnyPgColumn => mediaAssets.id,
+      { onDelete: "set null" },
+    ),
     ...timestamps,
   },
   (t) => [index("media_assets_user_idx").on(t.clerkUserId)],

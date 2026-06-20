@@ -48,9 +48,19 @@ export async function GET(
   }
 
   const redirectUri = `${getAppUrl(req)}/api/oauth/${providerId}/callback`;
+
+  let connected;
   try {
-    const connected = await provider.exchangeCode(code, redirectUri);
-    for (const acct of connected) {
+    connected = await provider.exchangeCode(code, redirectUri);
+  } catch (error) {
+    console.error("OAuth exchange failed", { provider: providerId, error });
+    return NextResponse.redirect(accountsUrl({ error: "exchange_failed" }));
+  }
+
+  // Save each account independently so one failure doesn't lose the others.
+  let saved = 0;
+  for (const acct of connected) {
+    try {
       await upsertSocialAccount({
         clerkUserId: userId,
         clerkOrgId: orgId ?? null,
@@ -67,12 +77,20 @@ export async function GET(
         status: "active",
         lastValidatedAt: new Date(),
       });
+      saved += 1;
+    } catch (error) {
+      console.error("Failed to save connected account", {
+        provider: providerId,
+        platform: acct.platform,
+        error,
+      });
     }
-    return NextResponse.redirect(
-      accountsUrl({ connected: String(connected.length) }),
-    );
-  } catch (error) {
-    console.error("OAuth exchange failed", { provider: providerId, error });
-    return NextResponse.redirect(accountsUrl({ error: "exchange_failed" }));
   }
+
+  if (saved === 0) {
+    return NextResponse.redirect(
+      accountsUrl({ error: connected.length ? "save_failed" : "no_accounts" }),
+    );
+  }
+  return NextResponse.redirect(accountsUrl({ connected: String(saved) }));
 }

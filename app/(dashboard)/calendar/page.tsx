@@ -5,7 +5,11 @@ import type { CalendarPost } from "@/components/calendar/types";
 
 export default async function CalendarPage() {
   const userId = await requireUserId();
-  const posts = await listPostsWithTargets(userId);
+  // Bound to a ±12 month window instead of loading full history.
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+  const to = new Date(now.getFullYear(), now.getMonth() + 13, 0, 23, 59, 59);
+  const posts = await listPostsWithTargets(userId, { from, to });
 
   const calendarPosts: CalendarPost[] = posts.map((p) => ({
     id: p.id,

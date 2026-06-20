@@ -1,3 +1,4 @@
+CREATE TYPE "public"."account_status" AS ENUM('active', 'expired', 'revoked');--> statement-breakpoint
 CREATE TYPE "public"."job_status" AS ENUM('pending', 'active', 'completed', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."media_type" AS ENUM('image', 'video', 'gif');--> statement-breakpoint
 CREATE TYPE "public"."platform" AS ENUM('instagram', 'youtube', 'tiktok', 'facebook', 'linkedin', 'pinterest', 'discord', 'x');--> statement-breakpoint
@@ -17,7 +18,7 @@ CREATE TABLE "social_accounts" (
 	"token_expires_at" timestamp with time zone,
 	"scopes" text[],
 	"metadata" jsonb,
-	"status" text DEFAULT 'active' NOT NULL,
+	"status" "account_status" DEFAULT 'active' NOT NULL,
 	"last_validated_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -55,7 +56,8 @@ CREATE TABLE "post_targets" (
 	"last_error" text,
 	"platform_options" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "post_targets_post_account_uq" UNIQUE("post_id","social_account_id")
 );
 --> statement-breakpoint
 CREATE TABLE "media_assets" (
@@ -97,6 +99,7 @@ CREATE TABLE "schedules" (
 --> statement-breakpoint
 ALTER TABLE "post_targets" ADD CONSTRAINT "post_targets_post_id_posts_id_fk" FOREIGN KEY ("post_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "post_targets" ADD CONSTRAINT "post_targets_social_account_id_social_accounts_id_fk" FOREIGN KEY ("social_account_id") REFERENCES "public"."social_accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "media_assets" ADD CONSTRAINT "media_assets_source_asset_id_media_assets_id_fk" FOREIGN KEY ("source_asset_id") REFERENCES "public"."media_assets"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "social_accounts_user_idx" ON "social_accounts" USING btree ("clerk_user_id");--> statement-breakpoint
 CREATE INDEX "posts_user_status_idx" ON "posts" USING btree ("clerk_user_id","status");--> statement-breakpoint
 CREATE INDEX "posts_user_scheduled_idx" ON "posts" USING btree ("clerk_user_id","scheduled_at");--> statement-breakpoint

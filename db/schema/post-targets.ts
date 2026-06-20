@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -46,6 +47,7 @@ export const postTargets = pgTable(
     ...timestamps,
   },
   (t) => [
+    unique("post_targets_post_account_uq").on(t.postId, t.socialAccountId),
     index("post_targets_post_idx").on(t.postId),
     index("post_targets_status_scheduled_idx").on(t.status, t.scheduledAt),
     index("post_targets_account_idx").on(t.socialAccountId),

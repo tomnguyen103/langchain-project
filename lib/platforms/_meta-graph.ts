@@ -1,5 +1,6 @@
 export const GRAPH_API_VERSION = "v21.0";
 export const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
+const GRAPH_TIMEOUT_MS = 15_000;
 
 export class MetaApiError extends Error {
   constructor(
@@ -30,15 +31,17 @@ export async function graphFetch<T = unknown>(
     if (value !== undefined) form.set(key, value);
   }
 
+  const signal = AbortSignal.timeout(GRAPH_TIMEOUT_MS);
   let response: Response;
   if (method === "GET") {
     for (const [key, value] of form.entries()) url.searchParams.set(key, value);
-    response = await fetch(url, { method });
+    response = await fetch(url, { method, signal });
   } else {
     response = await fetch(url, {
       method,
       body: form,
       headers: { "content-type": "application/x-www-form-urlencoded" },
+      signal,
     });
   }
 
@@ -62,7 +65,9 @@ export async function graphGet<T = unknown>(
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(GRAPH_TIMEOUT_MS),
+  });
   const json = (await response.json().catch(() => null)) as
     | (T & { error?: { message?: string } })
     | null;

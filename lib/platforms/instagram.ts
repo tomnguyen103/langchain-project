@@ -17,7 +17,8 @@ class InstagramConnector extends AbstractConnector {
 
   readonly capabilities: PlatformCapabilities = {
     maxBodyLength: 2200,
-    media: { images: true, video: true, maxImages: 1, required: true },
+    // Reels/video not implemented yet — single image required.
+    media: { images: true, video: false, maxImages: 1, required: true },
     supportsComments: true,
     supportsNativeSchedule: false,
   };

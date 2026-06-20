@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -22,14 +24,24 @@ export async function createPostWithTargets({
   post,
   targets,
 }: CreatePostInput): Promise<PostWithTargets> {
-  const [createdPost] = await db.insert(posts).values(post).returning();
-  const createdTargets = targets.length
-    ? await db
-        .insert(postTargets)
-        .values(targets.map((t) => ({ ...t, postId: createdPost.id })))
-        .returning()
-    : [];
-  return { ...createdPost, targets: createdTargets };
+  const postId = randomUUID();
+
+  if (targets.length === 0) {
+    const [createdPost] = await db
+      .insert(posts)
+      .values({ ...post, id: postId })
+      .returning();
+    return { ...createdPost, targets: [] };
+  }
+
+  // Pre-generate ids so the post + its targets insert in one batched
+  // transaction — a post is never persisted without its targets.
+  const targetRows = targets.map((t) => ({ ...t, id: randomUUID(), postId }));
+  const [createdPosts, createdTargets] = await db.batch([
+    db.insert(posts).values({ ...post, id: postId }).returning(),
+    db.insert(postTargets).values(targetRows).returning(),
+  ]);
+  return { ...createdPosts[0], targets: createdTargets };
 }
 
 export async function getPostWithTargets(
