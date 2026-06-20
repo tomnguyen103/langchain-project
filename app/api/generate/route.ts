@@ -25,19 +25,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const platforms = parsed.data.platforms.filter(
-    (p): p is Platform => p in PLATFORM_META,
+  const topic = parsed.data.topic.trim();
+  if (!topic) {
+    return NextResponse.json({ error: "Topic is required" }, { status: 400 });
+  }
+
+  const platforms = [...new Set(parsed.data.platforms)].filter(
+    (p): p is Platform => Object.hasOwn(PLATFORM_META, p),
   );
   if (platforms.length === 0) {
     return NextResponse.json({ error: "No valid platforms" }, { status: 400 });
   }
 
   try {
-    const { drafts } = await runContentAgent({
-      topic: parsed.data.topic,
-      platforms,
-      userId,
-    });
+    const { drafts } = await runContentAgent({ topic, platforms, userId });
     return NextResponse.json({ drafts });
   } catch (error) {
     console.error("AI generation failed", error);

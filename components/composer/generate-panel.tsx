@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -16,9 +16,9 @@ export function GeneratePanel({
   onGenerated: (drafts: Record<string, string>) => void;
 }) {
   const [topic, setTopic] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [loading, setLoading] = useState(false);
 
-  function generate() {
+  async function generate() {
     if (!topic.trim()) {
       toast.error("Enter a topic or niche first.");
       return;
@@ -27,23 +27,22 @@ export function GeneratePanel({
       toast.error("Select an account first.");
       return;
     }
-    startTransition(async () => {
-      try {
-        const res = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ topic, platforms }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error ?? "Generation failed");
-        onGenerated(data.drafts as Record<string, string>);
-        toast.success("Generated captions for each platform.");
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Generation failed",
-        );
-      }
-    });
+    setLoading(true);
+    try {
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ topic, platforms }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Generation failed");
+      onGenerated(data.drafts as Record<string, string>);
+      toast.success("Generated captions for each platform.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Generation failed");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -56,12 +55,12 @@ export function GeneratePanel({
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder="A niche or topic, e.g. 'sustainable home-office tips'"
-          disabled={pending}
+          disabled={loading}
           aria-label="Topic for AI generation"
         />
       </div>
-      <Button type="button" onClick={generate} disabled={pending}>
-        {pending ? (
+      <Button type="button" onClick={generate} disabled={loading}>
+        {loading ? (
           <Loader2 className="size-4 animate-spin" />
         ) : (
           <Sparkles className="size-4" />

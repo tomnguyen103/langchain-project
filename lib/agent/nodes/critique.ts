@@ -11,10 +11,12 @@ export async function critiqueNode(state: ContentStateType) {
 
   const res = await model.invoke(critiquePrompt(draftsText));
   const text = textOf(res.content).trim();
-  const needsRevision = text.toUpperCase().startsWith("REVISE");
+  const needsRevision = /^REVISE\b/i.test(text);
 
   return {
     needsRevision,
-    critiqueNotes: needsRevision ? text.replace(/^REVISE:?/i, "").trim() : "",
+    critiqueNotes: needsRevision
+      ? text.replace(/^REVISE:?\s*/i, "").trim()
+      : "",
   };
 }
