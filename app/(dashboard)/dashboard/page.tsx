@@ -43,7 +43,7 @@ export default async function OverviewPage() {
 
   const stats = [
     { label: "Connected accounts", value: accounts.length, icon: Plug },
-    { label: "Scheduled (30d)", value: upcoming.length, icon: CalendarClock },
+    { label: "Upcoming", value: upcoming.length, icon: CalendarClock },
     { label: "Need attention", value: failedTargets.length + unhealthy.length, icon: AlertTriangle },
   ];
 

@@ -34,6 +34,7 @@ export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
   function handleDrop(event: React.DragEvent, day: Date) {
     event.preventDefault();
     setDragOverKey(null);
+    if (pending) return; // ignore drops while a reschedule is in flight
     const raw = event.dataTransfer.getData("application/x-post");
     if (!raw) return;
     let data: { id?: string; scheduledAt?: string | null };

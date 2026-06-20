@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUserId } from "@/lib/clerk";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { cancelPublish, enqueuePublish } from "@/lib/queue/jobs";
-import { getSocialAccount } from "@/lib/repos/accounts";
+import { getUserSocialAccount } from "@/lib/repos/accounts";
 import {
   createPostWithTargets,
   getPostTarget,
@@ -108,7 +108,8 @@ export async function refreshPostMetrics(postId: string): Promise<void> {
     const connector = getConnector(target.platform);
     if (!connector.capabilities.supportsMetrics) continue;
 
-    const account = await getSocialAccount(target.socialAccountId);
+    // User-scoped lookup so a malformed cross-tenant id can't misuse a token.
+    const account = await getUserSocialAccount(target.socialAccountId, userId);
     if (!account) continue;
     try {
       const m = await connector.fetchMetrics(account, target.externalPostId);
@@ -122,7 +123,10 @@ export async function refreshPostMetrics(postId: string): Promise<void> {
         metricsUpdatedAt: new Date(),
       });
     } catch (error) {
-      console.error("metrics fetch failed", { targetId: target.id, error });
+      console.error("metrics fetch failed", {
+        targetId: target.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
   revalidate(postId);
