@@ -139,3 +139,12 @@ exceeding `maxPerDay` / violating cooldown.
 state machine + idempotency; "`replied` only set on confirmed success".
 
 **Gates:** lint ✓ · typecheck ✓ · test ✓ (46) · build ✓
+
+> ⚠️ **CodeRabbit rate limit (heads-up for you).** By PR #18, CodeRabbit hit its
+> per-developer review rate limit (today's burst across PRs #13–#18 tripped the
+> adaptive limiter; resets ~35 min). Its green "CodeRabbit" status check can pass
+> *without an actual review* in this state. PR #18 (Goal 4) was therefore merged
+> on **CI-green + my own full self-review** (full diff read, 46 tests, all 4
+> gates) per this project's merge-on-green norm. For the remaining goals I'm
+> pacing the work so the limit resets between PRs and CodeRabbit can review them;
+> I note each goal's actual review status below.
