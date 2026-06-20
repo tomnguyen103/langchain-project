@@ -66,6 +66,8 @@ export interface ConnectedAccount extends OAuthTokens {
  */
 export interface OAuthProvider {
   readonly id: string;
+  /** Whether the provider's credentials are configured. Omit ⇒ always available. */
+  isConfigured?(): boolean;
   getAuthUrl(state: string, redirectUri: string): string;
   exchangeCode(code: string, redirectUri: string): Promise<ConnectedAccount[]>;
 }

@@ -2,12 +2,14 @@ import type { Platform } from "@/db/schema";
 
 import { facebookConnector } from "./facebook";
 import { instagramConnector } from "./instagram";
+import { linkedinConnector } from "./linkedin";
 import type { PlatformConnector } from "./types";
 
 /** Platform → connector. The publish worker resolves connectors polymorphically. */
 const connectors: Partial<Record<Platform, PlatformConnector>> = {
   facebook: facebookConnector,
   instagram: instagramConnector,
+  linkedin: linkedinConnector,
 };
 
 export function getConnector(platform: Platform): PlatformConnector {

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { cn } from "@/lib/utils";
 import type { CalendarPost } from "./types";
 
@@ -19,15 +21,16 @@ export function PostChip({ post }: { post: CalendarPost }) {
     : "";
 
   return (
-    <div
+    <Link
+      href={`/posts/${post.id}`}
       className={cn(
-        "truncate rounded px-1.5 py-0.5 text-xs",
+        "block truncate rounded px-1.5 py-0.5 text-xs hover:opacity-80",
         statusStyles[post.status] ?? statusStyles.draft,
       )}
       title={post.title}
     >
       {time && <span className="font-medium">{time} </span>}
       {post.title}
-    </div>
+    </Link>
   );
 }

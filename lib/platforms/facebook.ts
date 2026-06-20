@@ -1,6 +1,7 @@
 import type { SocialAccount } from "@/db/schema";
 
 import { AbstractConnector } from "./base";
+import { PLATFORM_META } from "./constants";
 import { graphFetch } from "./_meta-graph";
 import type {
   PlatformCapabilities,
@@ -13,9 +14,14 @@ class FacebookConnector extends AbstractConnector {
   readonly platform = "facebook" as const;
 
   readonly capabilities: PlatformCapabilities = {
-    maxBodyLength: 63206,
+    maxBodyLength: PLATFORM_META.facebook.maxBodyLength,
     // Video posting is not implemented yet (text + single image only).
-    media: { images: true, video: false, maxImages: 1, required: false },
+    media: {
+      images: true,
+      video: false,
+      maxImages: 1,
+      required: PLATFORM_META.facebook.requiresMedia,
+    },
     supportsComments: true,
     supportsNativeSchedule: true,
   };
