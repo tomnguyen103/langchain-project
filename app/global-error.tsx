@@ -27,13 +27,17 @@ export default function GlobalError({
           justifyContent: "center",
           fontFamily: "system-ui, sans-serif",
           margin: 0,
+          // CSS system colors auto-adapt to light/dark via color-scheme.
+          colorScheme: "light dark",
+          background: "Canvas",
+          color: "CanvasText",
         }}
       >
         <div style={{ textAlign: "center", padding: "2rem" }}>
           <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>
             Something went wrong
           </h2>
-          <p style={{ color: "#666", marginTop: "0.5rem" }}>
+          <p style={{ color: "GrayText", marginTop: "0.5rem" }}>
             An unexpected error occurred.
           </p>
           <button
@@ -42,7 +46,9 @@ export default function GlobalError({
               marginTop: "1rem",
               padding: "0.5rem 1rem",
               borderRadius: "0.5rem",
-              border: "1px solid #ccc",
+              border: "1px solid ButtonBorder",
+              background: "ButtonFace",
+              color: "ButtonText",
               cursor: "pointer",
             }}
           >

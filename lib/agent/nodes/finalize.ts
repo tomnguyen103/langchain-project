@@ -6,7 +6,7 @@ import type { ContentStateType } from "../state";
 
 export async function finalizeNode(state: ContentStateType) {
   const model = env.LLM_PROVIDER ?? "gemini";
-  await saveGeneratedContent(
+  const saved = await saveGeneratedContent(
     Object.entries(state.drafts).map(([platform, content]) => ({
       clerkUserId: state.userId,
       kind: "caption" as const,
@@ -18,5 +18,5 @@ export async function finalizeNode(state: ContentStateType) {
       promptVersion: PROMPT_VERSION,
     })),
   );
-  return {};
+  return { savedContentIds: saved.map((row) => row.id) };
 }

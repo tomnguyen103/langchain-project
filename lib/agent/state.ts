@@ -30,6 +30,12 @@ export const ContentState = Annotation.Root({
     reducer: (_current, next) => next,
     default: () => "",
   }),
+  // Output: ids of the generated_content rows finalize persisted, so the caller
+  // can stamp the LangSmith run id onto them.
+  savedContentIds: Annotation<string[]>({
+    reducer: (_current, next) => next,
+    default: () => [],
+  }),
 });
 
 export type ContentStateType = typeof ContentState.State;

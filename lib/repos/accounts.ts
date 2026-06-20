@@ -4,8 +4,27 @@ import { db } from "@/db";
 import {
   socialAccounts,
   type NewSocialAccount,
+  type Platform,
   type SocialAccount,
 } from "@/db/schema";
+
+/** Look up an account by platform + external id (webhook routing; not user-scoped). */
+export async function getAccountByPlatformId(
+  platform: Platform,
+  platformAccountId: string,
+): Promise<SocialAccount | undefined> {
+  const [row] = await db
+    .select()
+    .from(socialAccounts)
+    .where(
+      and(
+        eq(socialAccounts.platform, platform),
+        eq(socialAccounts.platformAccountId, platformAccountId),
+      ),
+    )
+    .limit(1);
+  return row;
+}
 
 /** Active accounts whose token expires before `before` (proactive refresh). */
 export async function listAccountsNeedingRefresh(

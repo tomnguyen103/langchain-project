@@ -80,7 +80,12 @@ export interface OAuthProvider {
   /** Whether the provider's credentials are configured. Omit ⇒ always available. */
   isConfigured?(): boolean;
   getAuthUrl(state: string, redirectUri: string): string;
-  exchangeCode(code: string, redirectUri: string): Promise<ConnectedAccount[]>;
+  exchangeCode(
+    code: string,
+    redirectUri: string,
+    /** The validated OAuth state — used by PKCE providers (e.g. X). */
+    state?: string,
+  ): Promise<ConnectedAccount[]>;
 }
 
 /** Platform-level publishing + engagement behavior. */

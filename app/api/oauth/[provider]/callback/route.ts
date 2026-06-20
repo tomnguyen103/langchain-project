@@ -54,7 +54,7 @@ export async function GET(
 
   let connected;
   try {
-    connected = await provider.exchangeCode(code, redirectUri);
+    connected = await provider.exchangeCode(code, redirectUri, state);
   } catch (error) {
     console.error("OAuth exchange failed", { provider: providerId, error });
     return NextResponse.redirect(accountsUrl({ error: "exchange_failed" }));

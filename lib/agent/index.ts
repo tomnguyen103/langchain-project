@@ -1,4 +1,5 @@
 import type { Platform } from "@/db/schema";
+import { setGeneratedContentRunId } from "@/lib/repos/generated-content";
 
 import { contentGraph } from "./graph";
 
@@ -10,10 +11,30 @@ export async function runContentAgent(input: {
   platforms: Platform[];
   userId: string;
 }): Promise<GenerateResult> {
-  const result = await contentGraph.invoke({
-    topic: input.topic,
-    platforms: input.platforms,
-    userId: input.userId,
-  });
+  // Capture the root LangSmith run id so generated rows can deep-link to the trace.
+  let langsmithRunId: string | undefined;
+  const result = await contentGraph.invoke(
+    {
+      topic: input.topic,
+      platforms: input.platforms,
+      userId: input.userId,
+    },
+    {
+      callbacks: [
+        {
+          handleChainStart: (_chain, _inputs, runId) => {
+            langsmithRunId ??= runId;
+          },
+        },
+      ],
+    },
+  );
+
+  if (langsmithRunId && result.savedContentIds?.length) {
+    await setGeneratedContentRunId(
+      result.savedContentIds,
+      langsmithRunId,
+    ).catch(() => {});
+  }
   return { drafts: result.drafts };
 }

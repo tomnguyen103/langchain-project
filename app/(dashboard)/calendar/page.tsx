@@ -1,5 +1,7 @@
+import Link from "next/link";
+
 import { requireUserId } from "@/lib/clerk";
-import { listPostsWithTargets } from "@/lib/repos/posts";
+import { listDraftPosts, listPostsWithTargets } from "@/lib/repos/posts";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
 import type { CalendarPost } from "@/components/calendar/types";
 
@@ -9,7 +11,10 @@ export default async function CalendarPage() {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() - 12, 1);
   const to = new Date(now.getFullYear(), now.getMonth() + 13, 0, 23, 59, 59);
-  const posts = await listPostsWithTargets(userId, { from, to });
+  const [posts, drafts] = await Promise.all([
+    listPostsWithTargets(userId, { from, to }),
+    listDraftPosts(userId),
+  ]);
 
   const calendarPosts: CalendarPost[] = posts.map((p) => ({
     id: p.id,
@@ -32,6 +37,26 @@ export default async function CalendarPage() {
       <div className="mt-6">
         <CalendarGrid posts={calendarPosts} />
       </div>
+
+      {drafts.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold">Drafts</h2>
+          <p className="text-muted-foreground mb-2 text-xs">
+            Unscheduled — open one to set a time.
+          </p>
+          <div className="space-y-2">
+            {drafts.map((d) => (
+              <Link
+                key={d.id}
+                href={`/posts/${d.id}`}
+                className="hover:bg-accent block truncate rounded-lg border p-3 text-sm"
+              >
+                {d.baseBody.slice(0, 100) || "(no caption)"}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -49,6 +49,18 @@ export async function saveGeneratedContent(
 ): Promise<GeneratedContent[]> {
   if (rows.length === 0) return [];
   return db.insert(generatedContent).values(rows).returning();
+}
+
+/** Attach a LangSmith run id to generated rows (for trace deep-links). */
+export async function setGeneratedContentRunId(
+  ids: string[],
+  langsmithRunId: string,
+): Promise<void> {
+  if (ids.length === 0) return;
+  await db
+    .update(generatedContent)
+    .set({ langsmithRunId })
+    .where(inArray(generatedContent.id, ids));
 }
 
 export async function listGeneratedContent(

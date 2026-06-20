@@ -56,13 +56,19 @@ export async function connectDiscordWebhook(formData: FormData): Promise<void> {
     throw new Error("You've reached your plan's connected-account limit.");
   }
 
-  // Verify the webhook is real and read its name (best-effort for display).
+  // Verify the webhook is real; capture name + channel/guild for permalinks.
   let name = "Discord webhook";
+  let metadata: Record<string, unknown> | undefined;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
     if (!res.ok) throw new Error(`status ${res.status}`);
-    const hook = (await res.json()) as { name?: string };
+    const hook = (await res.json()) as {
+      name?: string;
+      channel_id?: string;
+      guild_id?: string;
+    };
     if (hook.name) name = hook.name;
+    metadata = { channelId: hook.channel_id, guildId: hook.guild_id };
   } catch {
     throw new Error("Couldn't verify that webhook — double-check the URL.");
   }
@@ -74,6 +80,7 @@ export async function connectDiscordWebhook(formData: FormData): Promise<void> {
     handle: name,
     displayName: name,
     accessToken: encrypt(url),
+    metadata,
     status: "active",
     lastValidatedAt: new Date(),
   });

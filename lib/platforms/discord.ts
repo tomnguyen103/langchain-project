@@ -58,8 +58,16 @@ class DiscordConnector extends AbstractConnector {
       );
     }
     const msg = (await res.json()) as { id: string };
-    // No public permalink without the guild id (the webhook doesn't return it).
-    return { externalPostId: msg.id, raw: msg };
+    // Build a permalink from the channel/guild captured at connect time.
+    const meta = account.metadata as {
+      guildId?: string;
+      channelId?: string;
+    } | null;
+    const url2 =
+      meta?.guildId && meta?.channelId
+        ? `https://discord.com/channels/${meta.guildId}/${meta.channelId}/${msg.id}`
+        : undefined;
+    return { externalPostId: msg.id, url: url2, raw: msg };
   }
 }
 

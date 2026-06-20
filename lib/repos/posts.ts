@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   and,
+  count,
   desc,
   eq,
   getTableColumns,
@@ -102,6 +103,28 @@ export async function listPostsWithTargets(
     ...p,
     targets: targets.filter((t) => t.postId === p.id),
   }));
+}
+
+/** Total posts a user has created (cheap onboarding/"has a post?" check). */
+export async function countPostsForUser(clerkUserId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(posts)
+    .where(eq(posts.clerkUserId, clerkUserId));
+  return row?.n ?? 0;
+}
+
+/** Unscheduled draft posts (e.g. from Duplicate) — not shown on the calendar. */
+export async function listDraftPosts(
+  clerkUserId: string,
+  limit = 20,
+): Promise<Post[]> {
+  return db
+    .select()
+    .from(posts)
+    .where(and(eq(posts.clerkUserId, clerkUserId), eq(posts.status, "draft")))
+    .orderBy(desc(posts.updatedAt))
+    .limit(limit);
 }
 
 /** Failed publish targets for a user (the dead-letter "needs attention" list). */
