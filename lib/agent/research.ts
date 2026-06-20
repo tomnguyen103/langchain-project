@@ -13,15 +13,31 @@ function parseIdeas(text: string): string[] {
 }
 
 /** Research a niche (web search) and ideate content angles from the findings. */
-export async function runResearch(input: {
-  niche: string;
-}): Promise<{ findings: Finding[]; ideas: string[] }> {
+export async function runResearch(input: { niche: string }): Promise<{
+  findings: Finding[];
+  ideas: string[];
+  langsmithRunId: string | null;
+}> {
   const findings = await searchWeb(input.niche);
   const context = findings.length
     ? findings.map((f) => `- ${f.title}: ${f.snippet}`).join("\n")
     : "(no external sources available)";
 
   const model = getChatModel({ temperature: 0.9 });
-  const res = await model.invoke(ideationPrompt(input.niche, context));
-  return { findings, ideas: parseIdeas(textOf(res.content)) };
+  // Capture the LangSmith run id so the idea can deep-link to its trace.
+  let langsmithRunId: string | undefined;
+  const res = await model.invoke(ideationPrompt(input.niche, context), {
+    callbacks: [
+      {
+        handleLLMStart: (_llm, _prompts, runId) => {
+          langsmithRunId ??= runId;
+        },
+      },
+    ],
+  });
+  return {
+    findings,
+    ideas: parseIdeas(textOf(res.content)),
+    langsmithRunId: langsmithRunId ?? null,
+  };
 }

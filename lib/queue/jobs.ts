@@ -136,6 +136,23 @@ export async function unregisterCommentPoll(
   );
 }
 
+const TOKEN_REFRESH_EVERY_MS = 30 * 60_000; // proactively refresh every 30 min
+
+/** Register the single global token-refresh scheduler (idempotent upsert). */
+export async function registerTokenRefresh(): Promise<void> {
+  await getQueue(QueueName.TokenRefresh).upsertJobScheduler(
+    "token-refresh",
+    { every: TOKEN_REFRESH_EVERY_MS },
+    {
+      name: "token-refresh",
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
 /** Enqueue a matched comment for reply dispatch (idempotent per comment). */
 export async function enqueueCommentReply(
   commentEventId: string,

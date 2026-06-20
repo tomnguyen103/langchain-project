@@ -91,6 +91,14 @@ export async function publishProcessor(job: Job): Promise<void> {
         lastError: message,
       });
       await recomputePostStatus(target.postId);
+      // Dead-letter alert: a monitor can alarm on this. The target now shows in
+      // the dashboard "Needs attention" list with a manual retry.
+      logger.error("publish: retries exhausted (dead-letter)", {
+        postTargetId,
+        platform: target.platform,
+        attempts: job.attemptsMade + 1,
+        error: message,
+      });
     }
 
     logger.error("publish: error", {

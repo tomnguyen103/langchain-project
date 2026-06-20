@@ -9,6 +9,7 @@ export enum QueueName {
   Generate = "generate",
   CommentPoll = "comment-poll",
   Reply = "reply",
+  TokenRefresh = "token-refresh",
 }
 
 const queueCache = new Map<QueueName, Queue>();
