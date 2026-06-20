@@ -4,6 +4,11 @@ import { z } from "zod";
 
 import type { Platform } from "@/db/schema";
 import { runContentAgent } from "@/lib/agent";
+import {
+  assertWithinQuota,
+  QuotaExceededError,
+  recordUsage,
+} from "@/lib/billing/entitlements";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 
 export const runtime = "nodejs";
@@ -38,7 +43,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    await assertWithinQuota(userId, "ai_generations");
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
+    throw error;
+  }
+
+  try {
     const { drafts } = await runContentAgent({ topic, platforms, userId });
+    await recordUsage(userId, "ai_generations");
     return NextResponse.json({ drafts });
   } catch (error) {
     console.error("AI generation failed", error);
