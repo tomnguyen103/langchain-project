@@ -32,6 +32,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { isFutureDate, toDatetimeLocalValue } from "@/lib/utils/schedule";
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
@@ -74,10 +75,7 @@ const statusVariant: Record<string, BadgeVariant> = {
 
 function toLocalInput(iso: string | null): string {
   const d = iso ? new Date(iso) : new Date(Date.now() + 60 * 60 * 1000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
+  return toDatetimeLocalValue(d);
 }
 
 const label = (status: string) => status.replace(/_/g, " ");
@@ -86,6 +84,20 @@ export function PostDetail({ post }: { post: PostDetailView }) {
   const [pending, startTransition] = useTransition();
   const [reschedule, setReschedule] = useState(toLocalInput(post.scheduledAt));
   const router = useRouter();
+  // Floor the picker at "now"; differs between SSR and hydration as the clock
+  // advances, so suppressHydrationWarning silences the expected mismatch.
+  const minSchedule = toDatetimeLocalValue(new Date());
+
+  function submitReschedule() {
+    if (!isFutureDate(reschedule)) {
+      toast.error("Pick a time in the future to reschedule.");
+      return;
+    }
+    run(
+      () => reschedulePost(post.id, new Date(reschedule).toISOString()),
+      "Rescheduled.",
+    );
+  }
 
   function duplicate() {
     startTransition(async () => {
@@ -165,23 +177,13 @@ export function PostDetail({ post }: { post: PostDetailView }) {
               <Input
                 id="resched"
                 type="datetime-local"
+                min={minSchedule}
+                suppressHydrationWarning
                 value={reschedule}
                 onChange={(e) => setReschedule(e.target.value)}
               />
             </div>
-            <Button
-              disabled={pending}
-              onClick={() =>
-                run(
-                  () =>
-                    reschedulePost(
-                      post.id,
-                      new Date(reschedule).toISOString(),
-                    ),
-                  "Rescheduled.",
-                )
-              }
-            >
+            <Button disabled={pending} onClick={submitReschedule}>
               {pending && <Loader2 className="size-4 animate-spin" />}
               Reschedule
             </Button>

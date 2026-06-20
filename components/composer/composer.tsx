@@ -13,17 +13,14 @@ import { PLATFORM_META } from "@/lib/platforms/constants";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { isFutureDate, toDatetimeLocalValue } from "@/lib/utils/schedule";
 import { GeneratePanel } from "./generate-panel";
 import { MediaUploader } from "./media-uploader";
 import { SchedulePicker } from "./schedule-picker";
 import { VariantEditor } from "./variant-editor";
 
 function defaultScheduleLocal(): string {
-  const d = new Date(Date.now() + 60 * 60 * 1000); // +1h
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
+  return toDatetimeLocalValue(new Date(Date.now() + 60 * 60 * 1000)); // +1h
 }
 
 export function Composer({
@@ -85,6 +82,11 @@ export function Composer({
   }
 
   function submit() {
+    // Block obviously-past times before a round-trip; the server re-checks.
+    if (!isFutureDate(scheduledAt)) {
+      toast.error("Pick a time in the future to schedule this post.");
+      return;
+    }
     startTransition(async () => {
       try {
         await createPost({

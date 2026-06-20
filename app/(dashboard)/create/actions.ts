@@ -20,6 +20,7 @@ import {
   recomputePostStatus,
   updatePostTarget,
 } from "@/lib/repos/posts";
+import { assertFutureDate } from "@/lib/utils/schedule";
 
 export type SavedMedia = {
   id: string;
@@ -137,10 +138,10 @@ export async function createPost(
   if (input.accountIds.length === 0) {
     throw new Error("Select at least one account to publish to.");
   }
-  const scheduledAt = new Date(input.scheduledAt);
-  if (Number.isNaN(scheduledAt.getTime())) {
-    throw new Error("Choose a valid date and time.");
-  }
+  // Reject past times (with a small grace window) so a scheduled post can't
+  // publish instantly. enqueuePublish clamps delay to >= 0, so without this a
+  // past time would fire immediately — a surprise the user didn't ask for.
+  const scheduledAt = assertFutureDate(input.scheduledAt);
 
   const accounts = await listSocialAccounts(userId);
   const selected = accounts.filter((a) => input.accountIds.includes(a.id));
