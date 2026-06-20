@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { contentKindEnum, platformEnum } from "./enums";
+import { researchTopics } from "./research";
 import { timestamps } from "./_helpers";
 
 /** AI-generated content (drafts/ideas) before it becomes a post. */
@@ -16,7 +17,10 @@ export const generatedContent = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     clerkUserId: text("clerk_user_id").notNull(),
-    researchTopicId: uuid("research_topic_id"), // → research_topics (Goal 5)
+    researchTopicId: uuid("research_topic_id").references(
+      () => researchTopics.id,
+      { onDelete: "set null" },
+    ),
     kind: contentKindEnum("kind").notNull().default("caption"),
     platform: platformEnum("platform"), // null = platform-agnostic
     topic: text("topic"),

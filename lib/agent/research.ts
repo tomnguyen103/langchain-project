@@ -9,7 +9,7 @@ function parseIdeas(text: string): string[] {
     .split("\n")
     .map((line) => line.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim())
     .filter((line) => line.length > 0)
-    .slice(0, 8);
+    .slice(0, 6);
 }
 
 /** Research a niche (web search) and ideate content angles from the findings. */

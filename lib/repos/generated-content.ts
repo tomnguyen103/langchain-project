@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -7,6 +7,7 @@ import {
   type NewGeneratedContent,
 } from "@/db/schema";
 
+/** Research-backed ideas (kind=idea with a research topic). */
 export async function listIdeas(
   clerkUserId: string,
 ): Promise<GeneratedContent[]> {
@@ -17,9 +18,23 @@ export async function listIdeas(
       and(
         eq(generatedContent.clerkUserId, clerkUserId),
         eq(generatedContent.kind, "idea"),
+        isNotNull(generatedContent.researchTopicId),
       ),
     )
     .orderBy(desc(generatedContent.createdAt));
+}
+
+export async function deleteIdeasForTopic(
+  researchTopicId: string,
+): Promise<void> {
+  await db
+    .delete(generatedContent)
+    .where(
+      and(
+        eq(generatedContent.researchTopicId, researchTopicId),
+        eq(generatedContent.kind, "idea"),
+      ),
+    );
 }
 
 export async function saveGeneratedContent(

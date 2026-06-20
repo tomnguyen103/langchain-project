@@ -3,7 +3,10 @@ import type { Job } from "bullmq";
 import { runResearch } from "@/lib/agent/research";
 import type { ResearchJobData } from "@/lib/queue/jobs";
 import { QueueName } from "@/lib/queue/queues";
-import { saveGeneratedContent } from "@/lib/repos/generated-content";
+import {
+  deleteIdeasForTopic,
+  saveGeneratedContent,
+} from "@/lib/repos/generated-content";
 import {
   getResearchTopic,
   updateResearchTopic,
@@ -26,6 +29,14 @@ export async function researchProcessor(job: Job): Promise<void> {
     return;
   }
 
+  if (topic.status === "done") {
+    await updateScheduleStatus(QueueName.Research, jobId, {
+      status: "completed",
+      finishedAt: new Date(),
+    });
+    return;
+  }
+
   await updateResearchTopic(topic.id, { status: "researching" });
   await updateScheduleStatus(QueueName.Research, jobId, {
     status: "active",
@@ -35,6 +46,8 @@ export async function researchProcessor(job: Job): Promise<void> {
   try {
     const { findings, ideas } = await runResearch({ niche: topic.niche });
 
+    // Idempotent on retry: replace any ideas from a prior attempt.
+    await deleteIdeasForTopic(topic.id);
     if (ideas.length > 0) {
       await saveGeneratedContent(
         ideas.map((content) => ({
