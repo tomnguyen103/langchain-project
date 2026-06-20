@@ -15,7 +15,11 @@ import {
   getMediaAsset,
   getMediaAssets,
 } from "@/lib/repos/media";
-import { createPostWithTargets, updatePostTarget } from "@/lib/repos/posts";
+import {
+  createPostWithTargets,
+  recomputePostStatus,
+  updatePostTarget,
+} from "@/lib/repos/posts";
 
 export type SavedMedia = {
   id: string;
@@ -211,13 +215,35 @@ export async function createPost(
     targets,
   });
 
+  // Schedule each target independently so one enqueue failure (e.g. a Redis
+  // hiccup) doesn't leave the others unscheduled with no record of why. A
+  // failed target is marked "failed" so it surfaces in the "needs attention"
+  // list for a manual retry; the post and its other targets are preserved.
+  let scheduleFailures = 0;
   for (const target of created.targets) {
-    const jobId = await enqueuePublish({
-      postTargetId: target.id,
-      clerkUserId: userId,
-      runAt: scheduledAt,
-    });
-    await updatePostTarget(target.id, { bullJobId: jobId });
+    try {
+      const jobId = await enqueuePublish({
+        postTargetId: target.id,
+        clerkUserId: userId,
+        runAt: scheduledAt,
+      });
+      await updatePostTarget(target.id, { bullJobId: jobId });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Failed to enqueue publish for target", {
+        postTargetId: target.id,
+        error: message,
+      });
+      await updatePostTarget(target.id, {
+        status: "failed",
+        lastError: `Could not schedule: ${message}`,
+      });
+      scheduleFailures += 1;
+    }
+  }
+  // Recompute the rollup so the post reflects any partial-scheduling failure.
+  if (scheduleFailures > 0) {
+    await recomputePostStatus(created.id);
   }
 
   revalidatePath("/calendar");

@@ -7,6 +7,7 @@ import { runContentAgent } from "@/lib/agent";
 import {
   consumeQuota,
   QuotaExceededError,
+  releaseQuota,
 } from "@/lib/billing/entitlements";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 
@@ -54,6 +55,11 @@ export async function POST(req: NextRequest) {
     const { drafts } = await runContentAgent({ topic, platforms, userId });
     return NextResponse.json({ drafts });
   } catch (error) {
+    // The quota unit was already consumed; refund it so a transient LLM error
+    // doesn't burn the user's allowance.
+    await releaseQuota(userId, "ai_generations").catch((releaseError) =>
+      console.error("Failed to refund ai_generations quota", releaseError),
+    );
     console.error("AI generation failed", error);
     const message =
       error instanceof Error ? error.message : "Generation failed";
