@@ -31,7 +31,9 @@ export function MediaUploader({
   onChange: Dispatch<SetStateAction<SavedMedia[]>>;
 }) {
   const [uploading, setUploading] = useState(false);
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  // In-flight variant requests per asset id (ref-counted so overlapping
+  // generations on the same or different images don't clobber each other).
+  const [generating, setGenerating] = useState<Record<string, number>>({});
 
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -59,7 +61,7 @@ export function MediaUploader({
   }
 
   async function generate(assetId: string, specKey: string) {
-    setGeneratingId(assetId);
+    setGenerating((c) => ({ ...c, [assetId]: (c[assetId] ?? 0) + 1 }));
     try {
       const variants = await generateMediaVariants(assetId, [specKey]);
       onChange((prev) => [...prev, ...variants]);
@@ -69,7 +71,13 @@ export function MediaUploader({
         error instanceof Error ? error.message : "Couldn't generate variant.",
       );
     } finally {
-      setGeneratingId(null);
+      setGenerating((c) => {
+        const next = { ...c };
+        const remaining = (next[assetId] ?? 1) - 1;
+        if (remaining <= 0) delete next[assetId];
+        else next[assetId] = remaining;
+        return next;
+      });
     }
   }
 
@@ -103,10 +111,10 @@ export function MediaUploader({
                 <button
                   type="button"
                   aria-label="Generate variants"
-                  disabled={generatingId === media.id}
+                  disabled={(generating[media.id] ?? 0) > 0}
                   className="bg-background/80 absolute bottom-1 right-1 rounded-full p-0.5"
                 >
-                  {generatingId === media.id ? (
+                  {(generating[media.id] ?? 0) > 0 ? (
                     <Loader2 className="size-3 animate-spin" />
                   ) : (
                     <Sparkles className="size-3" />

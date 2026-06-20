@@ -104,11 +104,14 @@ class TikTokConnector extends AbstractConnector {
       throw new Error(`TikTok token refresh failed (${res.status})`);
     }
     const token = (await res.json()) as {
-      access_token: string;
+      access_token?: string;
       refresh_token?: string;
       expires_in?: number;
       scope?: string;
     };
+    if (!token.access_token) {
+      throw new Error("TikTok token refresh returned no access token");
+    }
     return {
       accessToken: token.access_token,
       refreshToken: token.refresh_token ?? refreshToken,

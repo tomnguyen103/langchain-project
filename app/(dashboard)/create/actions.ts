@@ -99,8 +99,10 @@ export async function generateMediaVariants(
         source.url,
         `${spec.transformation}:w-240`,
       ),
-      width: spec.width ?? source.width,
-      height: spec.height ?? source.height,
+      // Platform crops carry exact dims; AI effects (e.g. upscale) change them,
+      // so leave dims unknown rather than copying stale source dimensions.
+      width: spec.width,
+      height: spec.height,
       mimeType: source.mimeType,
       transformations: { spec: spec.key, transformation: spec.transformation },
       sourceAssetId: source.id,
