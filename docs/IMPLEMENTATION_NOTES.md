@@ -79,3 +79,72 @@ Running log of decisions, deviations, and tradeoffs while executing
   on the server, so this is acceptable.
 
 **Gates:** lint ✓ · typecheck ✓ · test ✓ (34) · build ✓
+**Merged:** PR #16 (squash, `601e83b`).
+
+## Goal 4 — Reply rate-limit race hardening (M2)
+
+**Branch:** `claude/fix-goal-4-reply-race`
+
+**The race:** `reply.ts` read cooldown/cap counts, *then* claimed + posted. With
+Reply-worker concurrency 5, two jobs for different comments matching the same
+rule could both pass the check (neither had set `replied` yet) and both post,
+exceeding `maxPerDay` / violating cooldown.
+
+**What I built (plan option a — atomic DB counter)**
+- New table `auto_reply_slots` (one row per rule): `periodStart` (UTC day),
+  `usedCount`, `lastReplyAt`. Migration `0008_natural_morph.sql`.
+- `grantReplySlot(ruleId, limits, now)` in `lib/repos/replies.ts`: a single
+  `INSERT … ON CONFLICT (rule_id) DO UPDATE … setWhere(cap AND cooldown)`
+  upsert. Because all of a rule's grants target the **same row**, the Postgres
+  row lock serializes concurrent jobs — only one can take the last slot. Mirrors
+  the existing `consumeUsage` idiom exactly.
+- `releaseReplySlot(...)`: decrements (floored at 0) to roll back a slot when the
+  reply isn't posted (claim lost / empty / post failed).
+- `worker/processors/reply.ts` rewired: grant-first (before compose & claim);
+  every non-posting path calls `releaseSlot()`.
+- Removed the now-dead raceable primitives `countRepliesForRuleSince` and
+  `lastReplyAtForRule`.
+- Pure policy module `lib/auto-reply/slot.ts` (`evaluateReplySlot`,
+  `isUnlimited`, `utcDayStart`) + `lib/auto-reply/slot.test.ts` (wired into the
+  test script), including the "two concurrent at maxPerDay=1 → exactly one"
+  scenario modeled as the DB's serialized application.
+
+**Decisions / deviations not in the spec**
+- **Why option (a), not a `SELECT … FOR UPDATE` lock or a Redis lock.** The
+  worker is still on the **neon-http driver** (no interactive transactions until
+  Goal 5), so a read-then-conditional-write lock isn't available. A single-row
+  conditional upsert is atomic on neon-http *and* cross-instance safe (the
+  row lock works regardless of how many worker processes run). This is strictly
+  more robust than an in-process mutex, which would only cover one worker process.
+- **Cap semantics changed from rolling-24h → UTC calendar day.** The old code
+  counted `replied` rows in a rolling `now-24h` window; a counter needs a fixed
+  period. UTC-day matches the billing `usage` table's period model. Documented
+  as a deliberate change. Cooldown is unaffected (it uses `lastReplyAt`, which is
+  period-independent, so it's still correct across midnight).
+- **Counter is decoupled from `comment_events`.** The cap now counts *granted
+  slots*, not posted replies. Trade-off: if the worker crashes between grant and
+  post, that slot leaks until the next UTC day (bounded). This biases toward
+  *under*-replying on crash — the safe direction (the original bug was
+  *over*-replying).
+- **`releaseReplySlot` does not restore `lastReplyAt`.** We can't recover the
+  prior value, and leaving it only means a failed attempt may delay that rule's
+  next reply by up to `cooldownSec` (conservative; the retry is not dropped).
+- **Dual encoding (pure fn + SQL).** The atomic guarantee lives in Postgres and
+  can't be unit-tested without a real DB, so `evaluateReplySlot` is a pure
+  reference implementation the tests exercise; it must stay in lockstep with the
+  upsert (cross-referenced in comments). Accepted to keep CI hermetic (Goal 6's
+  remit).
+
+**Do not break — preserved:** `claimReply`/`finalizeReply`/`releaseReply` lease
+state machine + idempotency; "`replied` only set on confirmed success".
+
+**Gates:** lint ✓ · typecheck ✓ · test ✓ (46) · build ✓
+
+> ⚠️ **CodeRabbit rate limit (heads-up for you).** By PR #18, CodeRabbit hit its
+> per-developer review rate limit (today's burst across PRs #13–#18 tripped the
+> adaptive limiter; resets ~35 min). Its green "CodeRabbit" status check can pass
+> *without an actual review* in this state. PR #18 (Goal 4) was therefore merged
+> on **CI-green + my own full self-review** (full diff read, 46 tests, all 4
+> gates) per this project's merge-on-green norm. For the remaining goals I'm
+> pacing the work so the limit resets between PRs and CodeRabbit can review them;
+> I note each goal's actual review status below.

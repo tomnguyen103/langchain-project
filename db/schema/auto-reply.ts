@@ -2,10 +2,12 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  date,
   index,
   integer,
   pgTable,
   text,
+  timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -61,3 +63,26 @@ export const autoReplyRules = pgTable(
 
 export type AutoReplyRule = typeof autoReplyRules.$inferSelect;
 export type NewAutoReplyRule = typeof autoReplyRules.$inferInsert;
+
+/**
+ * Per-rule rate-limit ledger (one row per rule) that makes cooldown + daily-cap
+ * enforcement atomic. `grantReplySlot` does a single conditional upsert against
+ * this row, so two concurrent reply jobs for the same rule are serialized by the
+ * row lock — only one can take the last slot. Decoupled from `comment_events`
+ * (which only flips `replied` after a confirmed post, too late to gate a race).
+ *
+ * - `periodStart`: the UTC day `usedCount` belongs to; a newer day resets it.
+ * - `usedCount`: replies granted in the current period (rolled back on failure).
+ * - `lastReplyAt`: last grant time, drives the cooldown window across periods.
+ */
+export const autoReplySlots = pgTable("auto_reply_slots", {
+  ruleId: uuid("rule_id")
+    .primaryKey()
+    .references(() => autoReplyRules.id, { onDelete: "cascade" }),
+  periodStart: date("period_start").notNull(),
+  usedCount: integer("used_count").notNull().default(0),
+  lastReplyAt: timestamp("last_reply_at", { withTimezone: true }),
+  ...timestamps,
+});
+
+export type AutoReplySlot = typeof autoReplySlots.$inferSelect;
