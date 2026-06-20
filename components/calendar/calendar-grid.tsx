@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { reschedulePost } from "@/app/(dashboard)/posts/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isFutureSchedule } from "@/lib/utils/schedule";
 import { PostChip } from "./post-chip";
 import type { CalendarPost } from "./types";
 
@@ -50,6 +51,10 @@ export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
     const next = new Date(day);
     next.setHours(original.getHours(), original.getMinutes(), 0, 0);
     if (isSameDay(next, original)) return;
+    if (!isFutureSchedule(next)) {
+      toast.error("Can't reschedule to a time in the past.");
+      return;
+    }
 
     startTransition(async () => {
       try {

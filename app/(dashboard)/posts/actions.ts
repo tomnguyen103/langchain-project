@@ -6,6 +6,7 @@ import { requireUserId } from "@/lib/clerk";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { cancelPublish, enqueuePublish } from "@/lib/queue/jobs";
 import { getUserSocialAccount } from "@/lib/repos/accounts";
+import { assertFutureSchedule } from "@/lib/utils/schedule";
 import {
   createPostWithTargets,
   getPostTarget,
@@ -139,9 +140,7 @@ export async function reschedulePost(postId: string, scheduledAtIso: string) {
   if (!post) throw new Error("Post not found.");
 
   const scheduledAt = new Date(scheduledAtIso);
-  if (Number.isNaN(scheduledAt.getTime())) {
-    throw new Error("Choose a valid date and time.");
-  }
+  assertFutureSchedule(scheduledAt);
 
   for (const target of post.targets) {
     // Only reschedule still-pending targets (failed → use Retry).

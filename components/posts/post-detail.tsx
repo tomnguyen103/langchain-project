@@ -32,6 +32,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  isFutureSchedule,
+  toDateTimeLocal,
+} from "@/lib/utils/schedule";
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
@@ -73,11 +77,7 @@ const statusVariant: Record<string, BadgeVariant> = {
 };
 
 function toLocalInput(iso: string | null): string {
-  const d = iso ? new Date(iso) : new Date(Date.now() + 60 * 60 * 1000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
+  return toDateTimeLocal(iso ? new Date(iso) : new Date(Date.now() + 60 * 60 * 1000));
 }
 
 const label = (status: string) => status.replace(/_/g, " ");
@@ -166,12 +166,17 @@ export function PostDetail({ post }: { post: PostDetailView }) {
                 id="resched"
                 type="datetime-local"
                 value={reschedule}
+                min={toDateTimeLocal(new Date())}
                 onChange={(e) => setReschedule(e.target.value)}
               />
             </div>
             <Button
               disabled={pending}
-              onClick={() =>
+              onClick={() => {
+                if (!isFutureSchedule(new Date(reschedule))) {
+                  toast.error("Choose a time in the future.");
+                  return;
+                }
                 run(
                   () =>
                     reschedulePost(
@@ -179,8 +184,8 @@ export function PostDetail({ post }: { post: PostDetailView }) {
                       new Date(reschedule).toISOString(),
                     ),
                   "Rescheduled.",
-                )
-              }
+                );
+              }}
             >
               {pending && <Loader2 className="size-4 animate-spin" />}
               Reschedule

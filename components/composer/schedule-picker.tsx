@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toDateTimeLocal } from "@/lib/utils/schedule";
 
 export function SchedulePicker({
   value,
@@ -19,6 +20,7 @@ export function SchedulePicker({
         id="schedule"
         type="datetime-local"
         value={value}
+        min={toDateTimeLocal(new Date())}
         onChange={(event) => onChange(event.target.value)}
       />
       <p className="text-muted-foreground text-xs">

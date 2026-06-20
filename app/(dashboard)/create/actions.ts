@@ -7,6 +7,7 @@ import { consumeQuota, getCurrentPlan } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { buildTransformUrl, getVariantSpec } from "@/lib/imagekit/transform";
 import { PLATFORM_META } from "@/lib/platforms/constants";
+import { assertFutureSchedule } from "@/lib/utils/schedule";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { enqueuePublish } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
@@ -138,9 +139,7 @@ export async function createPost(
     throw new Error("Select at least one account to publish to.");
   }
   const scheduledAt = new Date(input.scheduledAt);
-  if (Number.isNaN(scheduledAt.getTime())) {
-    throw new Error("Choose a valid date and time.");
-  }
+  assertFutureSchedule(scheduledAt);
 
   const accounts = await listSocialAccounts(userId);
   const selected = accounts.filter((a) => input.accountIds.includes(a.id));
