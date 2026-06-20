@@ -66,7 +66,6 @@ export async function createPost(
   input: CreatePostInput,
 ): Promise<{ postId: string }> {
   const userId = await requireUserId();
-  await consumeQuota(userId, "posts_scheduled");
 
   if (input.accountIds.length === 0) {
     throw new Error("Select at least one account to publish to.");
@@ -124,6 +123,10 @@ export async function createPost(
       scheduledAt,
     }),
   );
+
+  // Consume quota only after all validation passes, so an invalid request
+  // never burns a unit. The consume is atomic, so this stays race-safe.
+  await consumeQuota(userId, "posts_scheduled");
 
   const created = await createPostWithTargets({
     post: {
