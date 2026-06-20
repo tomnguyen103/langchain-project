@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 import { cn } from "@/lib/utils";
@@ -20,12 +22,28 @@ export function PostChip({ post }: { post: CalendarPost }) {
       })
     : "";
 
+  // Only future, still-scheduled posts can be dragged to a new day.
+  const canDrag = post.status === "scheduled";
+
   return (
     <Link
       href={`/posts/${post.id}`}
+      draggable={canDrag}
+      onDragStart={
+        canDrag
+          ? (e) => {
+              e.dataTransfer.setData(
+                "application/x-post",
+                JSON.stringify({ id: post.id, scheduledAt: post.scheduledAt }),
+              );
+              e.dataTransfer.effectAllowed = "move";
+            }
+          : undefined
+      }
       className={cn(
         "block truncate rounded px-1.5 py-0.5 text-xs hover:opacity-80",
         statusStyles[post.status] ?? statusStyles.draft,
+        canDrag && "cursor-grab active:cursor-grabbing",
       )}
       title={post.title}
     >

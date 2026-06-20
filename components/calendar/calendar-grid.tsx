@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   addMonths,
   eachDayOfInterval,
@@ -14,7 +15,9 @@ import {
   subMonths,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
 
+import { reschedulePost } from "@/app/(dashboard)/posts/actions";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PostChip } from "./post-chip";
@@ -24,6 +27,41 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleDrop(event: React.DragEvent, day: Date) {
+    event.preventDefault();
+    setDragOverKey(null);
+    const raw = event.dataTransfer.getData("application/x-post");
+    if (!raw) return;
+    let data: { id?: string; scheduledAt?: string | null };
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      return;
+    }
+    if (!data.id) return;
+
+    // Preserve the original time-of-day; just move it to the dropped day.
+    const original = data.scheduledAt ? new Date(data.scheduledAt) : new Date();
+    const next = new Date(day);
+    next.setHours(original.getHours(), original.getMinutes(), 0, 0);
+    if (isSameDay(next, original)) return;
+
+    startTransition(async () => {
+      try {
+        await reschedulePost(data.id!, next.toISOString());
+        toast.success(`Rescheduled to ${format(next, "MMM d, h:mm a")}`);
+        router.refresh();
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't reschedule.",
+        );
+      }
+    });
+  }
 
   const gridStart = startOfWeek(startOfMonth(month), { weekStartsOn: 0 });
   const gridEnd = endOfWeek(endOfMonth(month), { weekStartsOn: 0 });
@@ -78,12 +116,24 @@ export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
           const dayPosts = postsForDay(day);
           const inMonth = isSameMonth(day, month);
           const isToday = isSameDay(day, new Date());
+          const dayKey = day.toISOString();
           return (
             <div
-              key={day.toISOString()}
+              key={dayKey}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOverKey(dayKey);
+              }}
+              onDragLeave={() =>
+                setDragOverKey((k) => (k === dayKey ? null : k))
+              }
+              onDrop={(e) => handleDrop(e, day)}
               className={cn(
                 "min-h-24 border-r border-b p-1.5 last:border-r-0",
                 !inMonth && "bg-muted/30 text-muted-foreground",
+                dragOverKey === dayKey &&
+                  "ring-primary bg-primary/5 ring-2 ring-inset",
+                pending && "opacity-70",
               )}
             >
               <div

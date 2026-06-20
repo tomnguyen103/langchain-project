@@ -40,6 +40,17 @@ export interface PlatformCapabilities {
   supportsComments: boolean;
   /** Native scheduling is an optimization only — BullMQ owns scheduling. */
   supportsNativeSchedule: boolean;
+  /** Whether the connector can pull back engagement metrics. */
+  supportsMetrics?: boolean;
+}
+
+/** Engagement metrics for a published post (fields absent if unavailable). */
+export interface PostMetrics {
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  views?: number;
+  raw?: unknown;
 }
 
 export interface OAuthTokens {
@@ -91,6 +102,10 @@ export interface PlatformConnector {
     text: string,
     account: SocialAccount,
   ): Promise<{ externalId: string }>;
+  fetchMetrics(
+    account: SocialAccount,
+    externalPostId: string,
+  ): Promise<PostMetrics>;
 }
 
 export class UnsupportedOperationError extends Error {

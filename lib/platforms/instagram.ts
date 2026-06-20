@@ -6,6 +6,7 @@ import { graphFetch, graphFetchAll } from "./_meta-graph";
 import type {
   CommentRef,
   PlatformCapabilities,
+  PostMetrics,
   PublishInput,
   PublishResult,
 } from "./types";
@@ -28,6 +29,7 @@ class InstagramConnector extends AbstractConnector {
     },
     supportsComments: true,
     supportsNativeSchedule: false,
+    supportsMetrics: true,
   };
 
   async publishNow(
@@ -111,6 +113,24 @@ class InstagramConnector extends AbstractConnector {
       params: { message: text },
     });
     return { externalId: res.id };
+  }
+
+  async fetchMetrics(
+    account: SocialAccount,
+    externalPostId: string,
+  ): Promise<PostMetrics> {
+    const res = await graphFetch<{
+      like_count?: number;
+      comments_count?: number;
+    }>(`/${externalPostId}`, {
+      accessToken: this.accessToken(account),
+      params: { fields: "like_count,comments_count" },
+    });
+    return {
+      likes: res.like_count,
+      comments: res.comments_count,
+      raw: res,
+    };
   }
 }
 

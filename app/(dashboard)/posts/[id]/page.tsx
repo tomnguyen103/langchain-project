@@ -28,6 +28,8 @@ export default async function PostPage({
       externalUrl: t.externalUrl,
       lastError: t.lastError,
       scheduledAt: t.scheduledAt?.toISOString() ?? null,
+      metrics: t.metrics ?? null,
+      metricsUpdatedAt: t.metricsUpdatedAt?.toISOString() ?? null,
     })),
   };
 

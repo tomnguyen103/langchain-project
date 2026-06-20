@@ -6,6 +6,7 @@ import { graphFetch, graphFetchAll } from "./_meta-graph";
 import type {
   CommentRef,
   PlatformCapabilities,
+  PostMetrics,
   PublishInput,
   PublishResult,
 } from "./types";
@@ -25,6 +26,7 @@ class FacebookConnector extends AbstractConnector {
     },
     supportsComments: true,
     supportsNativeSchedule: true,
+    supportsMetrics: true,
   };
 
   async publishNow(
@@ -110,6 +112,26 @@ class FacebookConnector extends AbstractConnector {
       params: { message: text },
     });
     return { externalId: res.id };
+  }
+
+  async fetchMetrics(
+    account: SocialAccount,
+    externalPostId: string,
+  ): Promise<PostMetrics> {
+    const res = await graphFetch<{
+      likes?: { summary?: { total_count?: number } };
+      comments?: { summary?: { total_count?: number } };
+      shares?: { count?: number };
+    }>(`/${externalPostId}`, {
+      accessToken: this.accessToken(account),
+      params: { fields: "likes.summary(true),comments.summary(true),shares" },
+    });
+    return {
+      likes: res.likes?.summary?.total_count,
+      comments: res.comments?.summary?.total_count,
+      shares: res.shares?.count,
+      raw: res,
+    };
   }
 }
 

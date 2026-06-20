@@ -8,6 +8,7 @@ import {
   type Platform,
   type PlatformCapabilities,
   type PlatformConnector,
+  type PostMetrics,
   type PublishInput,
   type PublishResult,
 } from "./types";
@@ -43,6 +44,13 @@ export abstract class AbstractConnector implements PlatformConnector {
     _account: SocialAccount,
   ): Promise<{ externalId: string }> {
     throw new UnsupportedOperationError(this.platform, "postReply");
+  }
+
+  async fetchMetrics(
+    _account: SocialAccount,
+    _externalPostId: string,
+  ): Promise<PostMetrics> {
+    throw new UnsupportedOperationError(this.platform, "fetchMetrics");
   }
 
   /** Decrypt the stored access token for API calls. */
