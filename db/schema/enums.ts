@@ -43,6 +43,14 @@ export const accountStatusEnum = pgEnum("account_status", [
   "revoked",
 ]);
 
+export const contentKindEnum = pgEnum("content_kind", [
+  "caption",
+  "post",
+  "idea",
+  "variation",
+  "hashtags",
+]);
+
 export type Platform = (typeof platformEnum.enumValues)[number];
 export type AccountStatus = (typeof accountStatusEnum.enumValues)[number];
 export type PostStatus = (typeof postStatusEnum.enumValues)[number];

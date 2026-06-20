@@ -13,6 +13,7 @@ import { PLATFORM_META } from "@/lib/platforms/constants";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { GeneratePanel } from "./generate-panel";
 import { MediaUploader } from "./media-uploader";
 import { SchedulePicker } from "./schedule-picker";
 import { VariantEditor } from "./variant-editor";
@@ -102,6 +103,12 @@ export function Composer({ accounts }: { accounts: AccountView[] }) {
       <div className="space-y-4 lg:col-span-2">
         <Card>
           <CardContent className="space-y-3 pt-6">
+            <GeneratePanel
+              platforms={selectedPlatforms}
+              onGenerated={(drafts) =>
+                setBodyByPlatform((prev) => ({ ...prev, ...drafts }))
+              }
+            />
             <VariantEditor
               platforms={selectedPlatforms}
               value={bodyByPlatform}
