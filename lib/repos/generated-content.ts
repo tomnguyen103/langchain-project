@@ -24,10 +24,12 @@ export async function listIdeas(
     .orderBy(desc(generatedContent.createdAt));
 }
 
-export async function deleteIdeasForTopic(
+/** Atomically replace a topic's ideas (delete + insert in one transaction). */
+export async function replaceIdeasForTopic(
   researchTopicId: string,
+  rows: NewGeneratedContent[],
 ): Promise<void> {
-  await db
+  const deleteExisting = db
     .delete(generatedContent)
     .where(
       and(
@@ -35,6 +37,11 @@ export async function deleteIdeasForTopic(
         eq(generatedContent.kind, "idea"),
       ),
     );
+  if (rows.length === 0) {
+    await deleteExisting;
+    return;
+  }
+  await db.batch([deleteExisting, db.insert(generatedContent).values(rows)]);
 }
 
 export async function saveGeneratedContent(
