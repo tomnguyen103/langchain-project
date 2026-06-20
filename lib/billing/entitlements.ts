@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 
-import { consumeUsage, getUsageCount } from "@/lib/repos/usage";
+import { consumeUsage, getUsageCount, releaseUsage } from "@/lib/repos/usage";
 import { PLAN_LIMITS, type PlanId, type PlanLimits } from "./plans";
 
 export type QuotaMetric = "posts_scheduled" | "ai_generations";
@@ -61,6 +61,18 @@ export async function consumeQuota(
   if (!ok) {
     throw new QuotaExceededError(metric, limit(limits));
   }
+}
+
+/**
+ * Refund one unit of quota previously taken by consumeQuota — call this when the
+ * work the unit was reserved for fails, so a transient error isn't charged.
+ */
+export async function releaseQuota(
+  userId: string,
+  metric: QuotaMetric,
+): Promise<void> {
+  const { periodStart } = periodFor(metric);
+  await releaseUsage(userId, metric, periodStart);
 }
 
 export async function getUsageSummary(userId: string): Promise<{

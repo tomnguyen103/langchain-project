@@ -45,3 +45,28 @@ export async function consumeUsage(
     .returning({ count: usage.count });
   return rows.length > 0;
 }
+
+/**
+ * Release one previously-consumed unit — e.g. when the work it was reserved for
+ * fails — so a transient error doesn't permanently burn the user's allowance.
+ * Decrements the period counter, floored at 0; a no-op if the row is absent.
+ */
+export async function releaseUsage(
+  clerkUserId: string,
+  metric: string,
+  periodStart: string,
+): Promise<void> {
+  await db
+    .update(usage)
+    .set({
+      count: sql`GREATEST(${usage.count} - 1, 0)`,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(usage.clerkUserId, clerkUserId),
+        eq(usage.metric, metric),
+        eq(usage.periodStart, periodStart),
+      ),
+    );
+}
