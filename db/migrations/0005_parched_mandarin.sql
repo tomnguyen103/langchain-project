@@ -14,7 +14,9 @@ CREATE TABLE "auto_reply_rules" (
 	"cooldown_sec" integer DEFAULT 0 NOT NULL,
 	"max_per_day" integer,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "auto_reply_rules_cooldown_nonneg" CHECK ("auto_reply_rules"."cooldown_sec" >= 0),
+	CONSTRAINT "auto_reply_rules_max_per_day_pos" CHECK ("auto_reply_rules"."max_per_day" IS NULL OR "auto_reply_rules"."max_per_day" > 0)
 );
 --> statement-breakpoint
 CREATE TABLE "comment_events" (

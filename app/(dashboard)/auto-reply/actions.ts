@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { MatchType, Platform } from "@/db/schema";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
+import { isSafeRegexSource } from "@/lib/auto-reply/regex-guard";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { getUserSocialAccount } from "@/lib/repos/accounts";
 import {
@@ -65,12 +66,18 @@ function parseRule(input: RuleFormInput) {
     .filter((k) => k.length > 0);
   if (keywords.length === 0) throw new Error("Add at least one keyword.");
 
-  const matchType: MatchType = MATCH_TYPES.includes(input.matchType)
-    ? input.matchType
-    : "any";
+  const matchType = input.matchType;
+  if (!MATCH_TYPES.includes(matchType)) {
+    throw new Error("Choose a valid match type.");
+  }
 
   if (matchType === "regex") {
     for (const k of keywords) {
+      if (!isSafeRegexSource(k)) {
+        throw new Error(
+          `Regex is too long or risks catastrophic backtracking: ${k}`,
+        );
+      }
       try {
         new RegExp(k);
       } catch {

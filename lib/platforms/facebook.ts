@@ -2,7 +2,7 @@ import type { SocialAccount } from "@/db/schema";
 
 import { AbstractConnector } from "./base";
 import { PLATFORM_META } from "./constants";
-import { graphFetch } from "./_meta-graph";
+import { graphFetch, graphFetchAll } from "./_meta-graph";
 import type {
   CommentRef,
   PlatformCapabilities,
@@ -71,24 +71,24 @@ class FacebookConnector extends AbstractConnector {
     externalPostId: string,
     since?: Date,
   ): Promise<CommentRef[]> {
-    const token = this.accessToken(account);
     const params: Record<string, string | undefined> = {
       fields: "id,message,from{name,id},created_time",
       order: "reverse_chronological",
-      limit: "50",
+      limit: "100",
     };
     if (since) params.since = String(Math.floor(since.getTime() / 1000));
 
-    const res = await graphFetch<{
-      data?: Array<{
-        id: string;
-        message?: string;
-        from?: { name?: string; id?: string };
-        created_time?: string;
-      }>;
-    }>(`/${externalPostId}/comments`, { accessToken: token, params });
+    const items = await graphFetchAll<{
+      id: string;
+      message?: string;
+      from?: { name?: string; id?: string };
+      created_time?: string;
+    }>(`/${externalPostId}/comments`, {
+      accessToken: this.accessToken(account),
+      params,
+    });
 
-    return (res.data ?? []).map((c) => ({
+    return items.map((c) => ({
       externalCommentId: c.id,
       externalPostId,
       author: c.from?.name ?? c.from?.id ?? "",

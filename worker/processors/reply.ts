@@ -7,11 +7,13 @@ import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import type { CommentReplyJobData } from "@/lib/queue/jobs";
 import { getSocialAccount } from "@/lib/repos/accounts";
 import {
+  claimReply,
   countRepliesForRuleSince,
+  finalizeReply,
   getCommentEvent,
   getRule,
   lastReplyAtForRule,
-  markReplied,
+  releaseReply,
   updateCommentEvent,
 } from "@/lib/repos/replies";
 import { logger } from "../logger";
@@ -79,13 +81,18 @@ export async function replyProcessor(job: Job): Promise<void> {
   const finalText = replyText.trim().slice(0, max);
   if (!finalText) return skip("empty reply");
 
+  // Atomically claim before posting so a retry or concurrent run can't post a
+  // second public reply. A failed post releases the claim for a later retry.
+  const claimed = await claimReply(event.id);
+  if (!claimed) return;
+
   try {
     const { externalId } = await connector.postReply(
       event.externalCommentId,
       finalText,
       account,
     );
-    await markReplied(event.id, externalId);
+    await finalizeReply(event.id, externalId);
     logger.info("reply: posted", {
       commentEventId,
       ruleId: rule.id,
@@ -93,7 +100,7 @@ export async function replyProcessor(job: Job): Promise<void> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await updateCommentEvent(event.id, { status: "failed" });
+    await releaseReply(event.id);
     logger.error("reply: post failed", { commentEventId, error: message });
     throw error; // let BullMQ retry with backoff
   }

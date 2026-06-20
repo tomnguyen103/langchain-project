@@ -8,15 +8,23 @@ import { listPublishedTargetsForAccount } from "@/lib/repos/posts";
 import {
   getActiveRulesForAccount,
   ingestComment,
+  latestCommentedAtForPost,
+  listMatchedUnrepliedForAccount,
   updateCommentEvent,
 } from "@/lib/repos/replies";
 import { logger } from "../logger";
 
+// Re-poll a small window before the last seen comment so boundary-second
+// comments aren't skipped; DB dedupe drops anything already ingested.
+const POLL_OVERLAP_MS = 60_000;
+
 /**
  * Poll one account's recently-published posts for new comments, ingest them
- * idempotently, and enqueue a reply job for each comment that matches an active
- * rule. Dedupe lives in the DB (unique social_account_id + external_comment_id),
- * so repeated polls never double-process a comment.
+ * idempotently, classify each against active rules, then enqueue replies.
+ *
+ * Marking and enqueuing are split into two phases so a transient enqueue
+ * failure can't orphan a matched comment: phase 2 enqueues from the DB and is
+ * idempotent, so the next poll recovers anything that failed to enqueue.
  */
 export async function commentPollProcessor(job: Job): Promise<void> {
   const { socialAccountId } = job.data as CommentPollJobData;
@@ -40,12 +48,25 @@ export async function commentPollProcessor(job: Job): Promise<void> {
   let ingested = 0;
   let matched = 0;
 
+  // Phase 1: ingest + classify (no enqueue here).
   for (const target of targets) {
     if (!target.externalPostId) continue;
 
+    const watermark = await latestCommentedAtForPost(
+      account.id,
+      target.externalPostId,
+    );
+    const since = watermark
+      ? new Date(watermark.getTime() - POLL_OVERLAP_MS)
+      : undefined;
+
     let comments;
     try {
-      comments = await connector.fetchComments(account, target.externalPostId);
+      comments = await connector.fetchComments(
+        account,
+        target.externalPostId,
+        since,
+      );
     } catch (error) {
       logger.warn("comment-poll: fetch failed", {
         socialAccountId,
@@ -70,25 +91,28 @@ export async function commentPollProcessor(job: Job): Promise<void> {
       ingested += 1;
 
       const rule = rules.find((r) => commentMatchesRule(c.text, r));
-      if (rule) {
-        await updateCommentEvent(event.id, {
-          matchedRuleId: rule.id,
-          status: "matched",
-        });
-        await enqueueCommentReply(event.id);
-        matched += 1;
-      } else {
-        await updateCommentEvent(event.id, { status: "skipped" });
-      }
+      await updateCommentEvent(event.id, {
+        matchedRuleId: rule?.id ?? null,
+        status: rule ? "matched" : "skipped",
+      });
+      if (rule) matched += 1;
     }
   }
 
-  if (ingested > 0) {
+  // Phase 2: enqueue a reply for every matched-unreplied comment. Idempotent
+  // (deterministic job id), so it also recovers enqueues that failed earlier.
+  const pending = await listMatchedUnrepliedForAccount(account.id);
+  for (const event of pending) {
+    await enqueueCommentReply(event.id);
+  }
+
+  if (ingested > 0 || pending.length > 0) {
     logger.info("comment-poll: processed", {
       socialAccountId,
       platform: account.platform,
       ingested,
       matched,
+      enqueued: pending.length,
     });
   }
 }

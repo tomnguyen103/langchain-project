@@ -5,8 +5,9 @@ export type ReplyVars = {
 };
 
 /**
- * Render a reply template, substituting {{author}} / {{text}} (and the
- * @-prefixed {{handle}} alias for author). Unknown placeholders are left as-is.
+ * Render a reply template, substituting {{author}}, {{text}}, and {{handle}}
+ * (an alias for the commenter's name — not @-prefixed). Unknown placeholders
+ * are left as-is.
  */
 export function renderTemplate(template: string, vars: ReplyVars): string {
   const map: Record<string, string> = {

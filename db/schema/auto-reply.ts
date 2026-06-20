@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   pgTable,
@@ -48,6 +49,13 @@ export const autoReplyRules = pgTable(
     index("auto_reply_rules_user_idx").on(t.clerkUserId),
     index("auto_reply_rules_platform_enabled_idx").on(t.platform, t.enabled),
     index("auto_reply_rules_account_idx").on(t.socialAccountId),
+    // Enforce throttle bounds at the DB level so non-UI writers can't store
+    // values that would silently break cooldown / daily-cap logic.
+    check("auto_reply_rules_cooldown_nonneg", sql`${t.cooldownSec} >= 0`),
+    check(
+      "auto_reply_rules_max_per_day_pos",
+      sql`${t.maxPerDay} IS NULL OR ${t.maxPerDay} > 0`,
+    ),
   ],
 );
 

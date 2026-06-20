@@ -1,5 +1,5 @@
 {
-  "id": "c657a2c0-5975-4e23-ae65-40ad15bc4d2f",
+  "id": "c52bfb80-9dae-47f6-8e2f-1ac1cdb039e1",
   "prevId": "6343055f-5bcb-4264-aeef-dc1fe8b7898a",
   "version": "7",
   "dialect": "postgresql",
@@ -1243,7 +1243,16 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "auto_reply_rules_cooldown_nonneg": {
+          "name": "auto_reply_rules_cooldown_nonneg",
+          "value": "\"auto_reply_rules\".\"cooldown_sec\" >= 0"
+        },
+        "auto_reply_rules_max_per_day_pos": {
+          "name": "auto_reply_rules_max_per_day_pos",
+          "value": "\"auto_reply_rules\".\"max_per_day\" IS NULL OR \"auto_reply_rules\".\"max_per_day\" > 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.comment_events": {

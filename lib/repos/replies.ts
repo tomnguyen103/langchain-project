@@ -166,19 +166,73 @@ export async function updateCommentEvent(
     .where(eq(commentEvents.id, id));
 }
 
-export async function markReplied(
+/**
+ * Atomically claim a comment for reply: flips replied false→true in one
+ * statement. Returns false if it was already claimed, so a retried/concurrent
+ * job can't post a second public reply.
+ */
+export async function claimReply(id: string): Promise<boolean> {
+  const rows = await db
+    .update(commentEvents)
+    .set({ replied: true, updatedAt: new Date() })
+    .where(and(eq(commentEvents.id, id), eq(commentEvents.replied, false)))
+    .returning({ id: commentEvents.id });
+  return rows.length > 0;
+}
+
+/** Record a successful reply (the claim already set replied=true). */
+export async function finalizeReply(
   id: string,
   replyExternalId: string,
 ): Promise<void> {
   await db
     .update(commentEvents)
-    .set({
-      replied: true,
-      replyExternalId,
-      status: "replied",
-      updatedAt: new Date(),
-    })
+    .set({ replyExternalId, status: "replied", updatedAt: new Date() })
     .where(eq(commentEvents.id, id));
+}
+
+/** Release a claim after a failed post so the job can retry. */
+export async function releaseReply(id: string): Promise<void> {
+  await db
+    .update(commentEvents)
+    .set({ replied: false, status: "failed", updatedAt: new Date() })
+    .where(eq(commentEvents.id, id));
+}
+
+/** Latest comment timestamp ingested for a post — the incremental-poll cursor. */
+export async function latestCommentedAtForPost(
+  socialAccountId: string,
+  externalPostId: string,
+): Promise<Date | null> {
+  const [row] = await db
+    .select({ at: max(commentEvents.commentedAt) })
+    .from(commentEvents)
+    .where(
+      and(
+        eq(commentEvents.socialAccountId, socialAccountId),
+        eq(commentEvents.externalPostId, externalPostId),
+      ),
+    );
+  return row?.at ? new Date(row.at) : null;
+}
+
+/** Matched-but-not-yet-replied events for an account (reply reconciliation). */
+export async function listMatchedUnrepliedForAccount(
+  socialAccountId: string,
+  limit = 200,
+): Promise<CommentEvent[]> {
+  return db
+    .select()
+    .from(commentEvents)
+    .where(
+      and(
+        eq(commentEvents.socialAccountId, socialAccountId),
+        eq(commentEvents.status, "matched"),
+        eq(commentEvents.replied, false),
+      ),
+    )
+    .orderBy(commentEvents.createdAt)
+    .limit(limit);
 }
 
 /** Recent comment events across all of a user's accounts (activity feed). */

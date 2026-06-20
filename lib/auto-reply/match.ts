@@ -1,5 +1,7 @@
 import type { MatchType } from "@/db/schema";
 
+import { isSafeRegexSource, MAX_REGEX_TEST_LENGTH } from "./regex-guard";
+
 export type RuleMatchSpec = {
   keywords: string[];
   matchType: MatchType;
@@ -31,8 +33,11 @@ export function commentMatchesRule(text: string, rule: RuleMatchSpec): boolean {
 }
 
 function safeRegexTest(pattern: string, text: string): boolean {
+  // Defense-in-depth: skip patterns that look catastrophic and bound the input
+  // so a sync regex test can never stall the worker.
+  if (!isSafeRegexSource(pattern)) return false;
   try {
-    return new RegExp(pattern, "i").test(text);
+    return new RegExp(pattern, "i").test(text.slice(0, MAX_REGEX_TEST_LENGTH));
   } catch {
     return false;
   }
