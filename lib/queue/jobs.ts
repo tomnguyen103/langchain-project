@@ -98,3 +98,59 @@ export async function enqueueResearch(opts: {
 
   return jobId;
 }
+
+export type CommentPollJobData = { socialAccountId: string };
+export type CommentReplyJobData = { commentEventId: string };
+
+const COMMENT_POLL_EVERY_MS = 5 * 60_000; // poll an account's comments every 5 min
+const commentPollSchedulerId = (socialAccountId: string) =>
+  `comment-poll:${socialAccountId}`;
+
+/**
+ * Register (or refresh) a repeating comment-poll for an account. Uses a BullMQ
+ * Job Scheduler keyed by the account id, so calling it again is idempotent.
+ */
+export async function registerCommentPoll(
+  socialAccountId: string,
+): Promise<void> {
+  await getQueue(QueueName.CommentPoll).upsertJobScheduler(
+    commentPollSchedulerId(socialAccountId),
+    { every: COMMENT_POLL_EVERY_MS },
+    {
+      name: "comment-poll",
+      data: { socialAccountId } satisfies CommentPollJobData,
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+/** Stop polling an account's comments (e.g. on disconnect). */
+export async function unregisterCommentPoll(
+  socialAccountId: string,
+): Promise<void> {
+  await getQueue(QueueName.CommentPoll).removeJobScheduler(
+    commentPollSchedulerId(socialAccountId),
+  );
+}
+
+/** Enqueue a matched comment for reply dispatch (idempotent per comment). */
+export async function enqueueCommentReply(
+  commentEventId: string,
+): Promise<string> {
+  const jobId = `reply:${commentEventId}`;
+  await getQueue(QueueName.Reply).add(
+    "reply",
+    { commentEventId } satisfies CommentReplyJobData,
+    {
+      jobId,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 15_000 },
+      removeOnComplete: { age: 24 * 3600 },
+      removeOnFail: { age: 7 * 24 * 3600 },
+    },
+  );
+  return jobId;
+}

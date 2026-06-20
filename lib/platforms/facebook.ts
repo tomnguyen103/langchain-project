@@ -4,6 +4,7 @@ import { AbstractConnector } from "./base";
 import { PLATFORM_META } from "./constants";
 import { graphFetch } from "./_meta-graph";
 import type {
+  CommentRef,
   PlatformCapabilities,
   PublishInput,
   PublishResult,
@@ -63,6 +64,50 @@ class FacebookConnector extends AbstractConnector {
       url: `https://www.facebook.com/${res.id}`,
       raw: res,
     };
+  }
+
+  async fetchComments(
+    account: SocialAccount,
+    externalPostId: string,
+    since?: Date,
+  ): Promise<CommentRef[]> {
+    const token = this.accessToken(account);
+    const params: Record<string, string | undefined> = {
+      fields: "id,message,from{name,id},created_time",
+      order: "reverse_chronological",
+      limit: "50",
+    };
+    if (since) params.since = String(Math.floor(since.getTime() / 1000));
+
+    const res = await graphFetch<{
+      data?: Array<{
+        id: string;
+        message?: string;
+        from?: { name?: string; id?: string };
+        created_time?: string;
+      }>;
+    }>(`/${externalPostId}/comments`, { accessToken: token, params });
+
+    return (res.data ?? []).map((c) => ({
+      externalCommentId: c.id,
+      externalPostId,
+      author: c.from?.name ?? c.from?.id ?? "",
+      text: c.message ?? "",
+      createdAt: c.created_time ? new Date(c.created_time) : new Date(),
+    }));
+  }
+
+  async postReply(
+    commentId: string,
+    text: string,
+    account: SocialAccount,
+  ): Promise<{ externalId: string }> {
+    const res = await graphFetch<{ id: string }>(`/${commentId}/comments`, {
+      method: "POST",
+      accessToken: this.accessToken(account),
+      params: { message: text },
+    });
+    return { externalId: res.id };
   }
 }
 

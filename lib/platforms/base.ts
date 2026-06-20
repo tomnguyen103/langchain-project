@@ -31,6 +31,7 @@ export abstract class AbstractConnector implements PlatformConnector {
 
   async fetchComments(
     _account: SocialAccount,
+    _externalPostId: string,
     _since?: Date,
   ): Promise<CommentRef[]> {
     throw new UnsupportedOperationError(this.platform, "fetchComments");

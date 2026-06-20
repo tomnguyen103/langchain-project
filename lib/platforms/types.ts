@@ -81,7 +81,11 @@ export interface PlatformConnector {
     input: PublishInput,
     account: SocialAccount,
   ): Promise<PublishResult>;
-  fetchComments(account: SocialAccount, since?: Date): Promise<CommentRef[]>;
+  fetchComments(
+    account: SocialAccount,
+    externalPostId: string,
+    since?: Date,
+  ): Promise<CommentRef[]>;
   postReply(
     commentId: string,
     text: string,
