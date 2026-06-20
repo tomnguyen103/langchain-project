@@ -80,6 +80,14 @@ export async function graphFetchAll<T = unknown>(
     after = res.paging?.next ? res.paging?.cursors?.after : undefined;
     if (!after) break;
   }
+  if (after) {
+    // Pages remained at the cap — surface it so truncation isn't silent.
+    // Callers use a `since` cursor + chronological order so the next poll
+    // resumes where this one stopped (no permanent loss, just drained over time).
+    console.warn(
+      `graphFetchAll: page cap (${maxPages}) reached for ${path}; ${out.length} fetched, more remain`,
+    );
+  }
   return out;
 }
 

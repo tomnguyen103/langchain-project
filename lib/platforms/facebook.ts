@@ -71,9 +71,11 @@ class FacebookConnector extends AbstractConnector {
     externalPostId: string,
     since?: Date,
   ): Promise<CommentRef[]> {
+    // Oldest-first so incremental polling drains monotonically from `since`: if
+    // a backlog exceeds the page cap, the next poll resumes where this stopped.
     const params: Record<string, string | undefined> = {
       fields: "id,message,from{name,id},created_time",
-      order: "reverse_chronological",
+      order: "chronological",
       limit: "100",
     };
     if (since) params.since = String(Math.floor(since.getTime() / 1000));

@@ -69,8 +69,9 @@ export const matchTypeEnum = pgEnum("match_type", [
 /** Lifecycle of an ingested comment through the auto-reply pipeline. */
 export const commentEventStatusEnum = pgEnum("comment_event_status", [
   "pending", // ingested, not yet evaluated
-  "matched", // a rule matched; a reply job was enqueued
-  "replied", // reply posted successfully
+  "matched", // a rule matched; eligible to be enqueued for reply
+  "replying", // claimed by a reply worker (lease) — not yet confirmed
+  "replied", // reply posted successfully (replyExternalId set)
   "skipped", // no rule matched, or cooldown/daily-cap reached
   "failed", // reply attempt failed
 ]);

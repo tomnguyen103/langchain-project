@@ -1,0 +1,1 @@
+ALTER TYPE "public"."comment_event_status" ADD VALUE 'replying' BEFORE 'replied';

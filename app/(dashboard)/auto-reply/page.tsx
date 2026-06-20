@@ -26,6 +26,7 @@ const statusVariant: Record<
 > = {
   pending: "secondary",
   matched: "secondary",
+  replying: "secondary",
   replied: "default",
   skipped: "outline",
   failed: "destructive",

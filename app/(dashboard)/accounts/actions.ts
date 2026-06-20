@@ -19,9 +19,10 @@ export async function disconnectAccount(formData: FormData) {
   const account = await getUserSocialAccount(id, userId);
   if (!account) return;
 
-  // Stop polling before the row (and its rules/comments) are removed.
-  // Best-effort: a queue hiccup must not block disconnect.
-  await unregisterCommentPoll(id).catch(() => {});
+  // Delete first (the authorized, destructive op); only then stop polling. If
+  // delete fails we keep polling a still-connected account; if unregister fails
+  // it's best-effort (the next poll no-ops on the missing account).
   await deleteSocialAccount(id, userId);
+  await unregisterCommentPoll(id).catch(() => {});
   revalidatePath("/accounts");
 }
