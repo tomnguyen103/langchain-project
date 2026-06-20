@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, lt } from "drizzle-orm";
+import { and, asc, eq, isNotNull, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -22,6 +22,8 @@ export async function listAccountsNeedingRefresh(
         lt(socialAccounts.tokenExpiresAt, before),
       ),
     )
+    // Soonest-expiring first so a capped batch never starves urgent accounts.
+    .orderBy(asc(socialAccounts.tokenExpiresAt))
     .limit(limit);
 }
 

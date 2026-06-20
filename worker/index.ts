@@ -66,14 +66,26 @@ startWorker(QueueName.TokenRefresh, tokenRefreshProcessor, 1);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });
 
-// Ensure the global token-refresh schedule exists (idempotent).
-void registerTokenRefresh().then(
-  () => logger.info("token-refresh scheduler registered"),
-  (error) =>
+// Ensure the global token-refresh schedule exists. Retry with backoff so a
+// brief Redis outage at boot doesn't leave scheduling disabled until a restart.
+async function ensureTokenRefreshScheduler(attempt = 1): Promise<void> {
+  try {
+    await registerTokenRefresh();
+    logger.info("token-refresh scheduler registered");
+  } catch (error) {
     logger.error("failed to register token-refresh scheduler", {
+      attempt,
       error: error instanceof Error ? error.message : String(error),
-    }),
-);
+    });
+    if (attempt < 10) {
+      setTimeout(
+        () => void ensureTokenRefreshScheduler(attempt + 1),
+        Math.min(30_000, attempt * 5_000),
+      );
+    }
+  }
+}
+void ensureTokenRefreshScheduler();
 
 let isShuttingDown = false;
 

@@ -31,11 +31,10 @@ export async function GET() {
     );
     return NextResponse.json({ ok: totalFailed === 0, totalFailed, queues });
   } catch (error) {
+    // Keep broker/infra detail server-side; return a generic message.
+    console.error("queue health check failed", error);
     return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "queue check failed",
-      },
+      { ok: false, error: "Queue broker unreachable" },
       { status: 503 },
     );
   }

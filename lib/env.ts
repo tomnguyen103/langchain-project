@@ -66,8 +66,8 @@ const EnvSchema = z.object({
   LANGCHAIN_PROJECT: z.string().optional(),
   LANGCHAIN_ENDPOINT: z.string().optional(),
   // Workspace + project ids (UUIDs) for building run deep links (Goal 9).
-  LANGSMITH_ORG_ID: z.string().optional(),
-  LANGSMITH_PROJECT_ID: z.string().optional(),
+  LANGSMITH_ORG_ID: z.uuid().optional(),
+  LANGSMITH_PROJECT_ID: z.uuid().optional(),
 
   // Public
   NEXT_PUBLIC_APP_URL: z.string().optional(),

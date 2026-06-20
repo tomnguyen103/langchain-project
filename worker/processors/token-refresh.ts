@@ -33,7 +33,9 @@ export async function tokenRefreshProcessor(_job: Job): Promise<void> {
         refreshToken: tokens.refreshToken
           ? encrypt(tokens.refreshToken)
           : undefined,
-        tokenExpiresAt: tokens.expiresAt ?? null,
+        // Keep the prior expiry if the refresh didn't return one — nulling it
+        // would exclude the account from future refresh scans.
+        tokenExpiresAt: tokens.expiresAt ?? undefined,
       });
       refreshed += 1;
     } catch (error) {
