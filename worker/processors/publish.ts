@@ -1,0 +1,99 @@
+import type { Job } from "bullmq";
+
+import type { MediaRef } from "@/lib/platforms/types";
+import type { PublishJobData } from "@/lib/queue/jobs";
+import { QueueName } from "@/lib/queue/queues";
+import { getSocialAccount } from "@/lib/repos/accounts";
+import { resolveMediaAssets } from "@/lib/repos/media";
+import {
+  getPostTarget,
+  recomputePostStatus,
+  updatePostTarget,
+} from "@/lib/repos/posts";
+import { updateScheduleStatus } from "@/lib/repos/schedules";
+import { getConnector } from "@/lib/platforms/registry";
+import { logger } from "../logger";
+
+/** Publishes one post target by resolving its platform connector polymorphically. */
+export async function publishProcessor(job: Job): Promise<void> {
+  const { postTargetId } = job.data as PublishJobData;
+  const jobId = job.id ?? `publish:${postTargetId}`;
+
+  const target = await getPostTarget(postTargetId);
+  if (!target) {
+    logger.warn("publish: target not found", { postTargetId });
+    return;
+  }
+
+  await updatePostTarget(target.id, {
+    status: "publishing",
+    attemptCount: (target.attemptCount ?? 0) + 1,
+  });
+  await updateScheduleStatus(QueueName.Publish, jobId, {
+    status: "active",
+    startedAt: new Date(),
+    attempts: job.attemptsMade + 1,
+  });
+
+  try {
+    const account = await getSocialAccount(target.socialAccountId);
+    if (!account) throw new Error("Connected account not found");
+
+    const assets = await resolveMediaAssets(target.mediaAssetIds);
+    const media: MediaRef[] = assets.map((a) => ({
+      type: a.type,
+      url: a.url,
+      mimeType: a.mimeType,
+    }));
+
+    const connector = getConnector(target.platform);
+    const result = await connector.publishNow(
+      { body: target.body, media, options: target.platformOptions },
+      account,
+    );
+
+    await updatePostTarget(target.id, {
+      status: "published",
+      publishedAt: new Date(),
+      externalPostId: result.externalPostId,
+      externalUrl: result.url ?? null,
+      lastError: null,
+    });
+    await updateScheduleStatus(QueueName.Publish, jobId, {
+      status: "completed",
+      finishedAt: new Date(),
+      result: { externalPostId: result.externalPostId },
+    });
+    await recomputePostStatus(target.postId);
+
+    logger.info("publish: success", {
+      postTargetId,
+      platform: target.platform,
+      externalPostId: result.externalPostId,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const isFinalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+
+    await updatePostTarget(target.id, {
+      status: isFinalAttempt ? "failed" : "queued",
+      lastError: message,
+    });
+    if (isFinalAttempt) {
+      await updateScheduleStatus(QueueName.Publish, jobId, {
+        status: "failed",
+        finishedAt: new Date(),
+        lastError: message,
+      });
+      await recomputePostStatus(target.postId);
+    }
+
+    logger.error("publish: error", {
+      postTargetId,
+      platform: target.platform,
+      attempt: job.attemptsMade + 1,
+      error: message,
+    });
+    throw error; // surface to BullMQ for retry/backoff
+  }
+}

@@ -22,6 +22,12 @@ jobs:
       # Valid-format placeholder (points to a non-existent instance) so ClerkProvider builds.
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_Y2xlcmsuZXhhbXBsZS5jb20k"
       CLERK_SECRET_KEY: "sk_test_dummy0000000000000000000000000000"
+      ENCRYPTION_KEY: "ci_placeholder_encryption_key_0123456789abcdef"
+      NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY: "public_ci_placeholder"
+      IMAGEKIT_PRIVATE_KEY: "private_ci_placeholder"
+      NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT: "https://ik.imagekit.io/ciplaceholder"
+      META_APP_ID: "0000000000000000"
+      META_APP_SECRET: "ci_placeholder_meta_secret"
     steps:
       - name: Checkout
         # Pinned to commit SHA (v4) for supply-chain safety.
