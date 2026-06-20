@@ -1,4 +1,3 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 
 import type { Platform } from "@/db/schema";
@@ -11,6 +10,7 @@ import {
   ingestComment,
   updateCommentEvent,
 } from "@/lib/repos/replies";
+import { verifyMetaSignature } from "@/lib/webhooks/meta";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,16 +32,6 @@ export async function GET(req: NextRequest) {
     return new NextResponse(sp.get("hub.challenge") ?? "", { status: 200 });
   }
   return new NextResponse("forbidden", { status: 403 });
-}
-
-function verifySignature(raw: string, header: string | null): boolean {
-  if (!header?.startsWith("sha256=")) return false;
-  const expected = createHmac("sha256", env.META_APP_SECRET)
-    .update(raw)
-    .digest("hex");
-  const a = Buffer.from(expected, "hex");
-  const b = Buffer.from(header.slice("sha256=".length), "hex");
-  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 type WebhookPayload = {
@@ -158,7 +148,8 @@ export async function POST(
   if (!META_PROVIDERS.has(provider)) return NextResponse.json({ ok: true });
 
   const raw = await req.text();
-  if (!verifySignature(raw, req.headers.get("x-hub-signature-256"))) {
+  const signature = req.headers.get("x-hub-signature-256");
+  if (!verifyMetaSignature(raw, signature, env.META_APP_SECRET)) {
     return new NextResponse("invalid signature", { status: 401 });
   }
 
