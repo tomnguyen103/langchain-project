@@ -5,7 +5,7 @@ import type { Platform } from "@/db/schema";
 import { commentMatchesRule } from "@/lib/auto-reply/match";
 import { env } from "@/lib/env";
 import { enqueueCommentReply } from "@/lib/queue/jobs";
-import { getAccountByPlatformId } from "@/lib/repos/accounts";
+import { listAccountsByPlatformId } from "@/lib/repos/accounts";
 import {
   getActiveRulesForAccount,
   ingestComment,
@@ -15,11 +15,10 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SUPPORTED: Record<string, Platform> = {
-  facebook: "facebook",
-  instagram: "instagram",
-  meta: "facebook",
-};
+// Meta delivers both Facebook Page and Instagram events to the same app
+// webhook, so any of these provider paths handle both — the platform is derived
+// per change below, not from the path.
+const META_PROVIDERS = new Set(["meta", "facebook", "instagram"]);
 
 /** Meta webhook subscription handshake (echo hub.challenge). */
 export async function GET(req: NextRequest) {
@@ -53,6 +52,7 @@ type WebhookPayload = {
 };
 
 type ExtractedComment = {
+  platform: Platform;
   accountExternalId: string;
   externalCommentId: string;
   externalPostId: string;
@@ -65,41 +65,42 @@ function str(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
-/** Pull new-comment events out of a Meta webhook payload (FB feed + IG comments). */
-function extractComments(
-  payload: WebhookPayload,
-  platform: Platform,
-): ExtractedComment[] {
+/**
+ * Pull new-comment events out of a Meta webhook payload, deriving the platform
+ * per change (FB `feed` comments vs IG `comments`) so a single endpoint handles
+ * both.
+ */
+function extractComments(payload: WebhookPayload): ExtractedComment[] {
   const out: ExtractedComment[] = [];
   for (const entry of payload.entry ?? []) {
     const accountExternalId = entry.id;
     if (!accountExternalId) continue;
     for (const change of entry.changes ?? []) {
       const v = change.value ?? {};
-      if (platform === "facebook") {
-        if (
-          change.field === "feed" &&
-          v.item === "comment" &&
-          v.verb === "add" &&
-          typeof v.comment_id === "string"
-        ) {
-          const from = v.from as { name?: string; id?: string } | undefined;
-          out.push({
-            accountExternalId,
-            externalCommentId: v.comment_id,
-            externalPostId: str(v.post_id),
-            author: from?.name ?? from?.id ?? "",
-            text: str(v.message),
-            createdAt:
-              typeof v.created_time === "number"
-                ? new Date(v.created_time * 1000)
-                : new Date(),
-          });
-        }
+      if (
+        change.field === "feed" &&
+        v.item === "comment" &&
+        v.verb === "add" &&
+        typeof v.comment_id === "string"
+      ) {
+        const from = v.from as { name?: string; id?: string } | undefined;
+        out.push({
+          platform: "facebook",
+          accountExternalId,
+          externalCommentId: v.comment_id,
+          externalPostId: str(v.post_id),
+          author: from?.name ?? from?.id ?? "",
+          text: str(v.message),
+          createdAt:
+            typeof v.created_time === "number"
+              ? new Date(v.created_time * 1000)
+              : new Date(),
+        });
       } else if (change.field === "comments" && typeof v.id === "string") {
         const from = v.from as { username?: string; id?: string } | undefined;
         const media = v.media as { id?: string } | undefined;
         out.push({
+          platform: "instagram",
           accountExternalId,
           externalCommentId: v.id,
           externalPostId: str(media?.id),
@@ -113,35 +114,39 @@ function extractComments(
   return out;
 }
 
-async function handleComment(platform: Platform, c: ExtractedComment) {
-  const account = await getAccountByPlatformId(platform, c.accountExternalId);
-  if (!account || account.status !== "active") return;
+async function handleComment(c: ExtractedComment) {
+  // Route to every user that connected this external account (the lookup isn't
+  // unique on its own), applying each user's own rules.
+  const accounts = await listAccountsByPlatformId(c.platform, c.accountExternalId);
+  for (const account of accounts) {
+    if (account.status !== "active") continue;
 
-  const rules = await getActiveRulesForAccount(
-    account.clerkUserId,
-    account.platform,
-    account.id,
-  );
-  if (rules.length === 0) return;
+    const rules = await getActiveRulesForAccount(
+      account.clerkUserId,
+      account.platform,
+      account.id,
+    );
+    if (rules.length === 0) continue;
 
-  const event = await ingestComment({
-    socialAccountId: account.id,
-    postTargetId: null,
-    platform: account.platform,
-    externalCommentId: c.externalCommentId,
-    externalPostId: c.externalPostId,
-    author: c.author,
-    text: c.text,
-    commentedAt: c.createdAt,
-  });
-  if (!event) return; // already ingested (dedupe shared with polling)
+    const event = await ingestComment({
+      socialAccountId: account.id,
+      postTargetId: null,
+      platform: account.platform,
+      externalCommentId: c.externalCommentId,
+      externalPostId: c.externalPostId,
+      author: c.author,
+      text: c.text,
+      commentedAt: c.createdAt,
+    });
+    if (!event) continue; // already ingested (dedupe shared with polling)
 
-  const rule = rules.find((r) => commentMatchesRule(c.text, r));
-  await updateCommentEvent(event.id, {
-    matchedRuleId: rule?.id ?? null,
-    status: rule ? "matched" : "skipped",
-  });
-  if (rule) await enqueueCommentReply(event.id);
+    const rule = rules.find((r) => commentMatchesRule(c.text, r));
+    await updateCommentEvent(event.id, {
+      matchedRuleId: rule?.id ?? null,
+      status: rule ? "matched" : "skipped",
+    });
+    if (rule) await enqueueCommentReply(event.id);
+  }
 }
 
 export async function POST(
@@ -149,9 +154,8 @@ export async function POST(
   { params }: { params: Promise<{ provider: string }> },
 ) {
   const { provider } = await params;
-  const platform = SUPPORTED[provider];
   // Always 200 on unsupported/parse issues so Meta doesn't disable the webhook.
-  if (!platform) return NextResponse.json({ ok: true });
+  if (!META_PROVIDERS.has(provider)) return NextResponse.json({ ok: true });
 
   const raw = await req.text();
   if (!verifySignature(raw, req.headers.get("x-hub-signature-256"))) {
@@ -165,12 +169,12 @@ export async function POST(
     return NextResponse.json({ ok: true });
   }
 
-  for (const comment of extractComments(payload, platform)) {
+  for (const comment of extractComments(payload)) {
     try {
-      await handleComment(platform, comment);
+      await handleComment(comment);
     } catch (error) {
       console.error("comment webhook: handling failed", {
-        platform,
+        platform: comment.platform,
         error: error instanceof Error ? error.message : String(error),
       });
     }

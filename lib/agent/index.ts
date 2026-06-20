@@ -31,10 +31,14 @@ export async function runContentAgent(input: {
   );
 
   if (langsmithRunId && result.savedContentIds?.length) {
-    await setGeneratedContentRunId(
-      result.savedContentIds,
-      langsmithRunId,
-    ).catch(() => {});
+    try {
+      await setGeneratedContentRunId(result.savedContentIds, langsmithRunId);
+    } catch (error) {
+      console.warn(
+        "failed to attach LangSmith run id to generated content",
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }
   return { drafts: result.drafts };
 }

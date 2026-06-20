@@ -70,16 +70,19 @@ export const pinterestProvider: OAuthProvider = {
       throw new Error(`Pinterest account lookup failed (${uRes.status})`);
     }
     const user = (await uRes.json()) as {
+      id?: string;
       username?: string;
       profile_image?: string;
     };
-    if (!user.username) {
-      throw new Error("Pinterest account lookup returned no username");
+    // Prefer the stable id; usernames can change. Fall back to username.
+    const platformAccountId = user.id ?? user.username;
+    if (!platformAccountId) {
+      throw new Error("Pinterest account lookup returned no id/username");
     }
 
     const account: ConnectedAccount = {
       platform: "pinterest",
-      platformAccountId: user.username,
+      platformAccountId,
       handle: user.username,
       displayName: user.username,
       avatarUrl: user.profile_image,

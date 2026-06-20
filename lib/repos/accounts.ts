@@ -8,12 +8,16 @@ import {
   type SocialAccount,
 } from "@/db/schema";
 
-/** Look up an account by platform + external id (webhook routing; not user-scoped). */
-export async function getAccountByPlatformId(
+/**
+ * All accounts matching a platform + external id (webhook routing). Returns
+ * every match because (platform, platformAccountId) isn't unique on its own —
+ * two users could connect the same external account, and each should be handled.
+ */
+export async function listAccountsByPlatformId(
   platform: Platform,
   platformAccountId: string,
-): Promise<SocialAccount | undefined> {
-  const [row] = await db
+): Promise<SocialAccount[]> {
+  return db
     .select()
     .from(socialAccounts)
     .where(
@@ -21,9 +25,7 @@ export async function getAccountByPlatformId(
         eq(socialAccounts.platform, platform),
         eq(socialAccounts.platformAccountId, platformAccountId),
       ),
-    )
-    .limit(1);
-  return row;
+    );
 }
 
 /** Active accounts whose token expires before `before` (proactive refresh). */
