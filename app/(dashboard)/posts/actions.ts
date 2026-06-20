@@ -13,6 +13,7 @@ import {
   recomputePostStatus,
   updatePostTarget,
 } from "@/lib/repos/posts";
+import { assertFutureDate } from "@/lib/utils/schedule";
 
 async function loadOwnedTarget(targetId: string, userId: string) {
   const target = await getPostTarget(targetId);
@@ -138,10 +139,9 @@ export async function reschedulePost(postId: string, scheduledAtIso: string) {
   const post = await getPostWithTargets(postId, userId);
   if (!post) throw new Error("Post not found.");
 
-  const scheduledAt = new Date(scheduledAtIso);
-  if (Number.isNaN(scheduledAt.getTime())) {
-    throw new Error("Choose a valid date and time.");
-  }
+  // Same future-time guard as createPost so rescheduling (post detail or
+  // calendar drag) can't drop a post into the past and publish it instantly.
+  const scheduledAt = assertFutureDate(scheduledAtIso);
 
   for (const target of post.targets) {
     // Only reschedule still-pending targets (failed → use Retry).
