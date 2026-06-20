@@ -1,6 +1,7 @@
 import type { SocialAccount } from "@/db/schema";
 
 import { AbstractConnector } from "./base";
+import { PLATFORM_META } from "./constants";
 import { graphFetch } from "./_meta-graph";
 import type {
   PlatformCapabilities,
@@ -16,9 +17,14 @@ class InstagramConnector extends AbstractConnector {
   readonly platform = "instagram" as const;
 
   readonly capabilities: PlatformCapabilities = {
-    maxBodyLength: 2200,
+    maxBodyLength: PLATFORM_META.instagram.maxBodyLength,
     // Reels/video not implemented yet — single image required.
-    media: { images: true, video: false, maxImages: 1, required: true },
+    media: {
+      images: true,
+      video: false,
+      maxImages: 1,
+      required: PLATFORM_META.instagram.requiresMedia,
+    },
     supportsComments: true,
     supportsNativeSchedule: false,
   };

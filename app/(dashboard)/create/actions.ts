@@ -2,8 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import type { MediaType, NewPostTarget } from "@/db/schema";
+import type { MediaType, NewPostTarget, Platform } from "@/db/schema";
 import { requireUserId } from "@/lib/clerk";
+import { PLATFORM_META } from "@/lib/platforms/constants";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { enqueuePublish } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
@@ -53,7 +54,7 @@ export async function saveUploadedMedia(input: {
 }
 
 export type CreatePostInput = {
-  body: string;
+  bodyByPlatform: Record<string, string>;
   accountIds: string[];
   mediaIds: string[];
   scheduledAt: string; // ISO 8601
@@ -64,11 +65,7 @@ export async function createPost(
   input: CreatePostInput,
 ): Promise<{ postId: string }> {
   const userId = await requireUserId();
-  const body = input.body.trim();
 
-  if (!body && input.mediaIds.length === 0) {
-    throw new Error("Add a caption or media before scheduling.");
-  }
   if (input.accountIds.length === 0) {
     throw new Error("Select at least one account to publish to.");
   }
@@ -83,15 +80,23 @@ export async function createPost(
     throw new Error("Selected accounts could not be found.");
   }
 
+  const bodyFor = (platform: Platform) =>
+    (input.bodyByPlatform[platform] ?? "").trim();
+
   for (const account of selected) {
+    const body = bodyFor(account.platform);
+    const label = PLATFORM_META[account.platform].label;
+    if (!body && input.mediaIds.length === 0) {
+      throw new Error(`Add a caption or media for ${label}.`);
+    }
     if (!hasConnector(account.platform)) continue;
     const caps = getConnector(account.platform).capabilities;
     if (caps.media.required && input.mediaIds.length === 0) {
-      throw new Error(`${account.platform} requires at least one image.`);
+      throw new Error(`${label} requires at least one image.`);
     }
     if (body.length > caps.maxBodyLength) {
       throw new Error(
-        `Caption is too long for ${account.platform} (max ${caps.maxBodyLength} chars).`,
+        `Caption is too long for ${label} (max ${caps.maxBodyLength} chars).`,
       );
     }
   }
@@ -111,7 +116,7 @@ export async function createPost(
     (account) => ({
       socialAccountId: account.id,
       platform: account.platform,
-      body,
+      body: bodyFor(account.platform),
       mediaAssetIds: input.mediaIds,
       status: "queued",
       scheduledAt,
@@ -121,7 +126,7 @@ export async function createPost(
   const created = await createPostWithTargets({
     post: {
       clerkUserId: userId,
-      baseBody: body,
+      baseBody: bodyFor(selected[0].platform),
       status: "scheduled",
       scheduledAt,
       timezone: input.timezone || "UTC",

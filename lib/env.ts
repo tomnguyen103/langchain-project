@@ -42,6 +42,10 @@ const EnvSchema = z.object({
   META_APP_ID: z.string().min(1),
   META_APP_SECRET: z.string().min(1),
 
+  // LinkedIn OAuth — optional; the connect option is hidden in the UI when unset.
+  LINKEDIN_CLIENT_ID: z.string().optional(),
+  LINKEDIN_CLIENT_SECRET: z.string().optional(),
+
   // LangSmith observability (Goal 4) — optional
   LANGCHAIN_TRACING_V2: z.string().optional(),
   LANGCHAIN_API_KEY: z.string().optional(),

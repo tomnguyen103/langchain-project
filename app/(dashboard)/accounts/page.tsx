@@ -1,10 +1,11 @@
 import { requireUserId } from "@/lib/clerk";
+import { listConnectableProviders } from "@/lib/oauth/registry";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
   AccountCard,
   type AccountView,
 } from "@/components/accounts/account-card";
-import { ConnectMetaButton } from "@/components/accounts/connect-meta-button";
+import { ConnectButton } from "@/components/accounts/connect-button";
 import { OAuthResultToast } from "@/components/accounts/oauth-result-toast";
 
 export default async function AccountsPage({
@@ -17,6 +18,7 @@ export default async function AccountsPage({
     listSocialAccounts(userId),
     searchParams,
   ]);
+  const providers = listConnectableProviders();
   const firstValue = (v: string | string[] | undefined) =>
     Array.isArray(v) ? v[0] : v;
 
@@ -28,6 +30,14 @@ export default async function AccountsPage({
     avatarUrl: a.avatarUrl,
     status: a.status,
   }));
+
+  const connectButtons = (
+    <div className="flex flex-wrap gap-2">
+      {providers.map((p) => (
+        <ConnectButton key={p.id} id={p.id} label={p.label} />
+      ))}
+    </div>
+  );
 
   return (
     <div>
@@ -45,18 +55,20 @@ export default async function AccountsPage({
             Connect the platforms you want to publish to.
           </p>
         </div>
-        {views.length > 0 && <ConnectMetaButton />}
+        {views.length > 0 && connectButtons}
       </div>
 
       {views.length === 0 ? (
         <div className="mt-8 rounded-xl border border-dashed p-12 text-center">
           <p className="font-medium">No accounts connected yet</p>
           <p className="text-muted-foreground mt-1 text-sm">
-            Connect Facebook &amp; Instagram to start publishing. Instagram needs
-            a Business/Creator account linked to a Facebook Page.
+            Connect a platform to start publishing. Instagram needs a
+            Business/Creator account linked to a Facebook Page.
           </p>
-          <div className="mt-5 flex justify-center">
-            <ConnectMetaButton />
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {providers.map((p) => (
+              <ConnectButton key={p.id} id={p.id} label={p.label} />
+            ))}
           </div>
         </div>
       ) : (
