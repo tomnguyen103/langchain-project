@@ -4,11 +4,13 @@ import "./load-env";
 import { Worker, type Job, type Processor } from "bullmq";
 
 import { connection } from "@/lib/queue/connection";
+import { registerTokenRefresh } from "@/lib/queue/jobs";
 import { QueueName } from "@/lib/queue/queues";
 import { commentPollProcessor } from "./processors/comment-poll";
 import { publishProcessor } from "./processors/publish";
 import { replyProcessor } from "./processors/reply";
 import { researchProcessor } from "./processors/research";
+import { tokenRefreshProcessor } from "./processors/token-refresh";
 import { logger } from "./logger";
 
 const workers: Worker[] = [];
@@ -60,8 +62,18 @@ startWorker(QueueName.Generate, stub("generate"), 2);
 startWorker(QueueName.Research, researchProcessor, 2);
 startWorker(QueueName.CommentPoll, commentPollProcessor, 5);
 startWorker(QueueName.Reply, replyProcessor, 5);
+startWorker(QueueName.TokenRefresh, tokenRefreshProcessor, 1);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });
+
+// Ensure the global token-refresh schedule exists (idempotent).
+void registerTokenRefresh().then(
+  () => logger.info("token-refresh scheduler registered"),
+  (error) =>
+    logger.error("failed to register token-refresh scheduler", {
+      error: error instanceof Error ? error.message : String(error),
+    }),
+);
 
 let isShuttingDown = false;
 

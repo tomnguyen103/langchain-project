@@ -1,4 +1,5 @@
 import { requireUserId } from "@/lib/clerk";
+import { langsmithRunUrl } from "@/lib/observability/langsmith";
 import { listIdeas } from "@/lib/repos/generated-content";
 import { listResearchTopics } from "@/lib/repos/research";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,7 +59,11 @@ export default async function ResearchPage() {
               {ideas.map((idea) => (
                 <IdeaCard
                   key={idea.id}
-                  idea={{ id: idea.id, content: idea.content }}
+                  idea={{
+                    id: idea.id,
+                    content: idea.content,
+                    traceUrl: langsmithRunUrl(idea.langsmithRunId),
+                  }}
                 />
               ))}
             </div>

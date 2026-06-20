@@ -41,7 +41,9 @@ export async function researchProcessor(job: Job): Promise<void> {
   });
 
   try {
-    const { findings, ideas } = await runResearch({ niche: topic.niche });
+    const { findings, ideas, langsmithRunId } = await runResearch({
+      niche: topic.niche,
+    });
 
     // Atomically replace any ideas from a prior attempt (idempotent on retry).
     await replaceIdeasForTopic(
@@ -53,6 +55,7 @@ export async function researchProcessor(job: Job): Promise<void> {
         topic: topic.niche,
         content,
         promptVersion: "v1",
+        langsmithRunId,
       })),
     );
 

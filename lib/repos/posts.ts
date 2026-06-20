@@ -1,6 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import { and, desc, eq, gte, inArray, isNotNull, lte } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  inArray,
+  isNotNull,
+  lte,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -93,6 +102,22 @@ export async function listPostsWithTargets(
     ...p,
     targets: targets.filter((t) => t.postId === p.id),
   }));
+}
+
+/** Failed publish targets for a user (the dead-letter "needs attention" list). */
+export async function listFailedTargetsForUser(
+  clerkUserId: string,
+  limit = 20,
+): Promise<PostTarget[]> {
+  return db
+    .select(getTableColumns(postTargets))
+    .from(postTargets)
+    .innerJoin(posts, eq(postTargets.postId, posts.id))
+    .where(
+      and(eq(posts.clerkUserId, clerkUserId), eq(postTargets.status, "failed")),
+    )
+    .orderBy(desc(postTargets.updatedAt))
+    .limit(limit);
 }
 
 /** Recently-published targets for an account that can carry comments to poll. */

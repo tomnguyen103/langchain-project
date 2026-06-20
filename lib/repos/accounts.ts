@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNotNull, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -6,6 +6,24 @@ import {
   type NewSocialAccount,
   type SocialAccount,
 } from "@/db/schema";
+
+/** Active accounts whose token expires before `before` (proactive refresh). */
+export async function listAccountsNeedingRefresh(
+  before: Date,
+  limit = 100,
+): Promise<SocialAccount[]> {
+  return db
+    .select()
+    .from(socialAccounts)
+    .where(
+      and(
+        eq(socialAccounts.status, "active"),
+        isNotNull(socialAccounts.tokenExpiresAt),
+        lt(socialAccounts.tokenExpiresAt, before),
+      ),
+    )
+    .limit(limit);
+}
 
 /** Insert or refresh a connected account (keyed by user + platform + external id). */
 export async function upsertSocialAccount(

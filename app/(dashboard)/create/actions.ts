@@ -144,6 +144,15 @@ export async function createPost(
     throw new Error("Selected accounts could not be found.");
   }
 
+  // Don't schedule onto expired/revoked accounts — they'd just fail at publish.
+  const inactive = selected.filter((a) => a.status !== "active");
+  if (inactive.length > 0) {
+    const labels = inactive
+      .map((a) => PLATFORM_META[a.platform].label)
+      .join(", ");
+    throw new Error(`Reconnect before scheduling: ${labels}.`);
+  }
+
   const bodyFor = (platform: Platform) =>
     (input.bodyByPlatform[platform] ?? "").trim();
 
