@@ -40,7 +40,7 @@ const EnvSchema = z.object({
 export type Env = z.infer<typeof EnvSchema>;
 
 function loadEnv(): Env {
-  if (process.env.SKIP_ENV_VALIDATION) {
+  if (process.env.SKIP_ENV_VALIDATION === "true") {
     return process.env as unknown as Env;
   }
 

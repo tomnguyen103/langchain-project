@@ -96,7 +96,10 @@ export default function Home() {
             <TabsContent value="compose">
               <Card>
                 <CardContent className="space-y-3 pt-6">
-                  <Input placeholder="Drop a niche, e.g. 'indie game devlogs'…" />
+                  <Input
+                    aria-label="Content niche"
+                    placeholder="Drop a niche, e.g. 'indie game devlogs'…"
+                  />
                   <Button className="w-full">
                     <Bot className="size-4" /> Generate ideas
                   </Button>

@@ -1,7 +1,5 @@
-import { config } from "dotenv";
-
-// Load local env before anything reads process.env (the worker runs outside Next.js).
-config({ path: ".env.local" });
+// Must be first: loads .env.local before any module that reads process.env.
+import "./load-env";
 
 import { Worker, type Job, type Processor } from "bullmq";
 
@@ -27,6 +25,11 @@ function startWorker(name: QueueName, processor: Processor, concurrency = 5) {
       error: err.message,
     }),
   );
+  // Worker-level errors (e.g. Redis connection drops) are emitted as 'error'
+  // events; without a listener they crash the process as unhandled errors.
+  worker.on("error", (err) =>
+    logger.error("worker error", { queue: name, error: err.message }),
+  );
   workers.push(worker);
 }
 
@@ -40,7 +43,11 @@ const stub =
     logger.info("stub processed job", {
       label,
       jobId: job.id,
-      data: job.data,
+      // Log only the payload shape, never raw values (may carry tokens/PII).
+      dataKeys:
+        job.data && typeof job.data === "object"
+          ? Object.keys(job.data as Record<string, unknown>)
+          : undefined,
     });
   };
 
@@ -52,11 +59,23 @@ startWorker(QueueName.Reply, stub("reply"), 5);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });
 
+let isShuttingDown = false;
+
 async function shutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
   logger.warn("shutting down workers", { signal });
-  await Promise.all(workers.map((w) => w.close()));
-  logger.info("workers closed, exiting");
-  process.exit(0);
+  try {
+    await Promise.allSettled(workers.map((w) => w.close()));
+    logger.info("workers closed, exiting");
+    process.exit(0);
+  } catch (error) {
+    logger.error("worker shutdown failed", {
+      signal,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    process.exit(1);
+  }
 }
 
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
