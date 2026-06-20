@@ -46,6 +46,13 @@ const EnvSchema = z.object({
   LINKEDIN_CLIENT_ID: z.string().optional(),
   LINKEDIN_CLIENT_SECRET: z.string().optional(),
 
+  // LLM providers (Gemini default) — optional; the agent errors clearly if the
+  // selected provider's key is missing.
+  LLM_PROVIDER: z.enum(["gemini", "openai", "anthropic"]).optional(),
+  GOOGLE_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+
   // LangSmith observability (Goal 4) — optional
   LANGCHAIN_TRACING_V2: z.string().optional(),
   LANGCHAIN_API_KEY: z.string().optional(),
