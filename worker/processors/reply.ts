@@ -8,12 +8,12 @@ import type { CommentReplyJobData } from "@/lib/queue/jobs";
 import { getSocialAccount } from "@/lib/repos/accounts";
 import {
   claimReply,
-  countRepliesForRuleSince,
   finalizeReply,
   getCommentEvent,
   getRule,
-  lastReplyAtForRule,
+  grantReplySlot,
   releaseReply,
+  releaseReplySlot,
   updateCommentEvent,
 } from "@/lib/repos/replies";
 import { logger } from "../logger";
@@ -44,20 +44,17 @@ export async function replyProcessor(job: Job): Promise<void> {
   if (!account || account.status !== "active") return skip("account inactive");
   if (!hasConnector(account.platform)) return skip("no connector");
 
-  // Cooldown: don't fire the same rule more often than cooldownSec.
-  if (rule.cooldownSec > 0) {
-    const last = await lastReplyAtForRule(rule.id);
-    if (last && Date.now() - last.getTime() < rule.cooldownSec * 1000) {
-      return skip("cooldown");
-    }
-  }
+  // Atomically take a rate-limit slot (cooldown + daily cap) before composing or
+  // claiming. The single conditional upsert serializes concurrent jobs for the
+  // same rule, so two different comments matching one rule can't both slip past
+  // the cap/cooldown the way separate read-then-check steps could.
+  const limits = { maxPerDay: rule.maxPerDay, cooldownSec: rule.cooldownSec };
+  const now = new Date();
+  const granted = await grantReplySlot(rule.id, limits, now);
+  if (!granted) return skip("rate limited (cooldown or daily cap)");
 
-  // Daily cap.
-  if (rule.maxPerDay != null) {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const used = await countRepliesForRuleSince(rule.id, since);
-    if (used >= rule.maxPerDay) return skip("daily cap reached");
-  }
+  // Any path from here that does NOT post must give the slot back.
+  const releaseSlot = () => releaseReplySlot(rule.id, limits, now);
 
   // Compose the reply.
   const vars = { author: event.author, text: event.text };
@@ -79,12 +76,25 @@ export async function replyProcessor(job: Job): Promise<void> {
   const connector = getConnector(account.platform);
   const max = connector.capabilities.maxBodyLength;
   const finalText = replyText.trim().slice(0, max);
-  if (!finalText) return skip("empty reply");
+  if (!finalText) {
+    await releaseSlot();
+    return skip("empty reply");
+  }
 
   // Atomically claim before posting so a retry or concurrent run can't post a
-  // second public reply. A failed post releases the claim for a later retry.
-  const claimed = await claimReply(event.id);
-  if (!claimed) return;
+  // second public reply for THIS comment. A lost claim or failed post releases
+  // both the claim and the rate-limit slot for a later retry.
+  let claimed = false;
+  try {
+    claimed = await claimReply(event.id);
+  } catch (error) {
+    await releaseSlot();
+    throw error;
+  }
+  if (!claimed) {
+    await releaseSlot();
+    return;
+  }
 
   try {
     const { externalId } = await connector.postReply(
@@ -101,6 +111,7 @@ export async function replyProcessor(job: Job): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await releaseReply(event.id);
+    await releaseSlot();
     logger.error("reply: post failed", { commentEventId, error: message });
     throw error; // let BullMQ retry with backoff
   }

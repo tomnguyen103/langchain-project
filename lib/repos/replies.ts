@@ -1,19 +1,19 @@
 import {
   and,
-  count,
   desc,
   eq,
   getTableColumns,
-  gte,
   isNull,
   lt,
   max,
   or,
+  sql,
 } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   autoReplyRules,
+  autoReplySlots,
   commentEvents,
   socialAccounts,
   type AutoReplyRule,
@@ -22,6 +22,11 @@ import {
   type NewCommentEvent,
   type Platform,
 } from "@/db/schema";
+import {
+  isUnlimited,
+  utcDayStart,
+  type ReplySlotLimits,
+} from "@/lib/auto-reply/slot";
 
 // ---------------------------------------------------------------------------
 // Auto-reply rules
@@ -288,34 +293,82 @@ export async function listRecentCommentEventsForUser(
     .limit(limit);
 }
 
-/** Most recent successful reply time for a rule (drives the cooldown). */
-export async function lastReplyAtForRule(ruleId: string): Promise<Date | null> {
-  const [row] = await db
-    .select({ at: max(commentEvents.updatedAt) })
-    .from(commentEvents)
-    .where(
-      and(
-        eq(commentEvents.matchedRuleId, ruleId),
-        eq(commentEvents.replied, true),
-      ),
-    );
-  return row?.at ? new Date(row.at) : null;
+// ---------------------------------------------------------------------------
+// Rate-limit slots (atomic cooldown + daily-cap enforcement)
+// ---------------------------------------------------------------------------
+
+/**
+ * Atomically take a reply slot for a rule, honoring its cooldown and daily cap.
+ * One conditional upsert against the rule's single `auto_reply_slots` row: the
+ * row lock serializes concurrent reply jobs so only one can take the last slot
+ * (fixing the cross-comment cap/cooldown race). Returns false when the cap is
+ * reached or the cooldown is still active. See `evaluateReplySlot` for the
+ * reference semantics this SQL must match. A granted slot MUST be released
+ * (`releaseReplySlot`) if the reply is ultimately not posted.
+ */
+export async function grantReplySlot(
+  ruleId: string,
+  limits: ReplySlotLimits,
+  now: Date = new Date(),
+): Promise<boolean> {
+  // No cap and no cooldown ⇒ nothing to gate; skip the ledger write entirely.
+  if (isUnlimited(limits)) return true;
+
+  const periodStart = utcDayStart(now);
+  const cooldownCutoff = new Date(now.getTime() - limits.cooldownSec * 1000);
+
+  const capOk =
+    limits.maxPerDay === null
+      ? sql`TRUE`
+      : sql`${autoReplySlots.periodStart} < ${periodStart}::date OR ${autoReplySlots.usedCount} < ${limits.maxPerDay}`;
+  const cooldownOk =
+    limits.cooldownSec <= 0
+      ? sql`TRUE`
+      : sql`${autoReplySlots.lastReplyAt} IS NULL OR ${autoReplySlots.lastReplyAt} <= ${cooldownCutoff}`;
+
+  const rows = await db
+    .insert(autoReplySlots)
+    .values({ ruleId, periodStart, usedCount: 1, lastReplyAt: now })
+    .onConflictDoUpdate({
+      target: autoReplySlots.ruleId,
+      set: {
+        // Reset to 1 when the period rolled over, otherwise increment.
+        usedCount: sql`CASE WHEN ${autoReplySlots.periodStart} < ${periodStart}::date THEN 1 ELSE ${autoReplySlots.usedCount} + 1 END`,
+        periodStart: sql`GREATEST(${autoReplySlots.periodStart}, ${periodStart}::date)`,
+        lastReplyAt: now,
+        updatedAt: new Date(),
+      },
+      setWhere: sql`(${capOk}) AND (${cooldownOk})`,
+    })
+    .returning({ usedCount: autoReplySlots.usedCount });
+
+  return rows.length > 0;
 }
 
-/** Count successful replies attributed to a rule since `since` (drives maxPerDay). */
-export async function countRepliesForRuleSince(
+/**
+ * Roll back a slot taken by `grantReplySlot` when the reply wasn't posted
+ * (claim lost, empty reply, or post failed) so retries aren't starved of cap.
+ * Decrements the current period's counter, floored at 0. `lastReplyAt` is left
+ * as-is: it only spaces *subsequent* replies, and a failed attempt erring on the
+ * side of a slightly later retry is safe.
+ */
+export async function releaseReplySlot(
   ruleId: string,
-  since: Date,
-): Promise<number> {
-  const [row] = await db
-    .select({ n: count() })
-    .from(commentEvents)
+  limits: ReplySlotLimits,
+  now: Date = new Date(),
+): Promise<void> {
+  if (isUnlimited(limits)) return;
+  const periodStart = utcDayStart(now);
+  await db
+    .update(autoReplySlots)
+    .set({
+      usedCount: sql`GREATEST(${autoReplySlots.usedCount} - 1, 0)`,
+      updatedAt: new Date(),
+    })
     .where(
       and(
-        eq(commentEvents.matchedRuleId, ruleId),
-        eq(commentEvents.replied, true),
-        gte(commentEvents.updatedAt, since),
+        eq(autoReplySlots.ruleId, ruleId),
+        eq(autoReplySlots.periodStart, periodStart),
       ),
     );
-  return row?.n ?? 0;
 }
