@@ -36,6 +36,20 @@
       "when": 1781957909506,
       "tag": "0004_striped_anthem",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781962648036,
+      "tag": "0005_parched_mandarin",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781964418637,
+      "tag": "0006_open_squadron_sinister",
+      "breakpoints": true
     }
   ]
 }

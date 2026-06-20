@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, lte } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -93,6 +93,25 @@ export async function listPostsWithTargets(
     ...p,
     targets: targets.filter((t) => t.postId === p.id),
   }));
+}
+
+/** Recently-published targets for an account that can carry comments to poll. */
+export async function listPublishedTargetsForAccount(
+  socialAccountId: string,
+  limit = 25,
+): Promise<PostTarget[]> {
+  return db
+    .select()
+    .from(postTargets)
+    .where(
+      and(
+        eq(postTargets.socialAccountId, socialAccountId),
+        eq(postTargets.status, "published"),
+        isNotNull(postTargets.externalPostId),
+      ),
+    )
+    .orderBy(desc(postTargets.publishedAt))
+    .limit(limit);
 }
 
 export async function getPostTarget(

@@ -5,7 +5,9 @@ import { Worker, type Job, type Processor } from "bullmq";
 
 import { connection } from "@/lib/queue/connection";
 import { QueueName } from "@/lib/queue/queues";
+import { commentPollProcessor } from "./processors/comment-poll";
 import { publishProcessor } from "./processors/publish";
+import { replyProcessor } from "./processors/reply";
 import { researchProcessor } from "./processors/research";
 import { logger } from "./logger";
 
@@ -36,8 +38,8 @@ function startWorker(name: QueueName, processor: Processor, concurrency = 5) {
 }
 
 /**
- * Goal 0: stub processors that simply log. Real processors arrive in later goals:
- * publish → Goal 2, generate → Goal 4, research → Goal 5, comment-poll + reply → Goal 7.
+ * Stub processor (logs only). Used where the real work runs elsewhere:
+ * generate streams via the /api/generate route rather than this queue.
  */
 const stub =
   (label: string): Processor =>
@@ -56,8 +58,8 @@ const stub =
 startWorker(QueueName.Publish, publishProcessor, 5);
 startWorker(QueueName.Generate, stub("generate"), 2);
 startWorker(QueueName.Research, researchProcessor, 2);
-startWorker(QueueName.CommentPoll, stub("comment-poll"), 5);
-startWorker(QueueName.Reply, stub("reply"), 5);
+startWorker(QueueName.CommentPoll, commentPollProcessor, 5);
+startWorker(QueueName.Reply, replyProcessor, 5);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });
 

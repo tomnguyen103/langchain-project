@@ -2,8 +2,9 @@ import type { SocialAccount } from "@/db/schema";
 
 import { AbstractConnector } from "./base";
 import { PLATFORM_META } from "./constants";
-import { graphFetch } from "./_meta-graph";
+import { graphFetch, graphFetchAll } from "./_meta-graph";
 import type {
+  CommentRef,
   PlatformCapabilities,
   PublishInput,
   PublishResult,
@@ -70,6 +71,46 @@ class InstagramConnector extends AbstractConnector {
     }
 
     return { externalPostId: published.id, url, raw: published };
+  }
+
+  async fetchComments(
+    account: SocialAccount,
+    externalPostId: string,
+    since?: Date,
+  ): Promise<CommentRef[]> {
+    const items = await graphFetchAll<{
+      id: string;
+      text?: string;
+      username?: string;
+      timestamp?: string;
+    }>(`/${externalPostId}/comments`, {
+      accessToken: this.accessToken(account),
+      params: { fields: "id,text,username,timestamp", limit: "100" },
+    });
+
+    const comments = items.map((c) => ({
+      externalCommentId: c.id,
+      externalPostId,
+      author: c.username ?? "",
+      text: c.text ?? "",
+      createdAt: c.timestamp ? new Date(c.timestamp) : new Date(),
+    }));
+    // The IG comments edge has no reliable `since` filter — filter client-side
+    // (inclusive, so a re-polled boundary second isn't dropped; DB dedupes).
+    return since ? comments.filter((c) => c.createdAt >= since) : comments;
+  }
+
+  async postReply(
+    commentId: string,
+    text: string,
+    account: SocialAccount,
+  ): Promise<{ externalId: string }> {
+    const res = await graphFetch<{ id: string }>(`/${commentId}/replies`, {
+      method: "POST",
+      accessToken: this.accessToken(account),
+      params: { message: text },
+    });
+    return { externalId: res.id };
   }
 }
 

@@ -4,6 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { getProvider } from "@/lib/oauth/registry";
+import { getConnector, hasConnector } from "@/lib/platforms/registry";
+import { registerCommentPoll } from "@/lib/queue/jobs";
 import { listSocialAccounts, upsertSocialAccount } from "@/lib/repos/accounts";
 import { encrypt, encryptNullable } from "@/lib/utils/crypto";
 import { getAppUrl } from "@/lib/utils/app-url";
@@ -81,7 +83,7 @@ export async function GET(
       continue;
     }
     try {
-      await upsertSocialAccount({
+      const savedAccount = await upsertSocialAccount({
         clerkUserId: userId,
         clerkOrgId: orgId ?? null,
         platform: acct.platform,
@@ -99,6 +101,20 @@ export async function GET(
       });
       saved += 1;
       if (isNew) accountCount += 1;
+
+      // Start comment polling for comment-capable platforms. Best-effort: a
+      // queue/Redis hiccup must not fail the connection itself.
+      if (
+        hasConnector(savedAccount.platform) &&
+        getConnector(savedAccount.platform).capabilities.supportsComments
+      ) {
+        await registerCommentPoll(savedAccount.id).catch((error) => {
+          console.error("Failed to register comment poll", {
+            accountId: savedAccount.id,
+            error,
+          });
+        });
+      }
     } catch (error) {
       console.error("Failed to save connected account", {
         provider: providerId,

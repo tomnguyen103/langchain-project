@@ -56,6 +56,41 @@ export async function graphFetch<T = unknown>(
   return json;
 }
 
+/**
+ * Follow Graph API cursor pagination for an edge, collecting `data` items
+ * across pages. Bounded by `maxPages` so a high-volume edge can't loop forever
+ * — callers pass a `since`/time window to keep the page count small.
+ */
+export async function graphFetchAll<T = unknown>(
+  path: string,
+  init: GraphInit,
+  maxPages = 5,
+): Promise<T[]> {
+  const out: T[] = [];
+  let after: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const res = await graphFetch<{
+      data?: T[];
+      paging?: { cursors?: { after?: string }; next?: string };
+    }>(path, {
+      ...init,
+      params: { ...init.params, after },
+    });
+    if (res.data?.length) out.push(...res.data);
+    after = res.paging?.next ? res.paging?.cursors?.after : undefined;
+    if (!after) break;
+  }
+  if (after) {
+    // Pages remained at the cap — surface it so truncation isn't silent.
+    // Callers use a `since` cursor + chronological order so the next poll
+    // resumes where this one stopped (no permanent loss, just drained over time).
+    console.warn(
+      `graphFetchAll: page cap (${maxPages}) reached for ${path}; ${out.length} fetched, more remain`,
+    );
+  }
+  return out;
+}
+
 /** Public GET (no access token injected) — used for OAuth token-exchange endpoints. */
 export async function graphGet<T = unknown>(
   path: string,
