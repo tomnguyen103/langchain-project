@@ -1,25 +1,26 @@
-import { describe, expect, it } from "vitest";
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 
 import { isSafeRegexSource, MAX_REGEX_LENGTH } from "./regex-guard";
 
 describe("isSafeRegexSource", () => {
   it("accepts simple patterns", () => {
-    expect(isSafeRegexSource("hello")).toBe(true);
-    expect(isSafeRegexSource("#\\d+")).toBe(true);
+    assert.equal(isSafeRegexSource("hello"), true);
+    assert.equal(isSafeRegexSource("#\\d+"), true);
   });
 
   it("rejects empty and oversized patterns", () => {
-    expect(isSafeRegexSource("")).toBe(false);
-    expect(isSafeRegexSource("a".repeat(MAX_REGEX_LENGTH + 1))).toBe(false);
+    assert.equal(isSafeRegexSource(""), false);
+    assert.equal(isSafeRegexSource("a".repeat(MAX_REGEX_LENGTH + 1)), false);
   });
 
   it("rejects nested quantifiers", () => {
-    expect(isSafeRegexSource("(a+)+")).toBe(false);
-    expect(isSafeRegexSource("(.*)*")).toBe(false);
+    assert.equal(isSafeRegexSource("(a+)+"), false);
+    assert.equal(isSafeRegexSource("(.*)*"), false);
   });
 
   it("rejects quantified alternation", () => {
-    expect(isSafeRegexSource("(a|ab)+")).toBe(false);
-    expect(isSafeRegexSource("(a|a)*")).toBe(false);
+    assert.equal(isSafeRegexSource("(a|ab)+"), false);
+    assert.equal(isSafeRegexSource("(a|a)*"), false);
   });
 });
