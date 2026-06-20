@@ -1,11 +1,27 @@
 "use client";
 
 import { type Dispatch, type SetStateAction, useState } from "react";
-import { ImagePlus, Loader2, X } from "lucide-react";
+import { ImagePlus, Loader2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { saveUploadedMedia, type SavedMedia } from "@/app/(dashboard)/create/actions";
+import {
+  generateMediaVariants,
+  saveUploadedMedia,
+  type SavedMedia,
+} from "@/app/(dashboard)/create/actions";
+import {
+  AI_TRANSFORM_OPS,
+  PLATFORM_VARIANT_SPECS,
+} from "@/lib/imagekit/transform";
 import { uploadToImageKit } from "@/lib/imagekit/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function MediaUploader({
   value,
@@ -15,6 +31,7 @@ export function MediaUploader({
   onChange: Dispatch<SetStateAction<SavedMedia[]>>;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -41,6 +58,21 @@ export function MediaUploader({
     }
   }
 
+  async function generate(assetId: string, specKey: string) {
+    setGeneratingId(assetId);
+    try {
+      const variants = await generateMediaVariants(assetId, [specKey]);
+      onChange((prev) => [...prev, ...variants]);
+      toast.success("Variant added.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Couldn't generate variant.",
+      );
+    } finally {
+      setGeneratingId(null);
+    }
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
       {value.map((media) => (
@@ -64,6 +96,46 @@ export function MediaUploader({
           >
             <X className="size-3" />
           </button>
+
+          {media.type === "image" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Generate variants"
+                  disabled={generatingId === media.id}
+                  className="bg-background/80 absolute bottom-1 right-1 rounded-full p-0.5"
+                >
+                  {generatingId === media.id ? (
+                    <Loader2 className="size-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-3" />
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Platform sizes</DropdownMenuLabel>
+                {PLATFORM_VARIANT_SPECS.map((spec) => (
+                  <DropdownMenuItem
+                    key={spec.key}
+                    onClick={() => generate(media.id, spec.key)}
+                  >
+                    {spec.label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>AI effects</DropdownMenuLabel>
+                {AI_TRANSFORM_OPS.map((spec) => (
+                  <DropdownMenuItem
+                    key={spec.key}
+                    onClick={() => generate(media.id, spec.key)}
+                  >
+                    {spec.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       ))}
 

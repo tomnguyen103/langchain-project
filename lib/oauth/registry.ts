@@ -2,12 +2,14 @@ import type { OAuthProvider } from "@/lib/platforms/types";
 
 import { linkedinProvider } from "./providers/linkedin";
 import { metaProvider } from "./providers/meta";
+import { tiktokProvider } from "./providers/tiktok";
 
 type ProviderEntry = { id: string; label: string; provider: OAuthProvider };
 
 const entries: ProviderEntry[] = [
   { id: "meta", label: "Facebook & Instagram", provider: metaProvider },
   { id: "linkedin", label: "LinkedIn", provider: linkedinProvider },
+  { id: "tiktok", label: "TikTok", provider: tiktokProvider },
 ];
 
 export function getProvider(id: string): OAuthProvider | undefined {

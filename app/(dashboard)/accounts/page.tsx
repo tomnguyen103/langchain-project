@@ -6,6 +6,7 @@ import {
   type AccountView,
 } from "@/components/accounts/account-card";
 import { ConnectButton } from "@/components/accounts/connect-button";
+import { DiscordConnectForm } from "@/components/accounts/discord-connect-form";
 import { OAuthResultToast } from "@/components/accounts/oauth-result-toast";
 
 export default async function AccountsPage({
@@ -56,6 +57,10 @@ export default async function AccountsPage({
           </p>
         </div>
         {views.length > 0 && connectButtons}
+      </div>
+
+      <div className="mt-6 max-w-xl">
+        <DiscordConnectForm />
       </div>
 
       {views.length === 0 ? (

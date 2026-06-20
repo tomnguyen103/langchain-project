@@ -46,6 +46,10 @@ const EnvSchema = z.object({
   LINKEDIN_CLIENT_ID: z.string().optional(),
   LINKEDIN_CLIENT_SECRET: z.string().optional(),
 
+  // TikTok OAuth + Content Posting API — optional; hidden in the UI when unset.
+  TIKTOK_CLIENT_KEY: z.string().optional(),
+  TIKTOK_CLIENT_SECRET: z.string().optional(),
+
   // LLM providers (Gemini default) — optional; the agent errors clearly if the
   // selected provider's key is missing.
   LLM_PROVIDER: z.enum(["gemini", "openai", "anthropic"]).optional(),
