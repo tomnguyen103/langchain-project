@@ -68,8 +68,7 @@ export default function PricingPage() {
           Plans that scale with your content
         </h1>
         <p className="text-muted-foreground mt-3 text-lg">
-          Start free. Upgrade when the agent is doing the heavy lifting. Billing
-          is managed securely through Clerk.
+          Start free. Upgrade when the agent is doing the heavy lifting.
         </p>
       </div>
 

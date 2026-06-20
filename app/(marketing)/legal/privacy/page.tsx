@@ -11,8 +11,8 @@ export default function PrivacyPage() {
       <p className="text-muted-foreground mt-4">
         This is a placeholder privacy policy. SocialFlow stores the social
         accounts you connect and the content you create in order to schedule and
-        publish on your behalf. OAuth tokens are encrypted at rest. A complete
-        policy will be published before launch.
+        publish on your behalf. Full data-handling and security details will be
+        published before launch.
       </p>
     </article>
   );

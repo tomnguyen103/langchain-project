@@ -12,7 +12,7 @@ export function SiteFooter() {
           SocialFlow
         </div>
         <p className="text-muted-foreground text-sm">
-          © 2026 SocialFlow. All rights reserved.
+          © {new Date().getFullYear()} SocialFlow. All rights reserved.
         </p>
         <nav className="text-muted-foreground flex gap-6 text-sm">
           <Link href="/pricing" className="hover:text-foreground transition-colors">
