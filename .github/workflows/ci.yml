@@ -19,6 +19,9 @@ jobs:
       SKIP_ENV_VALIDATION: "true"
       DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
       REDIS_URL: "redis://localhost:6379"
+      # Valid-format placeholder (points to a non-existent instance) so ClerkProvider builds.
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_Y2xlcmsuZXhhbXBsZS5jb20k"
+      CLERK_SECRET_KEY: "sk_test_dummy0000000000000000000000000000"
     steps:
       - name: Checkout
         # Pinned to commit SHA (v4) for supply-chain safety.
