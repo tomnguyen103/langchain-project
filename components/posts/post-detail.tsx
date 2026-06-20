@@ -2,11 +2,22 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { ArrowLeft, ExternalLink, Loader2, RotateCw, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  BarChart3,
+  Copy,
+  ExternalLink,
+  Loader2,
+  RotateCw,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
   cancelTarget,
+  duplicatePost,
+  refreshPostMetrics,
   reschedulePost,
   retryTarget,
 } from "@/app/(dashboard)/posts/actions";
@@ -38,7 +49,16 @@ export type PostDetailView = {
     externalUrl: string | null;
     lastError: string | null;
     scheduledAt: string | null;
+    metrics: Record<string, number> | null;
+    metricsUpdatedAt: string | null;
   }>;
+};
+
+const METRIC_LABELS: Record<string, string> = {
+  likes: "Likes",
+  comments: "Comments",
+  shares: "Shares",
+  views: "Views",
 };
 
 const statusVariant: Record<string, BadgeVariant> = {
@@ -65,6 +85,21 @@ const label = (status: string) => status.replace(/_/g, " ");
 export function PostDetail({ post }: { post: PostDetailView }) {
   const [pending, startTransition] = useTransition();
   const [reschedule, setReschedule] = useState(toLocalInput(post.scheduledAt));
+  const router = useRouter();
+
+  function duplicate() {
+    startTransition(async () => {
+      try {
+        const { postId } = await duplicatePost(post.id);
+        toast.success("Duplicated as a draft.");
+        router.push(`/posts/${postId}`);
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Couldn't duplicate.",
+        );
+      }
+    });
+  }
 
   function run(action: () => Promise<void>, okMessage: string) {
     startTransition(async () => {
@@ -78,6 +113,7 @@ export function PostDetail({ post }: { post: PostDetailView }) {
   }
 
   const hasPending = post.targets.some((t) => t.status !== "published");
+  const hasPublished = post.targets.some((t) => t.status === "published");
 
   return (
     <div className="space-y-6">
@@ -87,11 +123,35 @@ export function PostDetail({ post }: { post: PostDetailView }) {
             <ArrowLeft className="size-4" /> Calendar
           </Link>
         </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Post</h1>
-          <Badge variant={statusVariant[post.status] ?? "outline"}>
-            {label(post.status)}
-          </Badge>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">Post</h1>
+            <Badge variant={statusVariant[post.status] ?? "outline"}>
+              {label(post.status)}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1">
+            {hasPublished && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() =>
+                  run(() => refreshPostMetrics(post.id), "Metrics updated.")
+                }
+              >
+                <BarChart3 className="size-4" /> Metrics
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={duplicate}
+            >
+              <Copy className="size-4" /> Duplicate
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -183,6 +243,18 @@ export function PostDetail({ post }: { post: PostDetailView }) {
               )}
               {t.lastError && (
                 <p className="text-destructive mt-2 text-xs">{t.lastError}</p>
+              )}
+              {t.metrics && Object.keys(t.metrics).length > 0 && (
+                <div className="text-muted-foreground mt-3 flex flex-wrap gap-4 text-xs">
+                  {Object.entries(t.metrics).map(([k, v]) => (
+                    <span key={k}>
+                      <span className="text-foreground font-semibold">
+                        {v.toLocaleString()}
+                      </span>{" "}
+                      {METRIC_LABELS[k] ?? k}
+                    </span>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

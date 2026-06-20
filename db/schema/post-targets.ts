@@ -44,6 +44,9 @@ export const postTargets = pgTable(
     attemptCount: integer("attempt_count").notNull().default(0),
     lastError: text("last_error"),
     platformOptions: jsonb("platform_options").$type<Record<string, unknown>>(),
+    // Engagement metrics pulled back after publish (Goal 10).
+    metrics: jsonb("metrics").$type<Record<string, number>>(),
+    metricsUpdatedAt: timestamp("metrics_updated_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
