@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { enqueueResearch } from "@/lib/queue/jobs";
 import {
@@ -13,6 +14,11 @@ export async function startResearch(niche: string): Promise<void> {
   const userId = await requireUserId();
   const trimmed = niche.trim();
   if (!trimmed) throw new Error("Enter a niche or topic.");
+
+  const limits = await getPlanLimits();
+  if (!limits.research) {
+    throw new Error("Niche research is a Pro feature. Upgrade to use it.");
+  }
 
   const topic = await createResearchTopic({
     clerkUserId: userId,

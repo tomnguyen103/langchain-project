@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
+import { getPlanLimits } from "@/lib/billing/entitlements";
 import { getProvider } from "@/lib/oauth/registry";
+import { listSocialAccounts } from "@/lib/repos/accounts";
 import { getAppUrl } from "@/lib/utils/app-url";
 
 export async function GET(
@@ -19,6 +21,14 @@ export async function GET(
   const provider = getProvider(providerId);
   if (!provider) {
     return NextResponse.json({ error: "Unknown provider" }, { status: 404 });
+  }
+
+  const limits = await getPlanLimits();
+  const accounts = await listSocialAccounts(userId);
+  if (accounts.length >= limits.accounts) {
+    const limitUrl = new URL("/accounts", getAppUrl(req));
+    limitUrl.searchParams.set("error", "account_limit");
+    return NextResponse.redirect(limitUrl);
   }
 
   const state = randomBytes(16).toString("hex");

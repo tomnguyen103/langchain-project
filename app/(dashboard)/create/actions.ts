@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { MediaType, NewPostTarget, Platform } from "@/db/schema";
+import { consumeQuota } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
@@ -122,6 +123,10 @@ export async function createPost(
       scheduledAt,
     }),
   );
+
+  // Consume quota only after all validation passes, so an invalid request
+  // never burns a unit. The consume is atomic, so this stays race-safe.
+  await consumeQuota(userId, "posts_scheduled");
 
   const created = await createPostWithTargets({
     post: {

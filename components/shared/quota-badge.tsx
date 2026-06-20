@@ -1,12 +1,12 @@
 import { Zap } from "lucide-react";
 
+import { PLAN_LIMITS, type PlanId } from "@/lib/billing/plans";
 import { Badge } from "@/components/ui/badge";
 
-export function QuotaBadge() {
-  // Placeholder until usage metering + plans land in Goal 6.
+export function QuotaBadge({ plan }: { plan: PlanId }) {
   return (
     <Badge variant="secondary" className="gap-1">
-      <Zap className="size-3" /> Free plan
+      <Zap className="size-3" /> {PLAN_LIMITS[plan].label}
     </Badge>
   );
 }

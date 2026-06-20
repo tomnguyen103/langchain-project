@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import type { Platform } from "@/db/schema";
 import { runContentAgent } from "@/lib/agent";
+import {
+  consumeQuota,
+  QuotaExceededError,
+} from "@/lib/billing/entitlements";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 
 export const runtime = "nodejs";
@@ -35,6 +39,15 @@ export async function POST(req: NextRequest) {
   );
   if (platforms.length === 0) {
     return NextResponse.json({ error: "No valid platforms" }, { status: 400 });
+  }
+
+  try {
+    await consumeQuota(userId, "ai_generations");
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
+    throw error;
   }
 
   try {

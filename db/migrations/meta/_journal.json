@@ -29,6 +29,13 @@
       "when": 1781929658068,
       "tag": "0003_silky_moira_mactaggert",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781957909506,
+      "tag": "0004_striped_anthem",
+      "breakpoints": true
     }
   ]
 }
