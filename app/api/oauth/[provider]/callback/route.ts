@@ -2,8 +2,9 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
+import { getPlanLimits } from "@/lib/billing/entitlements";
 import { getProvider } from "@/lib/oauth/registry";
-import { upsertSocialAccount } from "@/lib/repos/accounts";
+import { listSocialAccounts, upsertSocialAccount } from "@/lib/repos/accounts";
 import { encrypt, encryptNullable } from "@/lib/utils/crypto";
 import { getAppUrl } from "@/lib/utils/app-url";
 
@@ -57,9 +58,28 @@ export async function GET(
     return NextResponse.redirect(accountsUrl({ error: "exchange_failed" }));
   }
 
+  // Defense-in-depth: re-enforce the account limit at the point of persistence.
+  // The start route's pre-check can be bypassed by concurrent OAuth flows or a
+  // direct callback hit. Re-linking an already-connected account is always
+  // allowed (it's an update, not a new slot).
+  const limits = await getPlanLimits();
+  const existing = await listSocialAccounts(userId);
+  const linkedKeys = new Set(
+    existing.map((a) => `${a.platform}:${a.platformAccountId}`),
+  );
+  let accountCount = existing.length;
+  let skippedOverLimit = 0;
+
   // Save each account independently so one failure doesn't lose the others.
   let saved = 0;
   for (const acct of connected) {
+    const isNew = !linkedKeys.has(
+      `${acct.platform}:${acct.platformAccountId}`,
+    );
+    if (isNew && accountCount >= limits.accounts) {
+      skippedOverLimit += 1;
+      continue;
+    }
     try {
       await upsertSocialAccount({
         clerkUserId: userId,
@@ -78,6 +98,7 @@ export async function GET(
         lastValidatedAt: new Date(),
       });
       saved += 1;
+      if (isNew) accountCount += 1;
     } catch (error) {
       console.error("Failed to save connected account", {
         provider: providerId,
@@ -88,6 +109,9 @@ export async function GET(
   }
 
   if (saved === 0) {
+    if (skippedOverLimit > 0) {
+      return NextResponse.redirect(accountsUrl({ error: "account_limit" }));
+    }
     return NextResponse.redirect(
       accountsUrl({ error: connected.length ? "save_failed" : "no_accounts" }),
     );

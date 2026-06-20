@@ -22,18 +22,26 @@ export async function getUsageCount(
   return row?.count ?? 0;
 }
 
-/** Atomically increment a usage counter for the period. */
-export async function incrementUsage(
+/**
+ * Atomically consume one unit of quota. Increments only when still under
+ * `limit`, in a single statement — so concurrent requests can't both pass.
+ * Returns false when already at/over the limit.
+ */
+export async function consumeUsage(
   clerkUserId: string,
   metric: string,
   periodStart: string,
-  by = 1,
-): Promise<void> {
-  await db
+  limit: number,
+): Promise<boolean> {
+  if (limit <= 0) return false;
+  const rows = await db
     .insert(usage)
-    .values({ clerkUserId, metric, periodStart, count: by })
+    .values({ clerkUserId, metric, periodStart, count: 1 })
     .onConflictDoUpdate({
       target: [usage.clerkUserId, usage.metric, usage.periodStart],
-      set: { count: sql`${usage.count} + ${by}`, updatedAt: new Date() },
-    });
+      set: { count: sql`${usage.count} + 1`, updatedAt: new Date() },
+      setWhere: sql`${usage.count} < ${limit}`,
+    })
+    .returning({ count: usage.count });
+  return rows.length > 0;
 }

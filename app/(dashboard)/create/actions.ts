@@ -3,10 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { MediaType, NewPostTarget, Platform } from "@/db/schema";
-import {
-  assertWithinQuota,
-  recordUsage,
-} from "@/lib/billing/entitlements";
+import { consumeQuota } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
@@ -69,7 +66,7 @@ export async function createPost(
   input: CreatePostInput,
 ): Promise<{ postId: string }> {
   const userId = await requireUserId();
-  await assertWithinQuota(userId, "posts_scheduled");
+  await consumeQuota(userId, "posts_scheduled");
 
   if (input.accountIds.length === 0) {
     throw new Error("Select at least one account to publish to.");
@@ -148,7 +145,6 @@ export async function createPost(
     await updatePostTarget(target.id, { bullJobId: jobId });
   }
 
-  await recordUsage(userId, "posts_scheduled");
   revalidatePath("/calendar");
   return { postId: created.id };
 }

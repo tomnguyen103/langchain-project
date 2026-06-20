@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 
-import { getUsageCount, incrementUsage } from "@/lib/repos/usage";
+import { consumeUsage, getUsageCount } from "@/lib/repos/usage";
 import { PLAN_LIMITS, type PlanId, type PlanLimits } from "./plans";
 
 export type QuotaMetric = "posts_scheduled" | "ai_generations";
@@ -32,6 +32,7 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+/** Period key in UTC so windows are consistent regardless of server timezone. */
 function periodFor(metric: QuotaMetric): {
   periodStart: string;
   limit: (l: PlanLimits) => number;
@@ -39,35 +40,27 @@ function periodFor(metric: QuotaMetric): {
   const now = new Date();
   if (metric === "posts_scheduled") {
     return {
-      periodStart: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
+      periodStart: `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`,
       limit: (l) => l.postsPerDay,
     };
   }
   return {
-    periodStart: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`,
+    periodStart: `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-01`,
     limit: (l) => l.aiPerMonth,
   };
 }
 
-/** Throws QuotaExceededError if the user is at/over the period limit. */
-export async function assertWithinQuota(
+/** Atomically consume one unit of quota or throw QuotaExceededError. */
+export async function consumeQuota(
   userId: string,
   metric: QuotaMetric,
 ): Promise<void> {
   const limits = await getPlanLimits();
   const { periodStart, limit } = periodFor(metric);
-  const used = await getUsageCount(userId, metric, periodStart);
-  if (used >= limit(limits)) {
+  const ok = await consumeUsage(userId, metric, periodStart, limit(limits));
+  if (!ok) {
     throw new QuotaExceededError(metric, limit(limits));
   }
-}
-
-export async function recordUsage(
-  userId: string,
-  metric: QuotaMetric,
-): Promise<void> {
-  const { periodStart } = periodFor(metric);
-  await incrementUsage(userId, metric, periodStart);
 }
 
 export async function getUsageSummary(userId: string): Promise<{
