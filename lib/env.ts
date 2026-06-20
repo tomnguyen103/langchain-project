@@ -28,11 +28,19 @@ const EnvSchema = z.object({
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
   CLERK_WEBHOOK_SIGNING_SECRET: z.string().optional(),
 
-  // Token encryption for social OAuth tokens at rest (Goal 2) — optional for now
+  // Token encryption for social OAuth tokens at rest — required
   ENCRYPTION_KEY: z
     .string()
-    .min(32, "ENCRYPTION_KEY must be at least 32 characters")
-    .optional(),
+    .min(32, "ENCRYPTION_KEY must be at least 32 characters"),
+
+  // Media storage (ImageKit)
+  NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY: z.string().min(1),
+  IMAGEKIT_PRIVATE_KEY: z.string().min(1),
+  NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT: z.string().min(1),
+
+  // Meta (Facebook + Instagram) OAuth + Graph API
+  META_APP_ID: z.string().min(1),
+  META_APP_SECRET: z.string().min(1),
 
   // LangSmith observability (Goal 4) — optional
   LANGCHAIN_TRACING_V2: z.string().optional(),
