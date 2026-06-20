@@ -4,7 +4,10 @@ import { discordConnector } from "./discord";
 import { facebookConnector } from "./facebook";
 import { instagramConnector } from "./instagram";
 import { linkedinConnector } from "./linkedin";
+import { pinterestConnector } from "./pinterest";
 import { tiktokConnector } from "./tiktok";
+import { xConnector } from "./x";
+import { youtubeConnector } from "./youtube";
 import type { PlatformConnector } from "./types";
 
 /** Platform → connector. The publish worker resolves connectors polymorphically. */
@@ -14,6 +17,9 @@ const connectors: Partial<Record<Platform, PlatformConnector>> = {
   linkedin: linkedinConnector,
   tiktok: tiktokConnector,
   discord: discordConnector,
+  youtube: youtubeConnector,
+  pinterest: pinterestConnector,
+  x: xConnector,
 };
 
 export function getConnector(platform: Platform): PlatformConnector {

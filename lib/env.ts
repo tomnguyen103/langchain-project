@@ -41,6 +41,8 @@ const EnvSchema = z.object({
   // Meta (Facebook + Instagram) OAuth + Graph API
   META_APP_ID: z.string().min(1),
   META_APP_SECRET: z.string().min(1),
+  // Verify token for the Meta comments webhook handshake — optional.
+  META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
 
   // LinkedIn OAuth — optional; the connect option is hidden in the UI when unset.
   LINKEDIN_CLIENT_ID: z.string().optional(),
@@ -49,6 +51,18 @@ const EnvSchema = z.object({
   // TikTok OAuth + Content Posting API — optional; hidden in the UI when unset.
   TIKTOK_CLIENT_KEY: z.string().optional(),
   TIKTOK_CLIENT_SECRET: z.string().optional(),
+
+  // X (Twitter) OAuth2 + v2 API — optional; hidden in the UI when unset.
+  X_CLIENT_ID: z.string().optional(),
+  X_CLIENT_SECRET: z.string().optional(),
+
+  // Pinterest OAuth2 + v5 API — optional; hidden in the UI when unset.
+  PINTEREST_CLIENT_ID: z.string().optional(),
+  PINTEREST_CLIENT_SECRET: z.string().optional(),
+
+  // YouTube (Google) OAuth2 + Data API — optional; hidden in the UI when unset.
+  YOUTUBE_CLIENT_ID: z.string().optional(),
+  YOUTUBE_CLIENT_SECRET: z.string().optional(),
 
   // LLM providers (Gemini default) — optional; the agent errors clearly if the
   // selected provider's key is missing.

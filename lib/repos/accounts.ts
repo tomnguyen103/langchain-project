@@ -4,8 +4,29 @@ import { db } from "@/db";
 import {
   socialAccounts,
   type NewSocialAccount,
+  type Platform,
   type SocialAccount,
 } from "@/db/schema";
+
+/**
+ * All accounts matching a platform + external id (webhook routing). Returns
+ * every match because (platform, platformAccountId) isn't unique on its own —
+ * two users could connect the same external account, and each should be handled.
+ */
+export async function listAccountsByPlatformId(
+  platform: Platform,
+  platformAccountId: string,
+): Promise<SocialAccount[]> {
+  return db
+    .select()
+    .from(socialAccounts)
+    .where(
+      and(
+        eq(socialAccounts.platform, platform),
+        eq(socialAccounts.platformAccountId, platformAccountId),
+      ),
+    );
+}
 
 /** Active accounts whose token expires before `before` (proactive refresh). */
 export async function listAccountsNeedingRefresh(

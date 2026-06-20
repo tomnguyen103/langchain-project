@@ -76,7 +76,58 @@ class TikTokConnector extends AbstractConnector {
     if (!publishId) {
       throw new Error("TikTok publish returned no publish_id");
     }
-    // The post is processed async; status is polled via publish_id elsewhere.
+
+    // TikTok processes the upload async; poll status so we only report success
+    // once it's actually published (or surface a real failure). Bounded so a
+    // slow upload doesn't hang the worker — and we never re-init (that would
+    // duplicate), so a still-processing result returns the publish id as-is.
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 3000);
+      });
+      try {
+        const statusRes = await fetch(
+          `${TIKTOK_API}/post/publish/status/fetch/`,
+          {
+            method: "POST",
+            headers: {
+              authorization: `Bearer ${token}`,
+              "content-type": "application/json; charset=UTF-8",
+            },
+            body: JSON.stringify({ publish_id: publishId }),
+            signal: AbortSignal.timeout(15_000),
+          },
+        );
+        if (!statusRes.ok) continue;
+        const status = (await statusRes.json()) as {
+          data?: {
+            status?: string;
+            fail_reason?: string;
+            publicaly_available_post_id?: string[];
+          };
+        };
+        if (status.data?.status === "PUBLISH_COMPLETE") {
+          const postId =
+            status.data.publicaly_available_post_id?.[0] ?? publishId;
+          return { externalPostId: postId, raw: status };
+        }
+        if (status.data?.status === "FAILED") {
+          throw new Error(
+            `TikTok publish failed: ${status.data.fail_reason ?? "unknown"}`,
+          );
+        }
+      } catch (error) {
+        // A genuine publish failure must propagate; transient transport errors
+        // (timeout/network) just mean keep polling — never re-init (duplicates).
+        if (
+          error instanceof Error &&
+          error.message.startsWith("TikTok publish failed")
+        ) {
+          throw error;
+        }
+      }
+    }
+    // Still processing after the poll window — return the publish id.
     return { externalPostId: publishId, raw: json };
   }
 

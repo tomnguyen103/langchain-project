@@ -12,6 +12,7 @@ import { requireUserId } from "@/lib/clerk";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
+  countPostsForUser,
   listFailedTargetsForUser,
   listPostsWithTargets,
 } from "@/lib/repos/posts";
@@ -22,28 +23,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default async function OverviewPage() {
   const userId = await requireUserId();
   const now = new Date();
-  const [user, accounts, failedTargets, posts, rules] = await Promise.all([
-    currentUser(),
-    listSocialAccounts(userId),
-    listFailedTargetsForUser(userId),
-    listPostsWithTargets(userId),
-    listRules(userId),
-  ]);
+  const horizon = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const [user, accounts, failedTargets, upcoming, rules, postCount] =
+    await Promise.all([
+      currentUser(),
+      listSocialAccounts(userId),
+      listFailedTargetsForUser(userId),
+      listPostsWithTargets(userId, { from: now, to: horizon }),
+      listRules(userId),
+      countPostsForUser(userId),
+    ]);
 
   const name = user?.firstName ?? "there";
   const unhealthy = accounts.filter((a) => a.status !== "active");
-  const upcoming = posts.filter((p) => p.scheduledAt && p.scheduledAt >= now);
+  const upcomingPosts = upcoming.filter(
+    (p) => p.scheduledAt && p.scheduledAt >= now,
+  );
 
   const onboarding = [
     { done: accounts.length > 0, label: "Connect a social account", href: "/accounts" },
-    { done: posts.length > 0, label: "Create your first post", href: "/create" },
+    { done: postCount > 0, label: "Create your first post", href: "/create" },
     { done: rules.length > 0, label: "Set up an auto-reply rule", href: "/auto-reply" },
   ];
   const onboardingComplete = onboarding.every((s) => s.done);
 
   const stats = [
     { label: "Connected accounts", value: accounts.length, icon: Plug },
-    { label: "Upcoming", value: upcoming.length, icon: CalendarClock },
+    { label: "Upcoming (90d)", value: upcomingPosts.length, icon: CalendarClock },
     { label: "Need attention", value: failedTargets.length + unhealthy.length, icon: AlertTriangle },
   ];
 
