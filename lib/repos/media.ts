@@ -15,6 +15,17 @@ export async function getMediaAssets(ids: string[]): Promise<MediaAsset[]> {
   return db.select().from(mediaAssets).where(inArray(mediaAssets.id, ids));
 }
 
+export async function getMediaAsset(
+  id: string,
+): Promise<MediaAsset | undefined> {
+  const [row] = await db
+    .select()
+    .from(mediaAssets)
+    .where(eq(mediaAssets.id, id))
+    .limit(1);
+  return row;
+}
+
 /** Resolve media ids in the original order they were attached. */
 export async function resolveMediaAssets(ids: string[]): Promise<MediaAsset[]> {
   const rows = await getMediaAssets(ids);

@@ -3,13 +3,18 @@
 import { revalidatePath } from "next/cache";
 
 import type { MediaType, NewPostTarget, Platform } from "@/db/schema";
-import { consumeQuota } from "@/lib/billing/entitlements";
+import { consumeQuota, getCurrentPlan } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
+import { buildTransformUrl, getVariantSpec } from "@/lib/imagekit/transform";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { enqueuePublish } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
-import { createMediaAsset, getMediaAssets } from "@/lib/repos/media";
+import {
+  createMediaAsset,
+  getMediaAsset,
+  getMediaAssets,
+} from "@/lib/repos/media";
 import { createPostWithTargets, updatePostTarget } from "@/lib/repos/posts";
 
 export type SavedMedia = {
@@ -52,6 +57,64 @@ export async function saveUploadedMedia(input: {
     thumbnailUrl: asset.thumbnailUrl,
     type: asset.type,
   };
+}
+
+/**
+ * Generate derived image variants (platform smart-crops or AI effects) from an
+ * owned source asset via ImageKit URL transforms. Returns the new assets so the
+ * composer can attach them. AI effects require a paid plan.
+ */
+export async function generateMediaVariants(
+  assetId: string,
+  specKeys: string[],
+): Promise<SavedMedia[]> {
+  const userId = await requireUserId();
+
+  const source = await getMediaAsset(assetId);
+  if (!source || source.clerkUserId !== userId) {
+    throw new Error("Media not found.");
+  }
+  if (source.type !== "image") {
+    throw new Error("Variants can only be generated from images.");
+  }
+
+  const specs = [...new Set(specKeys)]
+    .map((k) => getVariantSpec(k))
+    .filter((s): s is NonNullable<typeof s> => Boolean(s));
+  if (specs.length === 0) {
+    throw new Error("Choose at least one variant to generate.");
+  }
+
+  if (specs.some((s) => s.ai) && (await getCurrentPlan()) === "free") {
+    throw new Error("AI image effects are a paid feature. Upgrade to use them.");
+  }
+
+  const created: SavedMedia[] = [];
+  for (const spec of specs) {
+    const asset = await createMediaAsset({
+      clerkUserId: userId,
+      type: "image",
+      url: buildTransformUrl(source.url, spec.transformation),
+      thumbnailUrl: buildTransformUrl(
+        source.url,
+        `${spec.transformation}:w-240`,
+      ),
+      // Platform crops carry exact dims; AI effects (e.g. upscale) change them,
+      // so leave dims unknown rather than copying stale source dimensions.
+      width: spec.width,
+      height: spec.height,
+      mimeType: source.mimeType,
+      transformations: { spec: spec.key, transformation: spec.transformation },
+      sourceAssetId: source.id,
+    });
+    created.push({
+      id: asset.id,
+      url: asset.url,
+      thumbnailUrl: asset.thumbnailUrl,
+      type: asset.type,
+    });
+  }
+  return created;
 }
 
 export type CreatePostInput = {
