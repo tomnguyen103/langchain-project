@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Tailwind v4 plugin registration (CSS-first). Powers the `prose` classes on
+   the legal pages so long-form copy renders as styled typography. */
+@plugin "@tailwindcss/typography";
+
 @custom-variant dark (&:is(.dark *));
 
 /*

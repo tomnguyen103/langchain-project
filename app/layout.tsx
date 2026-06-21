@@ -15,10 +15,41 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+const TITLE = "SocialFlow — AI Social Content Automation";
+const DESCRIPTION =
+  "Research niches, generate platform-tailored content with AI, then schedule and auto-publish across every social platform.";
+
 export const metadata: Metadata = {
-  title: "SocialFlow — AI Social Content Automation",
-  description:
-    "Research niches, generate platform-tailored content with AI, then schedule and auto-publish across every social platform.",
+  // Resolves relative URLs (incl. the opengraph-image/twitter-image routes) to
+  // absolute ones so social crawlers can fetch them.
+  metadataBase: new URL(APP_URL),
+  title: {
+    default: TITLE,
+    template: "%s · SocialFlow",
+  },
+  description: DESCRIPTION,
+  applicationName: "SocialFlow",
+  keywords: [
+    "social media scheduling",
+    "AI content generation",
+    "social media automation",
+    "content calendar",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: "SocialFlow",
+    url: "/",
+    title: TITLE,
+    description: DESCRIPTION,
+    // og image is supplied by app/opengraph-image.tsx (file convention).
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    // twitter image is supplied by app/twitter-image.tsx (file convention).
+  },
 };
 
 export default function RootLayout({
