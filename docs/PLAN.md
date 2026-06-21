@@ -119,7 +119,7 @@ The build is sequenced as 11 phases (Goal 0 → Goal 10), MVP-first, each a ship
 - **Goal 1 — Auth & App Shell** — Clerk auth, landing page, dashboard shell.
 - **Goal 2 — First Vertical Slice (MVP)** — connect 1 platform → compose → upload → schedule → auto-publish → calendar.
 - **Goal 3 — Multi-Platform Publishing** — more adapters, multi-select, per-platform variants, per-target status.
-- **Goal 4 — LangGraph Content Agent** — LLM factory (Gemini), StateGraph, streaming generate, LangSmith.
+- **Goal 4 — LangGraph Content Agent** — LLM factory (Gemini), StateGraph, JSON `/api/generate`, LangSmith.
 - **Goal 5 — Niche Research Pipeline** — research tool, research→generate chaining, research/ideas UI.
 - **Goal 6 — Billing & Feature Gating** — Clerk Billing plans, entitlements, usage quotas (7/day cap).
 - **Goal 7 — Auto Comment-Reply** — rules, comment ingestion, keyword/AI auto-replies.
@@ -137,5 +137,5 @@ The build is sequenced as 11 phases (Goal 0 → Goal 10), MVP-first, each a ship
 | OAuth token sprawl/expiry across 8 platforms | High | Encrypted at rest; `AbstractConnector` centralizes refresh-on-expiry + retry; account health surfaced (Goal 9) |
 | Platform app-review delays (Meta, TikTok) | High | Start review submissions as soon as the adapter exists; sequence easy platforms first (LinkedIn/X) so the MVP doesn't block |
 | Platform API quirks leaking into core | Med | `PlatformConnector` + `registry`; worker is fully polymorphic; `capabilities` drive graceful degradation |
-| LLM cost / latency / non-determinism | Med | Heavy runs async (`generate` queue, concurrency 2); short runs stream; bounded refine loop; usage caps; LangSmith traces |
+| LLM cost / latency / non-determinism | Med | Heavy runs async (`generate` queue, concurrency 2); short runs return JSON synchronously from `/api/generate`; bounded refine loop; usage caps; LangSmith traces |
 | Double-/lost-publish under retries | High | Deterministic `jobId` per target (dedupe), target state machine, `externalPostId` on success, retryable-vs-fatal classification |

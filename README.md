@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SocialFlow
 
-## Getting Started
+**AI social-content automation.** Research a niche, generate platform-tailored
+posts with an LLM, then schedule and auto-publish across every connected social
+account — with a calendar, per-target retry/reschedule, engagement metrics, and
+keyword/AI auto-replies to comments.
 
-First, run the development server:
+Connectors: **Facebook, Instagram** (Meta Graph), **LinkedIn, TikTok, Discord,
+YouTube, Pinterest, X**. Non-Meta connectors are env-gated (hidden until their
+credentials are set).
+
+## Architecture
+
+Two processes share one database (Neon/Postgres) and one queue broker
+(Upstash Redis):
+
+| Process | Runtime | Responsibility |
+|---|---|---|
+| **App** (`next`) | Serverless (Vercel) | UI, auth, server actions, API routes. Uses the stateless Neon **HTTP** driver. |
+| **Worker** (`tsx worker/index.ts`) | Always-on (Railway/Render) | BullMQ processors: publish, comment-poll, reply, research, token-refresh. Uses a **pooled** Postgres driver (`DB_DRIVER=pool`). |
+
+All scheduling lives in the worker via BullMQ **delayed jobs**, with a durable
+`schedules` ledger for idempotency. Key building blocks:
+
+- **Auth:** Clerk · **DB/ORM:** Neon + Drizzle (`db/`, migrations in `db/migrations/`)
+- **Queue:** BullMQ + Upstash (`lib/queue/`, `worker/`)
+- **AI:** LangGraph agent (Gemini default) → `/api/generate` (returns JSON)
+- **Media:** ImageKit (upload + URL transforms) · **Billing:** Clerk Billing + usage quotas
+
+## Environment
+
+Copy [`.env.example`](./.env.example) to `.env.local` (app) and set the same
+variables on the worker host. Required: `DATABASE_URL`, `REDIS_URL`, Clerk keys,
+`ENCRYPTION_KEY`, ImageKit keys, `META_APP_ID`/`META_APP_SECRET`. Everything else
+(other platforms, LLM providers, LangSmith, Tavily, `HEALTH_CHECK_TOKEN`) is
+optional and documented inline in `.env.example`.
+
+## Local development
 
 ```bash
+npm install
+
+# 1. Apply database migrations (through the latest in db/migrations/)
+npm run db:migrate
+
+# 2. Run the app (http://localhost:3000)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 3. In a second terminal, run the always-on worker
+npm run worker        # or: npm run worker:dev  (watch mode)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Both processes need `.env.local`. The worker defaults to the pooled DB driver;
+override with `DB_DRIVER=http` if needed.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint        # eslint
+npm run typecheck   # tsc --noEmit
+npm run test        # node:test unit tests (via tsx)
+npm run build       # next build
+```
 
-## Learn More
+CI runs all four on every PR (`.github/workflows/ci.yml`) with placeholder
+secrets (`SKIP_ENV_VALIDATION=true`).
 
-To learn more about Next.js, take a look at the following resources:
+## Docs
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [`docs/PLAN.md`](./docs/PLAN.md) — full product/architecture spec.
+- [`docs/ROADMAP.md`](./docs/ROADMAP.md) — per-goal build plan (Goals 0–10).
+- [`docs/FIX_PLAN.md`](./docs/FIX_PLAN.md) — post-launch remediation plan.
+- [`docs/IMPLEMENTATION_NOTES.md`](./docs/IMPLEMENTATION_NOTES.md) — running notes on fixes.

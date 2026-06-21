@@ -252,3 +252,44 @@ with the rest of go-live, per this project's norm.
 every new test file is wired into the `test` npm script.
 
 **Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓
+**Merged:** PR #20 (squash, `db28813`). CodeRabbit: rate-limited (no review).
+
+## Goal 7 — SEO/metadata + typography + docs (H2, H3, L3, L4)
+
+**Branch:** `claude/fix-goal-7-seo-typography`
+
+**What I built**
+- **H2 — typography:** installed `@tailwindcss/typography` and registered it the
+  Tailwind v4 way (`@plugin "@tailwindcss/typography";` in `globals.css`), so the
+  legal pages' `prose dark:prose-invert` classes actually style copy. Build still
+  renders `/legal/*` statically.
+- **H3 — metadata + OG:** `app/layout.tsx` now sets `metadataBase`
+  (from `NEXT_PUBLIC_APP_URL`), a title template, `openGraph`, and `twitter`.
+  Added branded, code-generated images via Next file conventions:
+  `app/opengraph-image.tsx` (1200×630), `app/twitter-image.tsx` (re-exports it),
+  `app/icon.tsx` (32px favicon) and `app/apple-icon.tsx` (180px).
+- **L3 — README:** rewritten to describe SocialFlow, the app/worker split, env
+  (links `.env.example`), local dev (app + worker + migrations), and doc pointers.
+- **L4 — docs:** removed PLAN.md's two inaccurate "streaming generate" claims
+  (`/api/generate` returns JSON).
+
+**Decisions / deviations not in the spec**
+- **Replaced the boilerplate `favicon.ico`** (the create-next-app Next logo) with
+  a branded `app/icon.tsx` rather than keeping both. A code-generated icon avoids
+  committing a binary and guarantees the branded mark wins (two icon sources are
+  ambiguous to browsers).
+- **OG/icon images are code-generated (`next/og`), not static binaries.** They're
+  satori-rendered: hex colors only (no `oklch`, which satori can't parse — I
+  mapped the violet token to `#7c3aed`/`#a78bfa`), explicit `display` on every
+  element, and **size+color** drive hierarchy because the bundled font is
+  single-weight (loading a custom bold font would add a flaky build-time fetch).
+  Visually verified the prerendered 1200×630 card looks premium.
+- **No `twitter-image` duplication:** `app/twitter-image.tsx` re-exports the OG
+  generator so both previews stay identical.
+- **metadataBase fallback:** `NEXT_PUBLIC_APP_URL || "http://localhost:3000"` so
+  the CI build (var unset) still produces valid absolute URLs.
+
+**Do not break — preserved:** existing globals.css tokens untouched (only added a
+`@plugin` line); marketing pages still statically render.
+
+**Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓ (OG/icon/twitter all prerender)
