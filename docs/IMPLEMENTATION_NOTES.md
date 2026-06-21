@@ -293,3 +293,42 @@ every new test file is wired into the `test` npm script.
 `@plugin` line); marketing pages still statically render.
 
 **Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓ (OG/icon/twitter all prerender)
+**Merged:** PR #21 (squash, `15e3845`). CodeRabbit: rate-limited (no review). OG card visually verified.
+
+## Goal 8 — Accessibility pass (H4, M9, M10, L7, L8)
+
+**Branch:** `claude/fix-goal-8-a11y`
+
+**What I built**
+- **H4:** added a visually-hidden `SheetDescription` to the Topbar mobile-nav
+  Sheet (satisfies Radix's `aria-describedby` + gives SR users a description).
+- **M9:** wrapped the composer "Publish to" checkboxes in `<fieldset>` +
+  `<legend>` for native group semantics (each checkbox is already in a `<label>`).
+- **M10:** added a "Skip to main content" link and `id="main-content"` +
+  `tabIndex={-1}` on `<main>` in both the dashboard and marketing layouts.
+- **L7:** media-uploader thumbnails now have per-item alt (`Attached image 1`),
+  with the `<img>` choice documented.
+- **L8:** converted `research-form`, `discord-connect-form`, and `rule-form` from
+  `<div>` + hand-wired Enter handlers to real `<form onSubmit>` with
+  `type="submit"` buttons; removed the `onKeyDown` shims.
+
+**Decisions / deviations not in the spec**
+- **L7: kept `<img>` (documented), not `next/image`.** These are already-optimized
+  ImageKit thumbnails shown at a fixed 80px; routing them through Next's optimizer
+  would double-process for no benefit and require whitelisting the ImageKit host
+  in `next.config`. The plan explicitly allows this documented alternative.
+  Improved the alt to name each item for SR users.
+- **`<form onSubmit>`, not `<form action>`.** The reference `account-card` uses a
+  server action, but these three forms need client-side `toast` feedback + field
+  reset, so `onSubmit` (which the plan also names) is the right fit. Enter and SR
+  form semantics now work natively.
+- **Skip link** uses `sr-only` + `focus:not-sr-only` + `focus:fixed` with brand
+  tokens, so it's invisible until focused, then appears top-left.
+- **`<main>` gets `outline-none`** — it's a programmatic focus target (tabIndex
+  -1), not an interactive control, so a focus ring on the whole region would be
+  noise.
+
+**Do not break — preserved:** every converted form still submits on Enter and via
+its button; server-action/handler wiring unchanged.
+
+**Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓

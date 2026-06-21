@@ -12,7 +12,8 @@ export function DiscordConnectForm() {
   const [url, setUrl] = useState("");
   const [pending, startTransition] = useTransition();
 
-  function submit() {
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
     if (!url.trim()) {
       toast.error("Paste a Discord webhook URL.");
       return;
@@ -33,7 +34,10 @@ export function DiscordConnectForm() {
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
+    <form
+      onSubmit={submit}
+      className="flex flex-wrap items-end gap-2 rounded-lg border p-3"
+    >
       <div className="min-w-0 flex-1 space-y-1.5">
         <label htmlFor="discord-webhook" className="text-sm font-medium">
           Connect Discord via webhook
@@ -42,17 +46,14 @@ export function DiscordConnectForm() {
           id="discord-webhook"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-          }}
           placeholder="https://discord.com/api/webhooks/…"
           disabled={pending}
         />
       </div>
-      <Button onClick={submit} disabled={pending} variant="outline">
+      <Button type="submit" disabled={pending} variant="outline">
         {pending ? <Loader2 className="size-4 animate-spin" /> : null}
         Connect
       </Button>
-    </div>
+    </form>
   );
 }
