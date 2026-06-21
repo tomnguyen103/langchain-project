@@ -203,3 +203,52 @@ with the rest of go-live, per this project's norm.
 > gates) per this project's merge-on-green norm. For the remaining goals I'm
 > pacing the work so the limit resets between PRs and CodeRabbit can review them;
 > I note each goal's actual review status below.
+>
+> Status: Goals 4 (#18) and 5 (#19) merged CI-green; CodeRabbit was rate-limited
+> for both, so neither got a bot review — both had a full manual self-review.
+
+## Goal 6 — Backend test coverage (M4)
+
+**Branch:** `claude/fix-goal-6-backend-tests` · **23 → 83 tests** (+60).
+
+**New tests**
+- `lib/utils/crypto.test.ts` — AES-GCM round-trip, fresh-IV, tampered tag/iv/
+  ciphertext, version mismatch, malformed payload, `encryptNullable`.
+- `lib/webhooks/comments.test.ts` — FB `feed` + IG `comments` extraction,
+  ignored non-comment events, author/post-id fallbacks, multi-entry.
+- `lib/billing/period.test.ts` — daily/monthly UTC period keys, padding,
+  day/year boundaries.
+- `lib/queue/job-ids.test.ts` — id determinism, per-queue prefixes, uniqueness.
+- `lib/queue/with-ledger.test.ts` — success path + **rollback on enqueue
+  failure** + original error preserved when rollback also throws.
+- `lib/posts/status.test.ts` — all rollup transitions (draft/published/failed/
+  partially_published/publishing/scheduled).
+- Reply rate-limit guard: already covered by `lib/auto-reply/slot.test.ts` (Goal 4).
+
+**Decisions / deviations not in the spec**
+- **Small pure-extraction seams (touches a few source files, not "tests only").**
+  Most target functions were private and coupled to db/Clerk/Redis, so importing
+  them in a hermetic test was impossible. The plan explicitly anticipated this
+  ("thin db seam", "inject a failing queue"), so I extracted **behavior-preserving
+  pure modules**: `lib/webhooks/comments.ts`, `lib/billing/period.ts`,
+  `lib/queue/job-ids.ts`, `lib/queue/with-ledger.ts`, `lib/posts/status.ts`. The
+  original call sites import from them; runtime behavior is unchanged (build +
+  existing flows verify).
+- **`enqueueWithLedger` helper.** Rather than mock Redis, I extracted the
+  record→enqueue→rollback orchestration shared by `enqueuePublish`/
+  `enqueueResearch` into a pure helper and tested rollback by injecting a
+  throwing `enqueue`. Bonus: DRYs two call sites.
+- **`consumeUsage` atomicity — tested via `periodStartFor` (the plan's "at
+  minimum").** The atomic conditional upsert is enforced by Postgres and can't be
+  unit-tested without a DB; the Goal 4 slot logic already demonstrates that
+  conditional-upsert pattern's decision semantics hermetically.
+- **crypto test env via a side-effect setup module.** `crypto.ts` derives its key
+  from env at import; tsx compiles tests to **CJS** (no top-level await), so
+  `lib/utils/crypto-test-setup.ts` sets env and is imported *before* `./crypto`.
+- **Observation (not fixed here):** `crypto.ts`'s docstring says a 3-part format
+  but the payload is 4-part (`v1:iv:tag:ciphertext`). Out of scope for a test PR.
+
+**Do not break — preserved:** CI stays fast + hermetic (no real Redis/DB/network);
+every new test file is wired into the `test` npm script.
+
+**Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓

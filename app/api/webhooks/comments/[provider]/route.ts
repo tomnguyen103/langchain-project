@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import type { Platform } from "@/db/schema";
 import { commentMatchesRule } from "@/lib/auto-reply/match";
 import { env } from "@/lib/env";
 import { enqueueCommentReply } from "@/lib/queue/jobs";
@@ -10,6 +9,11 @@ import {
   ingestComment,
   updateCommentEvent,
 } from "@/lib/repos/replies";
+import {
+  extractComments,
+  type ExtractedComment,
+  type WebhookPayload,
+} from "@/lib/webhooks/comments";
 import { verifyMetaSignature } from "@/lib/webhooks/meta";
 
 export const runtime = "nodejs";
@@ -32,76 +36,6 @@ export async function GET(req: NextRequest) {
     return new NextResponse(sp.get("hub.challenge") ?? "", { status: 200 });
   }
   return new NextResponse("forbidden", { status: 403 });
-}
-
-type WebhookPayload = {
-  entry?: Array<{
-    id?: string;
-    changes?: Array<{ field?: string; value?: Record<string, unknown> }>;
-  }>;
-};
-
-type ExtractedComment = {
-  platform: Platform;
-  accountExternalId: string;
-  externalCommentId: string;
-  externalPostId: string;
-  author: string;
-  text: string;
-  createdAt: Date;
-};
-
-function str(v: unknown): string {
-  return typeof v === "string" ? v : "";
-}
-
-/**
- * Pull new-comment events out of a Meta webhook payload, deriving the platform
- * per change (FB `feed` comments vs IG `comments`) so a single endpoint handles
- * both.
- */
-function extractComments(payload: WebhookPayload): ExtractedComment[] {
-  const out: ExtractedComment[] = [];
-  for (const entry of payload.entry ?? []) {
-    const accountExternalId = entry.id;
-    if (!accountExternalId) continue;
-    for (const change of entry.changes ?? []) {
-      const v = change.value ?? {};
-      if (
-        change.field === "feed" &&
-        v.item === "comment" &&
-        v.verb === "add" &&
-        typeof v.comment_id === "string"
-      ) {
-        const from = v.from as { name?: string; id?: string } | undefined;
-        out.push({
-          platform: "facebook",
-          accountExternalId,
-          externalCommentId: v.comment_id,
-          externalPostId: str(v.post_id),
-          author: from?.name ?? from?.id ?? "",
-          text: str(v.message),
-          createdAt:
-            typeof v.created_time === "number"
-              ? new Date(v.created_time * 1000)
-              : new Date(),
-        });
-      } else if (change.field === "comments" && typeof v.id === "string") {
-        const from = v.from as { username?: string; id?: string } | undefined;
-        const media = v.media as { id?: string } | undefined;
-        out.push({
-          platform: "instagram",
-          accountExternalId,
-          externalCommentId: v.id,
-          externalPostId: str(media?.id),
-          author: from?.username ?? from?.id ?? "",
-          text: str(v.text),
-          createdAt: new Date(),
-        });
-      }
-    }
-  }
-  return out;
 }
 
 async function handleComment(c: ExtractedComment) {
