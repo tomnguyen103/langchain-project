@@ -132,8 +132,8 @@ export function Composer({
       <div className="space-y-4">
         <Card>
           <CardContent className="space-y-5 pt-6">
-            <div>
-              <div className="mb-2 text-sm font-medium">Publish to</div>
+            <fieldset className="min-w-0">
+              <legend className="mb-2 text-sm font-medium">Publish to</legend>
               <div className="space-y-2">
                 {accounts.map((account) => {
                   const name =
@@ -163,7 +163,7 @@ export function Composer({
                   );
                 })}
               </div>
-            </div>
+            </fieldset>
 
             <SchedulePicker value={scheduledAt} onChange={setScheduledAt} />
 

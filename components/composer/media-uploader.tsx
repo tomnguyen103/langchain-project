@@ -83,15 +83,19 @@ export function MediaUploader({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {value.map((media) => (
+      {value.map((media, index) => (
         <div
           key={media.id}
           className="relative size-20 overflow-hidden rounded-lg border"
         >
+          {/* Deliberate <img>, not next/image: these are already-optimized
+              ImageKit thumbnails shown at a fixed 80px, so routing them through
+              the Next optimizer would double-process for no benefit and require
+              whitelisting the ImageKit host. Alt names the item for SR users. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={media.thumbnailUrl ?? media.url}
-            alt="Uploaded media"
+            alt={`Attached ${media.type} ${index + 1}`}
             className="size-full object-cover"
           />
           <button

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -42,6 +43,10 @@ export function Topbar({ plan }: { plan: PlanId }) {
               </span>
               SocialFlow
             </SheetTitle>
+            {/* Satisfies Radix's aria-describedby; visually hidden. */}
+            <SheetDescription className="sr-only">
+              Main navigation menu
+            </SheetDescription>
           </SheetHeader>
           <div className="py-4">
             <DashboardNav onNavigate={() => setOpen(false)} />

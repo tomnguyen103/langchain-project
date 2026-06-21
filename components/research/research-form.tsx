@@ -12,7 +12,8 @@ export function ResearchForm() {
   const [niche, setNiche] = useState("");
   const [pending, startTransition] = useTransition();
 
-  function submit() {
+  function submit(event: React.FormEvent) {
+    event.preventDefault();
     if (!niche.trim()) {
       toast.error("Enter a niche or topic.");
       return;
@@ -31,7 +32,10 @@ export function ResearchForm() {
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-xl border p-4">
+    <form
+      onSubmit={submit}
+      className="flex flex-wrap items-end gap-2 rounded-xl border p-4"
+    >
       <div className="flex-1 space-y-1.5">
         <label htmlFor="niche" className="text-sm font-medium">
           Research a niche
@@ -40,14 +44,11 @@ export function ResearchForm() {
           id="niche"
           value={niche}
           onChange={(e) => setNiche(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submit();
-          }}
           placeholder="e.g. 'AI tools for indie founders'"
           disabled={pending}
         />
       </div>
-      <Button onClick={submit} disabled={pending}>
+      <Button type="submit" disabled={pending}>
         {pending ? (
           <Loader2 className="size-4 animate-spin" />
         ) : (
@@ -55,6 +56,6 @@ export function ResearchForm() {
         )}
         Research
       </Button>
-    </div>
+    </form>
   );
 }
