@@ -1,9 +1,14 @@
 import { deleteSchedule, recordSchedule } from "@/lib/repos/schedules";
+import {
+  commentPollSchedulerId,
+  commentReplyJobId,
+  publishJobId,
+  researchJobId,
+} from "./job-ids";
 import { getQueue, QueueName } from "./queues";
+import { enqueueWithLedger } from "./with-ledger";
 
 export type PublishJobData = { postTargetId: string };
-
-const publishJobId = (postTargetId: string) => `publish:${postTargetId}`;
 
 /**
  * Schedule a post target for publishing via a BullMQ delayed job.
@@ -19,33 +24,32 @@ export async function enqueuePublish(opts: {
 
   // Record the durable ledger entry first; roll it back if enqueue fails so we
   // never leave a ledger row without a job (or vice-versa).
-  await recordSchedule({
-    clerkUserId: opts.clerkUserId,
-    queue: QueueName.Publish,
-    bullJobId: jobId,
-    refType: "post_target",
-    refId: opts.postTargetId,
-    runAt: opts.runAt,
-    status: "pending",
+  await enqueueWithLedger({
+    record: () =>
+      recordSchedule({
+        clerkUserId: opts.clerkUserId,
+        queue: QueueName.Publish,
+        bullJobId: jobId,
+        refType: "post_target",
+        refId: opts.postTargetId,
+        runAt: opts.runAt,
+        status: "pending",
+      }),
+    enqueue: () =>
+      getQueue(QueueName.Publish).add(
+        "publish",
+        { postTargetId: opts.postTargetId } satisfies PublishJobData,
+        {
+          delay,
+          jobId,
+          attempts: 4,
+          backoff: { type: "exponential", delay: 30_000 },
+          removeOnComplete: { age: 24 * 3600 },
+          removeOnFail: false,
+        },
+      ),
+    rollback: () => deleteSchedule(QueueName.Publish, jobId),
   });
-
-  try {
-    await getQueue(QueueName.Publish).add(
-      "publish",
-      { postTargetId: opts.postTargetId } satisfies PublishJobData,
-      {
-        delay,
-        jobId,
-        attempts: 4,
-        backoff: { type: "exponential", delay: 30_000 },
-        removeOnComplete: { age: 24 * 3600 },
-        removeOnFail: false,
-      },
-    );
-  } catch (error) {
-    await deleteSchedule(QueueName.Publish, jobId).catch(() => {});
-    throw error;
-  }
 
   return jobId;
 }
@@ -67,34 +71,33 @@ export async function enqueueResearch(opts: {
   researchTopicId: string;
   clerkUserId: string;
 }): Promise<string> {
-  const jobId = `research:${opts.researchTopicId}`;
+  const jobId = researchJobId(opts.researchTopicId);
 
-  await recordSchedule({
-    clerkUserId: opts.clerkUserId,
-    queue: QueueName.Research,
-    bullJobId: jobId,
-    refType: "research_topic",
-    refId: opts.researchTopicId,
-    runAt: new Date(),
-    status: "pending",
+  await enqueueWithLedger({
+    record: () =>
+      recordSchedule({
+        clerkUserId: opts.clerkUserId,
+        queue: QueueName.Research,
+        bullJobId: jobId,
+        refType: "research_topic",
+        refId: opts.researchTopicId,
+        runAt: new Date(),
+        status: "pending",
+      }),
+    enqueue: () =>
+      getQueue(QueueName.Research).add(
+        "research",
+        { researchTopicId: opts.researchTopicId } satisfies ResearchJobData,
+        {
+          jobId,
+          attempts: 2,
+          backoff: { type: "exponential", delay: 10_000 },
+          removeOnComplete: { age: 24 * 3600 },
+          removeOnFail: false,
+        },
+      ),
+    rollback: () => deleteSchedule(QueueName.Research, jobId),
   });
-
-  try {
-    await getQueue(QueueName.Research).add(
-      "research",
-      { researchTopicId: opts.researchTopicId } satisfies ResearchJobData,
-      {
-        jobId,
-        attempts: 2,
-        backoff: { type: "exponential", delay: 10_000 },
-        removeOnComplete: { age: 24 * 3600 },
-        removeOnFail: false,
-      },
-    );
-  } catch (error) {
-    await deleteSchedule(QueueName.Research, jobId).catch(() => {});
-    throw error;
-  }
 
   return jobId;
 }
@@ -103,8 +106,6 @@ export type CommentPollJobData = { socialAccountId: string };
 export type CommentReplyJobData = { commentEventId: string };
 
 const COMMENT_POLL_EVERY_MS = 5 * 60_000; // poll an account's comments every 5 min
-const commentPollSchedulerId = (socialAccountId: string) =>
-  `comment-poll:${socialAccountId}`;
 
 /**
  * Register (or refresh) a repeating comment-poll for an account. Uses a BullMQ
@@ -157,7 +158,7 @@ export async function registerTokenRefresh(): Promise<void> {
 export async function enqueueCommentReply(
   commentEventId: string,
 ): Promise<string> {
-  const jobId = `reply:${commentEventId}`;
+  const jobId = commentReplyJobId(commentEventId);
   await getQueue(QueueName.Reply).add(
     "reply",
     { commentEventId } satisfies CommentReplyJobData,

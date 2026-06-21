@@ -22,6 +22,7 @@ import {
   type PostStatus,
   type PostTarget,
 } from "@/db/schema";
+import { derivePostStatus } from "@/lib/posts/status";
 
 export type CreatePostInput = {
   post: NewPost;
@@ -208,21 +209,4 @@ export async function recomputePostStatus(
     .set({ status, updatedAt: new Date() })
     .where(eq(posts.id, postId));
   return status;
-}
-
-function derivePostStatus(targets: PostTarget[]): PostStatus {
-  if (targets.length === 0) return "draft";
-  const statuses = targets.map((t) => t.status);
-  const published = statuses.filter((s) => s === "published").length;
-  const failed = statuses.filter((s) => s === "failed").length;
-
-  if (published === statuses.length) return "published";
-  if (failed === statuses.length) return "failed";
-  if (published > 0 && published + failed === statuses.length) {
-    return "partially_published";
-  }
-  if (statuses.some((s) => s === "publishing") || published > 0) {
-    return "publishing";
-  }
-  return "scheduled";
 }
