@@ -28,10 +28,21 @@ export function TopicList({ topics }: { topics: TopicView[] }) {
     (t) => t.status === "pending" || t.status === "researching",
   );
 
-  // Poll for completion while any run is in progress.
+  // Poll for completion while any run is in progress. Capped so a stuck run
+  // (e.g. the worker is down) can't poll forever; terminal statuses already
+  // flip `inProgress` to false and stop it via the effect cleanup.
   useEffect(() => {
     if (!inProgress) return;
-    const interval = setInterval(() => router.refresh(), 4000);
+    const MAX_POLLS = 45; // ~3 minutes at 4s intervals
+    let polls = 0;
+    const interval = setInterval(() => {
+      polls += 1;
+      if (polls > MAX_POLLS) {
+        clearInterval(interval);
+        return;
+      }
+      router.refresh();
+    }, 4000);
     return () => clearInterval(interval);
   }, [inProgress, router]);
 

@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Circle,
   Plug,
+  type LucideIcon,
 } from "lucide-react";
 
 import { requireUserId } from "@/lib/clerk";
@@ -47,10 +48,27 @@ export default async function OverviewPage() {
   ];
   const onboardingComplete = onboarding.every((s) => s.done);
 
-  const stats = [
+  const attention = failedTargets.length + unhealthy.length;
+  const stats: Array<{
+    label: string;
+    value: number;
+    icon: LucideIcon;
+    hint?: string;
+  }> = [
     { label: "Connected accounts", value: accounts.length, icon: Plug },
     { label: "Upcoming (90d)", value: upcomingPosts.length, icon: CalendarClock },
-    { label: "Need attention", value: failedTargets.length + unhealthy.length, icon: AlertTriangle },
+    {
+      label: "Need attention",
+      value: attention,
+      icon: AlertTriangle,
+      // Headline merges two sources — show the split so it matches the list below.
+      hint:
+        attention > 0
+          ? `${failedTargets.length} failed · ${unhealthy.length} account${
+              unhealthy.length === 1 ? "" : "s"
+            }`
+          : undefined,
+    },
   ];
 
   return (
@@ -102,6 +120,9 @@ export default async function OverviewPage() {
               <div>
                 <div className="text-2xl font-semibold">{s.value}</div>
                 <div className="text-muted-foreground text-xs">{s.label}</div>
+                {s.hint && (
+                  <div className="text-muted-foreground text-xs">{s.hint}</div>
+                )}
               </div>
             </CardContent>
           </Card>

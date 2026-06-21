@@ -367,3 +367,41 @@ server-action contract (cancelPublish + enqueuePublish, no double-publish) is
 reused, not changed.
 
 **Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓
+**Merged:** PR #23 (squash). CodeRabbit: rate-limited (no review).
+
+## Goal 10 — Cleanup nits (L2, L5, L6, L9, L10, L11)
+
+**Branch:** `claude/fix-goal-10-cleanup` — one PR, six independent items.
+
+- **L2:** removed the unused `CLERK_WEBHOOK_SIGNING_SECRET` from `lib/env.ts`,
+  `.env.example`, and `docs/PLAN.md`. Chose **removal over implementing** a
+  `/api/webhooks/clerk` svix handler — there's no current need (the app reads
+  user/org via Clerk `auth()`), and adding a handler + the `svix` dep would be
+  dead weight.
+- **L5:** `enqueuePublish` and `enqueueResearch` changed `removeOnFail: false`
+  (unbounded Redis growth) → `{ age: 7 * 24 * 3600 }`, matching the reply queue.
+  The 7-day window still surfaces dead-letter / needs-attention failures before GC.
+- **L9:** `variant-editor` reconciles its stored `active` tab to a valid platform
+  **during render** (conditional `setState`), so no stale id is ever held — and it
+  avoids both a `useEffect` and the `set-state-in-effect` lint rule.
+- **L10:** capped `topic-list` polling at 45 attempts (~3 min) so a stuck run
+  (worker down) can't poll `router.refresh()` forever; terminal statuses already
+  stop it via `inProgress`.
+- **L11:** the dashboard "Need attention" stat now shows a breakdown
+  (`N failed · M accounts`) so the headline number matches the detail list below.
+
+**Decisions / deviations not in the spec**
+- **L6 — the node could NOT be renamed to "digest".** The plan's first option
+  ("rename the LangGraph node 'analyze' → 'digest'") is **impossible**: `digest`
+  is already a `ContentState` channel, and LangGraph throws *"digest is already
+  being used as a state attribute… cannot also be used as a node name"* (the build
+  caught this). So I took the plan's alternative — **aligned via documentation**:
+  kept the node keyed `"analyze"`, fixed the graph.ts comment to `analyze → …`,
+  and added an inline note explaining the node runs `digestNode` and why it can't
+  be named "digest". PLAN's conceptual "digest" wording stays (it accurately names
+  what the step does); the code now self-documents the node-vs-channel naming.
+
+**Do not break — preserved:** all touched flows build + the existing tests pass;
+these are cosmetic/robustness changes only.
+
+**Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓
