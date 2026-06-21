@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
-import { db } from "@/db";
+import { db, runAtomicWrite } from "@/db";
 import {
   generatedContent,
   type GeneratedContent,
@@ -29,19 +29,18 @@ export async function replaceIdeasForTopic(
   researchTopicId: string,
   rows: NewGeneratedContent[],
 ): Promise<void> {
-  const deleteExisting = db
-    .delete(generatedContent)
-    .where(
-      and(
-        eq(generatedContent.researchTopicId, researchTopicId),
-        eq(generatedContent.kind, "idea"),
-      ),
-    );
+  const whereIdeas = and(
+    eq(generatedContent.researchTopicId, researchTopicId),
+    eq(generatedContent.kind, "idea"),
+  );
   if (rows.length === 0) {
-    await deleteExisting;
+    await db.delete(generatedContent).where(whereIdeas);
     return;
   }
-  await db.batch([deleteExisting, db.insert(generatedContent).values(rows)]);
+  await runAtomicWrite((tx) => [
+    tx.delete(generatedContent).where(whereIdeas),
+    tx.insert(generatedContent).values(rows),
+  ]);
 }
 
 export async function saveGeneratedContent(

@@ -3,6 +3,7 @@ import "./load-env";
 
 import { Worker, type Job, type Processor } from "bullmq";
 
+import { closeDbPool } from "@/db";
 import { connection } from "@/lib/queue/connection";
 import { registerTokenRefresh } from "@/lib/queue/jobs";
 import { QueueName } from "@/lib/queue/queues";
@@ -95,6 +96,8 @@ async function shutdown(signal: string) {
   logger.warn("shutting down workers", { signal });
   try {
     await Promise.allSettled(workers.map((w) => w.close()));
+    // Close the DB pool after workers stop so in-flight jobs can finish first.
+    await closeDbPool();
     logger.info("workers closed, exiting");
     process.exit(0);
   } catch (error) {
