@@ -22,9 +22,29 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isFutureDate } from "@/lib/utils/schedule";
 import { PostChip } from "./post-chip";
+import { RescheduleDialog } from "./reschedule-dialog";
 import type { CalendarPost } from "./types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** A chip plus its accessible reschedule control (for keyboard/touch users). */
+function PostRow({ post }: { post: CalendarPost }) {
+  const canReschedule = post.status === "scheduled";
+  return (
+    <div className="flex items-center gap-1">
+      <div className="min-w-0 flex-1">
+        <PostChip post={post} />
+      </div>
+      {canReschedule && (
+        <RescheduleDialog
+          postId={post.id}
+          scheduledAt={post.scheduledAt}
+          title={post.title}
+        />
+      )}
+    </div>
+  );
+}
 
 export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
@@ -81,6 +101,24 @@ export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
       (p) => p.scheduledAt && isSameDay(new Date(p.scheduledAt), day),
     );
 
+  // Mobile agenda: this month's scheduled posts, chronological, grouped by day.
+  const monthPosts = posts
+    .filter(
+      (p): p is CalendarPost & { scheduledAt: string } =>
+        p.scheduledAt != null && isSameMonth(new Date(p.scheduledAt), month),
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+    );
+  const agendaGroups: { day: Date; items: CalendarPost[] }[] = [];
+  for (const post of monthPosts) {
+    const day = new Date(post.scheduledAt);
+    const last = agendaGroups[agendaGroups.length - 1];
+    if (last && isSameDay(last.day, day)) last.items.push(post);
+    else agendaGroups.push({ day, items: [post] });
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border">
       <div className="flex items-center justify-between border-b p-4">
@@ -112,61 +150,86 @@ export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
         </div>
       </div>
 
-      <div className="text-muted-foreground grid grid-cols-7 border-b text-center text-xs">
-        {WEEKDAYS.map((d) => (
-          <div key={d} className="py-2">
-            {d}
-          </div>
-        ))}
-      </div>
+      {/* Desktop: month grid (with drag-to-reschedule for mouse users) */}
+      <div className="hidden sm:block">
+        <div className="text-muted-foreground grid grid-cols-7 border-b text-center text-xs">
+          {WEEKDAYS.map((d) => (
+            <div key={d} className="py-2">
+              {d}
+            </div>
+          ))}
+        </div>
 
-      <div className="grid grid-cols-7">
-        {days.map((day) => {
-          const dayPosts = postsForDay(day);
-          const inMonth = isSameMonth(day, month);
-          const isToday = isSameDay(day, new Date());
-          const dayKey = day.toISOString();
-          return (
-            <div
-              key={dayKey}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOverKey(dayKey);
-              }}
-              onDragLeave={() =>
-                setDragOverKey((k) => (k === dayKey ? null : k))
-              }
-              onDrop={(e) => handleDrop(e, day)}
-              className={cn(
-                "min-h-24 border-r border-b p-1.5 last:border-r-0",
-                !inMonth && "bg-muted/30 text-muted-foreground",
-                dragOverKey === dayKey &&
-                  "ring-primary bg-primary/5 ring-2 ring-inset",
-                pending && "opacity-70",
-              )}
-            >
+        <div className="grid grid-cols-7">
+          {days.map((day) => {
+            const dayPosts = postsForDay(day);
+            const inMonth = isSameMonth(day, month);
+            const isToday = isSameDay(day, new Date());
+            const dayKey = day.toISOString();
+            return (
               <div
+                key={dayKey}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverKey(dayKey);
+                }}
+                onDragLeave={() =>
+                  setDragOverKey((k) => (k === dayKey ? null : k))
+                }
+                onDrop={(e) => handleDrop(e, day)}
                 className={cn(
-                  "mb-1 text-right text-xs",
-                  isToday &&
-                    "text-primary-foreground bg-primary ml-auto flex size-5 items-center justify-center rounded-full",
+                  "min-h-24 border-r border-b p-1.5 last:border-r-0",
+                  !inMonth && "bg-muted/30 text-muted-foreground",
+                  dragOverKey === dayKey &&
+                    "ring-primary bg-primary/5 ring-2 ring-inset",
+                  pending && "opacity-70",
                 )}
               >
-                {format(day, "d")}
+                <div
+                  className={cn(
+                    "mb-1 text-right text-xs",
+                    isToday &&
+                      "text-primary-foreground bg-primary ml-auto flex size-5 items-center justify-center rounded-full",
+                  )}
+                >
+                  {format(day, "d")}
+                </div>
+                <div className="space-y-1">
+                  {dayPosts.slice(0, 3).map((post) => (
+                    <PostRow key={post.id} post={post} />
+                  ))}
+                  {dayPosts.length > 3 && (
+                    <div className="text-muted-foreground px-1 text-xs">
+                      +{dayPosts.length - 3} more
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="space-y-1">
-                {dayPosts.slice(0, 3).map((post) => (
-                  <PostChip key={post.id} post={post} />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Mobile: agenda list (chips are full-width; reschedule via the button) */}
+      <div className="divide-y sm:hidden">
+        {agendaGroups.length === 0 ? (
+          <p className="text-muted-foreground p-4 text-sm">
+            Nothing scheduled in {format(month, "MMMM")}.
+          </p>
+        ) : (
+          agendaGroups.map((group) => (
+            <div key={group.day.toISOString()} className="p-3">
+              <div className="text-muted-foreground mb-2 text-xs font-medium">
+                {format(group.day, "EEE, MMM d")}
+              </div>
+              <div className="space-y-1.5">
+                {group.items.map((post) => (
+                  <PostRow key={post.id} post={post} />
                 ))}
-                {dayPosts.length > 3 && (
-                  <div className="text-muted-foreground px-1 text-xs">
-                    +{dayPosts.length - 3} more
-                  </div>
-                )}
               </div>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
     </div>
   );

@@ -332,3 +332,38 @@ every new test file is wired into the `test` npm script.
 its button; server-action/handler wiring unchanged.
 
 **Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓
+**Merged:** PR #22 (squash). CodeRabbit: rate-limited (no review).
+
+## Goal 9 — Calendar mobile + reschedule accessibility (M6, M7)
+
+**Branch:** `claude/fix-goal-9-calendar`
+
+**What I built**
+- **M6 — responsive calendar:** below `sm`, the 7-col month grid is hidden and an
+  **agenda list** renders instead — the selected month's posts, chronological,
+  grouped by day, as full-width rows (no truncation). Desktop month grid is
+  unchanged (`hidden sm:block` / `sm:hidden`), sharing the same month-nav header.
+- **M7 — accessible reschedule:** new `RescheduleDialog` — a per-post button that
+  opens a dialog with a `datetime-local` picker wired to the **same**
+  `reschedulePost` action the drag uses (with the shared `isFutureDate` guard +
+  `min`). Keyboard- and touch-operable. Present in **both** views via a `PostRow`
+  (chip + reschedule button). Desktop drag-and-drop is kept for mouse users.
+- Added a descriptive `aria-label` to each chip (title + status + scheduled time).
+
+**Decisions / deviations not in the spec**
+- **Dialog, not Popover.** The repo has no Popover primitive but has an accessible
+  `Dialog` (focus trap, Esc, `aria` wired). A modal dialog is the cleaner home for
+  a small reschedule form and works well on touch.
+- **Reschedule shown for `status === "scheduled"`** — matches the existing
+  drag eligibility and `reschedulePost`'s "only re-time queued/pending targets"
+  contract, so the new path and the drag path stay consistent.
+- **Agenda follows the month selector** (not a separate "upcoming" feed) so the
+  prev/next/today header drives both views identically.
+- The reschedule button is always visible (not hover-only) so it's reachable on
+  touch; it's a compact icon in the desktop grid and a clear control in the agenda.
+
+**Do not break — preserved:** desktop drag-to-reschedule intact; the reschedule
+server-action contract (cancelPublish + enqueuePublish, no double-publish) is
+reused, not changed.
+
+**Gates:** lint ✓ · typecheck ✓ · test ✓ (83) · build ✓

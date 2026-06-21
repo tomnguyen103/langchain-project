@@ -25,9 +25,17 @@ export function PostChip({ post }: { post: CalendarPost }) {
   // Only future, still-scheduled posts can be dragged to a new day.
   const canDrag = post.status === "scheduled";
 
+  const statusLabel = post.status.replace(/_/g, " ");
+  const ariaLabel = post.scheduledAt
+    ? `${post.title} — ${statusLabel}, scheduled ${new Date(
+        post.scheduledAt,
+      ).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`
+    : `${post.title} — ${statusLabel}`;
+
   return (
     <Link
       href={`/posts/${post.id}`}
+      aria-label={ariaLabel}
       draggable={canDrag}
       onDragStart={
         canDrag
