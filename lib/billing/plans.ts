@@ -16,9 +16,9 @@ export type PlanLimits = {
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   free: {
     label: "Free",
-    postsPerDay: 1,
-    aiPerMonth: 5,
-    accounts: 1,
+    postsPerDay: 10,
+    aiPerMonth: 50,
+    accounts: 3,
     research: false,
     autoReply: false,
   },

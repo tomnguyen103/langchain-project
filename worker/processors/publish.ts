@@ -17,7 +17,7 @@ import { logger } from "../logger";
 /** Publishes one post target by resolving its platform connector polymorphically. */
 export async function publishProcessor(job: Job): Promise<void> {
   const { postTargetId } = job.data as PublishJobData;
-  const jobId = job.id ?? `publish:${postTargetId}`;
+  const jobId = job.id ?? `publish_${postTargetId}`;
 
   const target = await getPostTarget(postTargetId);
   if (!target) {

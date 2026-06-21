@@ -7,7 +7,7 @@ export function createGemini(temperature: number) {
     throw new Error("GOOGLE_API_KEY is required for the Gemini provider.");
   }
   return new ChatGoogleGenerativeAI({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     apiKey: env.GOOGLE_API_KEY,
     temperature,
   });

@@ -232,7 +232,12 @@ export function PostDetail({ post }: { post: PostDetailView }) {
                     disabled={pending}
                     onClick={() => run(() => cancelTarget(t.id), "Canceled.")}
                   >
-                    <X className="size-4" /> Cancel
+                    {pending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <X className="size-4" />
+                    )}
+                    Cancel
                   </Button>
                 )}
               </div>

@@ -4,13 +4,13 @@
  * Redis imports) so they can be unit-tested in isolation.
  */
 
-export const publishJobId = (postTargetId: string) => `publish:${postTargetId}`;
+export const publishJobId = (postTargetId: string) => `publish_${postTargetId}`;
 
 export const researchJobId = (researchTopicId: string) =>
-  `research:${researchTopicId}`;
+  `research_${researchTopicId}`;
 
 export const commentPollSchedulerId = (socialAccountId: string) =>
-  `comment-poll:${socialAccountId}`;
+  `comment-poll_${socialAccountId}`;
 
 export const commentReplyJobId = (commentEventId: string) =>
-  `reply:${commentEventId}`;
+  `reply_${commentEventId}`;

@@ -13,7 +13,7 @@ import { logger } from "../logger";
 
 export async function researchProcessor(job: Job): Promise<void> {
   const { researchTopicId } = job.data as ResearchJobData;
-  const jobId = job.id ?? `research:${researchTopicId}`;
+  const jobId = job.id ?? `research_${researchTopicId}`;
 
   const topic = await getResearchTopic(researchTopicId);
   if (!topic) {

@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 import {
   addMonths,
@@ -49,6 +55,7 @@ function PostRow({ post }: { post: CalendarPost }) {
 export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const [overflowDay, setOverflowDay] = useState<Date | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -199,9 +206,12 @@ export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
                     <PostRow key={post.id} post={post} />
                   ))}
                   {dayPosts.length > 3 && (
-                    <div className="text-muted-foreground px-1 text-xs">
+                    <button
+                      onClick={() => setOverflowDay(day)}
+                      className="text-muted-foreground hover:text-foreground px-1 text-xs transition-colors"
+                    >
                       +{dayPosts.length - 3} more
-                    </div>
+                    </button>
                   )}
                 </div>
               </div>
@@ -209,6 +219,25 @@ export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
           })}
         </div>
       </div>
+
+      <Dialog
+        open={overflowDay !== null}
+        onOpenChange={(open) => !open && setOverflowDay(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {overflowDay ? format(overflowDay, "EEEE, MMMM d") : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5 pt-2 [&_a]:!whitespace-normal [&_a]:!overflow-visible">
+            {overflowDay &&
+              postsForDay(overflowDay).map((post) => (
+                <PostRow key={post.id} post={post} />
+              ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Mobile: agenda list (chips are full-width; reschedule via the button) */}
       <div className="divide-y sm:hidden">

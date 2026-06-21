@@ -195,7 +195,9 @@ export async function updatePostStatus(
     .where(eq(posts.id, id));
 }
 
-/** Derive a post's rollup status from its targets and persist it. */
+/** Derive a post's rollup status from its targets and persist it.
+ *  When the post becomes fully unscheduled (pending/draft), also clears
+ *  scheduledAt so the post stops appearing in calendar range queries. */
 export async function recomputePostStatus(
   postId: string,
 ): Promise<PostStatus> {
@@ -204,9 +206,14 @@ export async function recomputePostStatus(
     .from(postTargets)
     .where(eq(postTargets.postId, postId));
   const status = derivePostStatus(targets);
+  const clearSchedule = status === "pending" || status === "draft";
   await db
     .update(posts)
-    .set({ status, updatedAt: new Date() })
+    .set({
+      status,
+      ...(clearSchedule ? { scheduledAt: null } : {}),
+      updatedAt: new Date(),
+    })
     .where(eq(posts.id, postId));
   return status;
 }

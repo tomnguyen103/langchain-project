@@ -40,9 +40,10 @@ const EnvSchema = z.object({
   IMAGEKIT_PRIVATE_KEY: z.string().min(1),
   NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT: z.string().min(1),
 
-  // Meta (Facebook + Instagram) OAuth + Graph API
-  META_APP_ID: z.string().min(1),
-  META_APP_SECRET: z.string().min(1),
+  // Meta (Facebook + Instagram) OAuth + Graph API — optional; the connect
+  // option is hidden in the UI when unset.
+  META_APP_ID: z.string().optional(),
+  META_APP_SECRET: z.string().optional(),
   // Verify token for the Meta comments webhook handshake — optional.
   META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
 

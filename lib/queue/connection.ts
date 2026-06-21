@@ -17,6 +17,8 @@ function buildConnection(url: string): ConnectionOptions {
     username: parsed.username ? decodeURIComponent(parsed.username) : undefined,
     password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
     tls: parsed.protocol === "rediss:" ? {} : undefined,
+    connectTimeout: 5000,
+    commandTimeout: 8000,
     maxRetriesPerRequest: null,
   };
 }
