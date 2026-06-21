@@ -76,6 +76,34 @@ export const commentEventStatusEnum = pgEnum("comment_event_status", [
   "failed", // reply attempt failed
 ]);
 
+/** Orchestration roster — keep values in sync with AgentName (lib/agents/types.ts). */
+export const agentNameEnum = pgEnum("agent_name", [
+  "orion",
+  "vega",
+  "lyra",
+  "atlas",
+  "sirius",
+  "polaris",
+  "rigel",
+]);
+
+/** Lifecycle of a whole pipeline run (agent_runs). */
+export const agentRunStatusEnum = pgEnum("agent_run_status", [
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+/** Lifecycle of a single agent invocation within a run (agent_steps). */
+export const agentStepStatusEnum = pgEnum("agent_step_status", [
+  "pending",
+  "running",
+  "completed",
+  "failed",
+]);
+
 export type Platform = (typeof platformEnum.enumValues)[number];
 export type AccountStatus = (typeof accountStatusEnum.enumValues)[number];
 export type PostStatus = (typeof postStatusEnum.enumValues)[number];
@@ -84,3 +112,5 @@ export type MediaType = (typeof mediaTypeEnum.enumValues)[number];
 export type MatchType = (typeof matchTypeEnum.enumValues)[number];
 export type CommentEventStatus =
   (typeof commentEventStatusEnum.enumValues)[number];
+export type AgentRunStatus = (typeof agentRunStatusEnum.enumValues)[number];
+export type AgentStepStatus = (typeof agentStepStatusEnum.enumValues)[number];

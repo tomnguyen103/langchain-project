@@ -14,3 +14,5 @@ export * from "./schema/research";
 export * from "./schema/usage";
 export * from "./schema/auto-reply";
 export * from "./schema/comment-events";
+export * from "./schema/agent-runs";
+export * from "./schema/agent-steps";
