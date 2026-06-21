@@ -48,7 +48,7 @@ Both the app and the worker import the same `db/` + `lib/` via TS path aliases �
 
 Collect keys into `.env.local` (app) and the worker host's env; `lib/env.ts` validates them.
 
-- **Clerk** — `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET` (enable Billing for Goal 6)
+- **Clerk** — `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` (enable Billing for Goal 6)
 - **Neon** — `DATABASE_URL`
 - **Upstash Redis** — `REDIS_URL`
 - **ImageKit** — `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT`

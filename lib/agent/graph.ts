@@ -11,7 +11,11 @@ const MAX_REVISIONS = 2;
 
 /**
  * Content-generation pipeline:
- * digest → draftPerPlatform → critique → (refine ↩ up to MAX_REVISIONS | finalize) → END
+ * analyze → draftPerPlatform → critique → (refine ↩ up to MAX_REVISIONS | finalize) → END
+ *
+ * The first step runs `digestNode` (it digests the topic into the `digest` state
+ * channel). The node is keyed "analyze", not "digest", because LangGraph forbids
+ * a node name from colliding with a state-channel name.
  */
 export const contentGraph = new StateGraph(ContentState)
   .addNode("analyze", digestNode)

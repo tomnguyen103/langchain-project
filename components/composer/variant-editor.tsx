@@ -22,10 +22,15 @@ export function VariantEditor({
   onCopyToAll: (platform: Platform) => void;
 }) {
   const [active, setActive] = useState<string>(platforms[0] ?? "");
-  // Derive a valid active tab during render (falls back if a platform was removed).
+  // Derive a valid active tab, then snap stored state back to it during render
+  // if the selected platform was removed — so no stale id is ever held (and no
+  // effect / set-state-in-effect lint issue).
   const effectiveActive = platforms.includes(active as Platform)
     ? active
     : (platforms[0] ?? "");
+  if (active !== effectiveActive) {
+    setActive(effectiveActive);
+  }
 
   if (platforms.length === 0) {
     return (
