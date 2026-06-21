@@ -10,7 +10,7 @@ import {
 
 describe("job-ids", () => {
   it("publishJobId is deterministic and stable per target", () => {
-    assert.equal(publishJobId("t-1"), "publish:t-1");
+    assert.equal(publishJobId("t-1"), "publish_t-1");
     assert.equal(publishJobId("t-1"), publishJobId("t-1"));
   });
 
@@ -23,10 +23,10 @@ describe("job-ids", () => {
       commentReplyJobId(id),
     ];
     assert.deepEqual(ids, [
-      "publish:abc",
-      "research:abc",
-      "comment-poll:abc",
-      "reply:abc",
+      "publish_abc",
+      "research_abc",
+      "comment-poll_abc",
+      "reply_abc",
     ]);
     assert.equal(new Set(ids).size, ids.length);
   });

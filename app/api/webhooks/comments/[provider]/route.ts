@@ -83,7 +83,11 @@ export async function POST(
 
   const raw = await req.text();
   const signature = req.headers.get("x-hub-signature-256");
-  if (!verifyMetaSignature(raw, signature, env.META_APP_SECRET)) {
+  const appSecret = env.META_APP_SECRET;
+  // Without a configured app secret we can't authenticate the payload — drop it
+  // (200 so Meta doesn't disable the webhook).
+  if (!appSecret) return NextResponse.json({ ok: true });
+  if (!verifyMetaSignature(raw, signature, appSecret)) {
     return new NextResponse("invalid signature", { status: 401 });
   }
 
