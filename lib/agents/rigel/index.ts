@@ -42,8 +42,11 @@ export function createRigel(deps: RigelDeps): AgentDefinition<RigelInput> {
   return {
     name: AgentName.Rigel,
     async run(input, ctx) {
-      const period = input.period ?? "7d";
-      const since = new Date(Date.now() - periodDays(period) * DAY_MS);
+      // Normalize the period to its parsed window so the persisted metadata
+      // always matches the range actually used (a malformed value → 7 days).
+      const days = periodDays(input.period ?? "7d");
+      const period = `${days}d`;
+      const since = new Date(Date.now() - days * DAY_MS);
 
       const [publishedTargets, runs, failedPublishCount] = await Promise.all([
         deps.fetchPublishedTargets(ctx.clerkUserId, since),

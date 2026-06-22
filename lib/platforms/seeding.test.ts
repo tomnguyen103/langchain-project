@@ -54,4 +54,25 @@ describe("seedGroupPosts", () => {
     assert.equal(count, 2);
     assert.deepEqual(interacted, ["p1", "p2"]);
   });
+
+  it("skips a failing interaction and continues (no batch-abort/replay)", async () => {
+    const interacted: string[] = [];
+    const connector: SeedableConnector = {
+      capabilities: { supportsSeeding: true },
+      listGroupPosts: async () => [post("p1"), post("p2"), post("p3")],
+      interactWithPost: async (_account, p) => {
+        if (p.externalPostId === "p2") throw new Error("rate limited");
+        interacted.push(p.externalPostId);
+        return { externalId: `c_${p.externalPostId}` };
+      },
+    };
+
+    const count = await seedGroupPosts(connector, account, {
+      maxInteractions: 5,
+      comment: "hi",
+    });
+
+    assert.equal(count, 2); // p1 + p3 succeeded; p2 skipped without throwing
+    assert.deepEqual(interacted, ["p1", "p3"]);
+  });
 });

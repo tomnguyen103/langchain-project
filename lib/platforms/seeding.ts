@@ -42,8 +42,14 @@ export async function seedGroupPosts(
   let interactions = 0;
   for (const post of posts) {
     if (interactions >= opts.maxInteractions) break; // hard safety rate limit
-    await connector.interactWithPost(account, post, { comment: opts.comment });
-    interactions += 1;
+    try {
+      await connector.interactWithPost(account, post, { comment: opts.comment });
+      interactions += 1;
+    } catch {
+      // Best-effort: skip a failed post and continue. Letting the batch throw
+      // would retry it and re-post the already-successful (non-idempotent)
+      // comments — duplicate engagement is worse than a missed one.
+    }
   }
   return interactions;
 }

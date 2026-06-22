@@ -45,4 +45,20 @@ describe("rigel agent", () => {
     });
     assert.equal(result.handoff, undefined);
   });
+
+  it("persists the normalized period (malformed input → 7d fallback)", async () => {
+    let savedPeriod: string | undefined;
+    const rigel = createRigel({
+      fetchPublishedTargets: async () => [],
+      fetchRunOutcomes: async () => [],
+      countFailedPublishes: async () => 0,
+      saveReport: async (_clerkUserId, period) => {
+        savedPeriod = period;
+      },
+    });
+
+    await rigel.run({ period: "garbage" }, { clerkUserId: "u", runId: "r" });
+
+    assert.equal(savedPeriod, "7d");
+  });
 });
