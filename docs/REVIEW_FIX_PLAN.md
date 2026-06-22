@@ -14,13 +14,15 @@ Prioritized remediation of the code-quality / security / performance / design fi
 - **F-B4 — Token-refresh** (`worker/processors/token-refresh.ts`). Only expire on a definitive auth failure (not transient errors); set a synthetic future expiry when a refresh returns none (I-CODE-2, I-CODE-3).
 - **F-B5 — Publish account status** (`worker/processors/publish.ts`). Fail fast if `account.status !== "active"` before publishing (I-CODE-4).
 
-## PR-C — Important: quota/correctness + indexes + tests (P1)
-- **F-C1 — Quota refund on cancel** (`app/(dashboard)/posts/actions.ts`). Release `posts_scheduled` when a scheduled target is cancelled (I-CODE-1).
-- **F-C2 — releaseReplySlot** (`lib/repos/replies.ts`). Target the row by `ruleId` + recorded period, not a recomputed `now` day key (I-CODE-5).
-- **F-C3 — Comment timestamp** (`lib/platforms/instagram.ts`, `facebook.ts`). Sentinel epoch instead of `new Date()` when a comment has no timestamp (I-CODE-6).
-- **F-C4 — Indexes** (`db/schema/*`). `social_accounts(status, tokenExpiresAt)`; `generated_content(clerkUserId, reviewStatus)` + `(agentRunId)` (I-PERF-1, I-PERF-2, migration).
-- **F-C5 — Bound list reads** (`lib/repos/content-reviews.ts`, `generated-content.ts`, `research.ts`). Add `limit` to `listPendingReviews`/`listGeneratedContent`/`listIdeas`/`listResearchTopics` (I-PERF-3).
-- **F-C6 — Concurrency tests** (`lib/repos/usage.ts`, `replies.ts` — pure seam). Add tests for the atomic consume/grant race-safety (I-CODE-7).
+## PR-C — Important: quota/correctness + indexes + reads (P1) — ✅ shipped
+- **F-C2 — releaseReplySlot** (`lib/repos/replies.ts`). ✅ Decrement by `ruleId` only (floored at 0), NOT scoped to a recomputed `now` day key — a release that crosses UTC midnight from its grant now still refunds the slot (I-CODE-5). Caller `worker/processors/reply.ts` updated to drop the now-unused `now` arg.
+- **F-C3 — Comment timestamp** (`lib/platforms/instagram.ts`, `facebook.ts`). ✅ Epoch sentinel `new Date(0)` instead of `new Date()` when a comment has no timestamp, so a timestamp-less comment can't push the poll watermark (`max(commentedAt)`) to the present (I-CODE-6).
+- **F-C4 — Indexes** (`db/schema/social-accounts.ts`, `generated-content.ts`, migration `0020`). ✅ `social_accounts(status, tokenExpiresAt)`; `generated_content(clerkUserId, reviewStatus)` + `(agentRunId)` (I-PERF-1, I-PERF-2).
+- **F-C5 — Bound list reads** (`lib/repos/content-reviews.ts`, `generated-content.ts`, `research.ts`). ✅ `limit = 100` default on `listPendingReviews`/`listGeneratedContent`/`listIdeas`/`listResearchTopics` (I-PERF-3).
+
+### Deferred from PR-C (each its own coherent change — not shippable as a one-liner)
+- **F-C1 — Quota refund on cancel** (I-CODE-1). DEFERRED. `createPost` consumes one `posts_scheduled` **per post** (`create/actions.ts:228`), but `cancelTarget` operates **per target** and `reschedulePost` re-queues without re-consuming. A naive "refund on cancel" therefore over-refunds multi-target posts and reschedule→cancel cycles (lets a user exceed the cap — a worse bug than the one being fixed). Correct fix needs a refund-idempotency signal (a `quotaConsumed`/`quotaRefunded` flag on `posts`, set at create, cleared on the cancel that unschedules the last target, re-set on reschedule) **or** a switch to metering on publish. Both are schema + multi-call changes — tracked for its own PR.
+- **F-C6 — Concurrency tests** (I-CODE-7). DEFERRED. The race-safety lives in the conditional SQL (`onConflictDoUpdate … setWhere`, atomic `consumeQuota`), not in pure logic, so a meaningful test needs two concurrent Postgres connections — there is no live DB provisioned in CI. A pure-logic test here would be theater (it wouldn't exercise the race). Tracked for when an integration-test DB is available.
 
 ## PR-D — Perf + design + suggestions (P1/P2)
 - **F-D1 — Publish parallelism** (`worker/processors/publish.ts`). Parallelize the independent account/media reads (I-PERF-4).

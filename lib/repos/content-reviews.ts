@@ -65,6 +65,7 @@ export type PendingReview = {
 /** Drafts Castor held for this tenant, awaiting human approval. */
 export async function listPendingReviews(
   clerkUserId: string,
+  limit = 100,
 ): Promise<PendingReview[]> {
   return db
     .select({
@@ -85,7 +86,8 @@ export async function listPendingReviews(
         eq(generatedContent.reviewStatus, "held"),
       ),
     )
-    .orderBy(desc(generatedContent.createdAt));
+    .orderBy(desc(generatedContent.createdAt))
+    .limit(limit);
 }
 
 /**

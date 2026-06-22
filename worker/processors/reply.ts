@@ -54,7 +54,7 @@ export async function replyProcessor(job: Job): Promise<void> {
   if (!granted) return skip("rate limited (cooldown or daily cap)");
 
   // Any path from here that does NOT post must give the slot back.
-  const releaseSlot = () => releaseReplySlot(rule.id, limits, now);
+  const releaseSlot = () => releaseReplySlot(rule.id, limits);
 
   // Compose the reply.
   const vars = { author: event.author, text: event.text };

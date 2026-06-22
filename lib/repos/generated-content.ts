@@ -10,6 +10,7 @@ import {
 /** Research-backed ideas (kind=idea with a research topic). */
 export async function listIdeas(
   clerkUserId: string,
+  limit = 100,
 ): Promise<GeneratedContent[]> {
   return db
     .select()
@@ -21,7 +22,8 @@ export async function listIdeas(
         isNotNull(generatedContent.researchTopicId),
       ),
     )
-    .orderBy(desc(generatedContent.createdAt));
+    .orderBy(desc(generatedContent.createdAt))
+    .limit(limit);
 }
 
 /**
@@ -91,10 +93,12 @@ export async function setGeneratedContentRunId(
 
 export async function listGeneratedContent(
   clerkUserId: string,
+  limit = 100,
 ): Promise<GeneratedContent[]> {
   return db
     .select()
     .from(generatedContent)
     .where(eq(generatedContent.clerkUserId, clerkUserId))
-    .orderBy(desc(generatedContent.createdAt));
+    .orderBy(desc(generatedContent.createdAt))
+    .limit(limit);
 }

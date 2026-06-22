@@ -37,10 +37,12 @@ export async function updateResearchTopic(
 
 export async function listResearchTopics(
   clerkUserId: string,
+  limit = 100,
 ): Promise<ResearchTopic[]> {
   return db
     .select()
     .from(researchTopics)
     .where(eq(researchTopics.clerkUserId, clerkUserId))
-    .orderBy(desc(researchTopics.createdAt));
+    .orderBy(desc(researchTopics.createdAt))
+    .limit(limit);
 }

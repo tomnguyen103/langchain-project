@@ -421,20 +421,16 @@ export async function grantReplySlot(
 export async function releaseReplySlot(
   ruleId: string,
   limits: ReplySlotLimits,
-  now: Date = new Date(),
 ): Promise<void> {
   if (isUnlimited(limits)) return;
-  const periodStart = utcDayStart(now);
+  // Decrement by ruleId only — NOT scoped to today's period. The prior filter on
+  // periodStart = utcDayStart(now) silently no-op'd when the release crossed UTC
+  // midnight from its grant, eating a slot. Floored at 0.
   await db
     .update(autoReplySlots)
     .set({
       usedCount: sql`GREATEST(${autoReplySlots.usedCount} - 1, 0)`,
       updatedAt: new Date(),
     })
-    .where(
-      and(
-        eq(autoReplySlots.ruleId, ruleId),
-        eq(autoReplySlots.periodStart, periodStart),
-      ),
-    );
+    .where(eq(autoReplySlots.ruleId, ruleId));
 }
