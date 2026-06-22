@@ -116,3 +116,16 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 
 ### T15 — Parallel-draft synthesis
 - Drafting already fans out across platforms concurrently; added per-platform **best-of-N**: `DRAFT_VARIANTS` variants generated in parallel, then a pure, tested `selectBestDraft` fan-in (prefers clean + within-limit; longest-that-fits). Default `DRAFT_VARIANTS=1` keeps cost unchanged; bump it to enable best-of-N.
+
+---
+
+## PR-6 — Interop scaffolds (P2: T16–T17) — completes the plan
+
+### T16 — MCP inward
+- Minimal MCP client over stateless HTTP (`lib/mcp/client.ts`): `listMcpTools`/`callMcpTool` (tools/list, tools/call). **Graceful no-op when `MCP_SERVER_URL` is unset** (mirrors the Tavily gate), so adopting MCP is additive. The JSON-RPC codec (`lib/mcp/rpc.ts`) is pure + unit-tested; the fetch client stays env-bound. New optional env: `MCP_SERVER_URL`/`MCP_SERVER_TOKEN`.
+
+### T17 — A2A outward
+- `/api/a2a`: **GET** serves the Agent Card; **POST** handles JSON-RPC `message/send` (→ `orchestrator.startRun`) and `tasks/get` (→ run status mapped to an A2A task state). Env-gated (`A2A_ENABLED="true"`) + bearer token (`A2A_TOKEN`); **disabled by default**. Pure `buildAgentCard` + `parseA2aRequest`/`mapRunStatusToTaskState` are unit-tested.
+- **Scaffold caveats (productionization):** the tenant is currently named in `params.clerkUserId` — production should map the A2A credential → a tenant; streaming (`message/stream` SSE) and the full task lifecycle are not implemented; the Agent Card is served at `/api/a2a` (a `/.well-known/agent-card.json` rewrite is a deployment step).
+
+**All 17 plan tasks (P0–P2) are implemented and merged.**

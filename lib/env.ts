@@ -91,6 +91,16 @@ const EnvSchema = z.object({
   // endpoint falls back to requiring an authenticated session.
   HEALTH_CHECK_TOKEN: z.string().optional(),
 
+  // MCP (inward) — optional; agents can call tools on a configured MCP server.
+  MCP_SERVER_URL: z.string().url().optional(),
+  MCP_SERVER_TOKEN: z.string().optional(),
+
+  // A2A (outward) — optional; expose the content agent over Agent2Agent. The
+  // endpoint is disabled unless A2A_ENABLED="true"; A2A_TOKEN is the bearer
+  // secret callers must present.
+  A2A_ENABLED: z.string().optional(),
+  A2A_TOKEN: z.string().optional(),
+
   // Public
   NEXT_PUBLIC_APP_URL: z.string().optional(),
 });
