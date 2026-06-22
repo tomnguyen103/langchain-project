@@ -224,8 +224,10 @@ export async function createPost(
   );
 
   // Consume quota only after all validation passes, so an invalid request
-  // never burns a unit. The consume is atomic, so this stays race-safe.
-  await consumeQuota(userId, "posts_scheduled");
+  // never burns a unit. The consume is atomic, so this stays race-safe. Capture
+  // the consumed period and mark the unit held on the post, so a later full
+  // cancel refunds exactly this window (and a re-schedule re-consumes).
+  const scheduleQuotaPeriod = await consumeQuota(userId, "posts_scheduled");
 
   const created = await createPostWithTargets({
     post: {
@@ -234,6 +236,8 @@ export async function createPost(
       status: "scheduled",
       scheduledAt,
       timezone: input.timezone || "UTC",
+      scheduleQuotaPeriod,
+      scheduleQuotaHeld: true,
     },
     targets,
   });

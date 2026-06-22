@@ -1,4 +1,11 @@
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { postStatusEnum } from "./enums";
 import { timestamps } from "./_helpers";
@@ -17,6 +24,13 @@ export const posts = pgTable(
     timezone: text("timezone").notNull().default("UTC"),
     // Provenance — set when a post originates from generated_content (Goal 4).
     sourceContentId: uuid("source_content_id"),
+    // posts_scheduled quota accounting (user create flow only; agent-scheduled
+    // posts are unmetered → scheduleQuotaPeriod stays null). `scheduleQuotaPeriod`
+    // is the daily period the unit was consumed for (so a refund hits the right
+    // window); `scheduleQuotaHeld` flips false when a full cancel refunds the unit
+    // and back to true if the post is re-scheduled — keeping refunds idempotent.
+    scheduleQuotaPeriod: text("schedule_quota_period"),
+    scheduleQuotaHeld: boolean("schedule_quota_held").notNull().default(false),
     ...timestamps,
   },
   (t) => [

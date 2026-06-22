@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
+import { consumeQuota, releaseQuotaForPeriod } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
+import { hasLiveTarget } from "@/lib/posts/status";
 import { cancelPublish, enqueuePublish } from "@/lib/queue/jobs";
 import { getUserSocialAccount } from "@/lib/repos/accounts";
 import {
@@ -11,6 +13,8 @@ import {
   getPostTarget,
   getPostWithTargets,
   recomputePostStatus,
+  releaseScheduleQuotaHold,
+  setPostScheduleQuota,
   updatePostTarget,
 } from "@/lib/repos/posts";
 import { assertFutureDate } from "@/lib/utils/schedule";
@@ -20,7 +24,7 @@ async function loadOwnedTarget(targetId: string, userId: string) {
   if (!target) throw new Error("Target not found.");
   const post = await getPostWithTargets(target.postId, userId);
   if (!post) throw new Error("Not authorized.");
-  return target;
+  return { target, post };
 }
 
 function revalidate(postId: string) {
@@ -31,7 +35,7 @@ function revalidate(postId: string) {
 /** Cancel a scheduled target: remove its job and return it to an unscheduled state. */
 export async function cancelTarget(targetId: string) {
   const userId = await requireUserId();
-  const target = await loadOwnedTarget(targetId, userId);
+  const { target, post } = await loadOwnedTarget(targetId, userId);
   if (target.status !== "queued" && target.status !== "pending") {
     throw new Error("Only scheduled targets can be canceled.");
   }
@@ -42,15 +46,47 @@ export async function cancelTarget(targetId: string) {
     scheduledAt: null,
   });
   await recomputePostStatus(target.postId);
+
+  // If this cancel fully retracts the post — nothing queued/publishing/published
+  // remains and nothing went out — refund its held posts_scheduled unit for the
+  // exact period it was consumed. The snapshot check here is a fast path; the
+  // claim (releaseScheduleQuotaHold) re-checks held + no-live-target atomically in
+  // SQL, so the refund stays idempotent and race-free against a concurrent
+  // re-queue/publish (a later re-schedule flips the hold back and re-consumes).
+  if (post.scheduleQuotaPeriod) {
+    const afterCancel = post.targets.map((t) =>
+      t.id === target.id ? { ...t, status: "pending" as const } : t,
+    );
+    if (!hasLiveTarget(afterCancel)) {
+      const claimed = await releaseScheduleQuotaHold(post.id);
+      if (claimed) {
+        await releaseQuotaForPeriod(
+          userId,
+          "posts_scheduled",
+          post.scheduleQuotaPeriod,
+        );
+      }
+    }
+  }
   revalidate(target.postId);
 }
 
 /** Retry a failed target immediately. */
 export async function retryTarget(targetId: string) {
   const userId = await requireUserId();
-  const target = await loadOwnedTarget(targetId, userId);
+  const { target, post } = await loadOwnedTarget(targetId, userId);
   if (target.status !== "failed") {
     throw new Error("Only failed targets can be retried.");
+  }
+  // Re-charge a previously-refunded (fully-cancelled) metered post before
+  // re-activating a failed target. Consume first so an over-cap user is blocked
+  // cleanly (it throws) with no job enqueued.
+  if (post.scheduleQuotaPeriod && !post.scheduleQuotaHeld) {
+    const period = await consumeQuota(userId, "posts_scheduled");
+    await setPostScheduleQuota(post.id, {
+      scheduleQuotaPeriod: period,
+      scheduleQuotaHeld: true,
+    });
   }
   const runAt = new Date();
   const jobId = await enqueuePublish({
@@ -143,9 +179,28 @@ export async function reschedulePost(postId: string, scheduledAtIso: string) {
   // calendar drag) can't drop a post into the past and publish it instantly.
   const scheduledAt = assertFutureDate(scheduledAtIso);
 
-  for (const target of post.targets) {
-    // Only reschedule still-pending targets (failed → use Retry).
-    if (target.status !== "queued" && target.status !== "pending") continue;
+  // Only reschedule still-pending/queued targets (failed → use Retry).
+  const reschedulable = post.targets.filter(
+    (t) => t.status === "queued" || t.status === "pending",
+  );
+
+  // Re-charge a previously-refunded (fully-cancelled) metered post before
+  // re-scheduling it, so cancel→reschedule can't yield a free scheduled post.
+  // Consume first so an over-cap user is blocked cleanly (it throws) with nothing
+  // enqueued.
+  if (
+    reschedulable.length > 0 &&
+    post.scheduleQuotaPeriod &&
+    !post.scheduleQuotaHeld
+  ) {
+    const period = await consumeQuota(userId, "posts_scheduled");
+    await setPostScheduleQuota(postId, {
+      scheduleQuotaPeriod: period,
+      scheduleQuotaHeld: true,
+    });
+  }
+
+  for (const target of reschedulable) {
     await cancelPublish(target.id);
     const jobId = await enqueuePublish({
       postTargetId: target.id,
