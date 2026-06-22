@@ -3,6 +3,7 @@ import {
   desc,
   eq,
   getTableColumns,
+  inArray,
   isNull,
   lt,
   max,
@@ -149,6 +150,71 @@ export async function ingestComment(
     })
     .returning();
   return row ?? null;
+}
+
+/**
+ * Batch-insert comments idempotently; returns only the newly-inserted rows (the
+ * unique (socialAccountId, externalCommentId) drops dupes). One insert per
+ * target instead of one per comment — kills the comment-poll N+1.
+ */
+export async function ingestComments(
+  rows: NewCommentEvent[],
+): Promise<CommentEvent[]> {
+  if (rows.length === 0) return [];
+  return db
+    .insert(commentEvents)
+    .values(rows)
+    .onConflictDoNothing({
+      target: [commentEvents.socialAccountId, commentEvents.externalCommentId],
+    })
+    .returning();
+}
+
+export type CommentClassification = {
+  id: string;
+  matchedRuleId: string | null;
+  status: "matched" | "skipped";
+};
+
+/**
+ * Apply rule classification to freshly-ingested comments, grouped by
+ * (status, matchedRuleId) so it is a handful of UPDATEs, not one per comment.
+ */
+export async function classifyCommentEvents(
+  items: CommentClassification[],
+): Promise<void> {
+  if (items.length === 0) return;
+  const now = new Date();
+  const groups = new Map<
+    string,
+    {
+      matchedRuleId: string | null;
+      status: "matched" | "skipped";
+      ids: string[];
+    }
+  >();
+  for (const item of items) {
+    const key = `${item.status}:${item.matchedRuleId ?? ""}`;
+    const group = groups.get(key) ?? {
+      matchedRuleId: item.matchedRuleId,
+      status: item.status,
+      ids: [],
+    };
+    group.ids.push(item.id);
+    groups.set(key, group);
+  }
+  await Promise.all(
+    [...groups.values()].map((group) =>
+      db
+        .update(commentEvents)
+        .set({
+          matchedRuleId: group.matchedRuleId,
+          status: group.status,
+          updatedAt: now,
+        })
+        .where(inArray(commentEvents.id, group.ids)),
+    ),
+  );
 }
 
 export async function getCommentEvent(

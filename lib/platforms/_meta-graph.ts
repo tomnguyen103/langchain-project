@@ -57,6 +57,27 @@ export async function graphFetch<T = unknown>(
 }
 
 /**
+ * The next `after` cursor for Graph pagination. Prefer `cursors.after`, but fall
+ * back to parsing the `after` query param out of the `next` URL — some edges
+ * return a `next` page URL with no `cursors.after`, and the old code dropped
+ * those pages (a `next` with no cursor silently ended the loop). `undefined`
+ * means there are genuinely no more pages.
+ */
+export function nextAfterCursor(
+  paging: { cursors?: { after?: string }; next?: string } | undefined,
+): string | undefined {
+  if (paging?.cursors?.after) return paging.cursors.after;
+  if (paging?.next) {
+    try {
+      return new URL(paging.next).searchParams.get("after") ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Follow Graph API cursor pagination for an edge, collecting `data` items
  * across pages. Bounded by `maxPages` so a high-volume edge can't loop forever
  * — callers pass a `since`/time window to keep the page count small.
@@ -77,7 +98,7 @@ export async function graphFetchAll<T = unknown>(
       params: { ...init.params, after },
     });
     if (res.data?.length) out.push(...res.data);
-    after = res.paging?.next ? res.paging?.cursors?.after : undefined;
+    after = nextAfterCursor(res.paging);
     if (!after) break;
   }
   if (after) {

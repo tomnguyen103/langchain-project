@@ -52,6 +52,11 @@ export const commentEvents = pgTable(
     index("comment_events_account_idx").on(t.socialAccountId),
     index("comment_events_rule_idx").on(t.matchedRuleId),
     index("comment_events_status_idx").on(t.status),
+    // The comment-poll watermark query filters (socialAccountId, externalPostId).
+    index("comment_events_account_post_idx").on(
+      t.socialAccountId,
+      t.externalPostId,
+    ),
   ],
 );
 

@@ -100,6 +100,9 @@ const EnvSchema = z.object({
   // secret callers must present.
   A2A_ENABLED: z.string().optional(),
   A2A_TOKEN: z.string().optional(),
+  // The single tenant (Clerk user id) the A2A token acts as. Required for A2A to
+  // be enabled — the endpoint NEVER derives the tenant from the request body.
+  A2A_TENANT_ID: z.string().optional(),
 
   // Public
   NEXT_PUBLIC_APP_URL: z.string().optional(),
