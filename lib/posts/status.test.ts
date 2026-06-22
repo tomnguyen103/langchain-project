@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { PostTarget } from "@/db/schema";
-import { derivePostStatus, hasLiveTarget } from "./status";
+import { derivePostStatus, hasLiveTarget, LIVE_TARGET_STATUSES } from "./status";
 
 const t = (status: PostTarget["status"]): Pick<PostTarget, "status"> => ({
   status,
@@ -68,5 +68,13 @@ describe("hasLiveTarget (posts_scheduled refund signal)", () => {
 
   it("is false for an empty target set", () => {
     assert.equal(hasLiveTarget([]), false);
+  });
+
+  it("pins LIVE_TARGET_STATUSES — the set the atomic SQL refund claim relies on", () => {
+    assert.deepEqual(LIVE_TARGET_STATUSES, [
+      "queued",
+      "publishing",
+      "published",
+    ]);
   });
 });

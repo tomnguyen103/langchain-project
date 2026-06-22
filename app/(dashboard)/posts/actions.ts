@@ -49,8 +49,10 @@ export async function cancelTarget(targetId: string) {
 
   // If this cancel fully retracts the post — nothing queued/publishing/published
   // remains and nothing went out — refund its held posts_scheduled unit for the
-  // exact period it was consumed. The atomic held→false flip keeps the refund
-  // idempotent (a later re-schedule flips it back and re-consumes).
+  // exact period it was consumed. The snapshot check here is a fast path; the
+  // claim (releaseScheduleQuotaHold) re-checks held + no-live-target atomically in
+  // SQL, so the refund stays idempotent and race-free against a concurrent
+  // re-queue/publish (a later re-schedule flips the hold back and re-consumes).
   if (post.scheduleQuotaPeriod) {
     const afterCancel = post.targets.map((t) =>
       t.id === target.id ? { ...t, status: "pending" as const } : t,

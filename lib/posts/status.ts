@@ -1,4 +1,4 @@
-import type { PostStatus, PostTarget } from "@/db/schema";
+import type { PostStatus, PostTarget, TargetStatus } from "@/db/schema";
 
 /**
  * Derive a post's rollup status from its targets' statuses. Pure (type-only
@@ -32,19 +32,25 @@ export function derivePostStatus(
 }
 
 /**
- * Whether a post still has a "live" target — one that is scheduled (`queued`),
- * in-flight (`publishing`), or already out (`published`). A post with no live
- * target has been fully retracted to `pending`/`failed` (e.g. every scheduled
- * target was cancelled before anything published), which is the signal to refund
- * its `posts_scheduled` quota unit. Pure, so it's unit-tested without the DB.
+ * Target statuses that count as "live" — scheduled (`queued`), in-flight
+ * (`publishing`), or already out (`published`). Shared by `hasLiveTarget` (in
+ * memory) and the atomic refund claim (`releaseScheduleQuotaHold`, in SQL) so the
+ * two definitions can't drift.
+ */
+export const LIVE_TARGET_STATUSES: TargetStatus[] = [
+  "queued",
+  "publishing",
+  "published",
+];
+
+/**
+ * Whether a post still has a live target. A post with none has been fully
+ * retracted to `pending`/`failed` (e.g. every scheduled target was cancelled
+ * before anything published), which is the signal to refund its `posts_scheduled`
+ * quota unit. Pure, so it's unit-tested without the DB.
  */
 export function hasLiveTarget(
   targets: Pick<PostTarget, "status">[],
 ): boolean {
-  return targets.some(
-    (t) =>
-      t.status === "queued" ||
-      t.status === "publishing" ||
-      t.status === "published",
-  );
+  return targets.some((t) => LIVE_TARGET_STATUSES.includes(t.status));
 }

@@ -10,6 +10,7 @@ import {
   inArray,
   isNotNull,
   lte,
+  notExists,
 } from "drizzle-orm";
 
 import { db, runAtomicWrite } from "@/db";
@@ -22,7 +23,7 @@ import {
   type PostStatus,
   type PostTarget,
 } from "@/db/schema";
-import { derivePostStatus } from "@/lib/posts/status";
+import { derivePostStatus, LIVE_TARGET_STATUSES } from "@/lib/posts/status";
 
 export type CreatePostInput = {
   post: NewPost;
@@ -235,16 +236,36 @@ export async function setPostScheduleQuota(
 }
 
 /**
- * Atomically claim a refund of a post's held posts_scheduled unit: flip
- * `scheduleQuotaHeld` true→false in one conditional update and report whether it
- * actually changed. Only the caller that wins the flip should refund the unit,
- * so two concurrent cancels can't double-refund.
+ * Atomically claim a refund of a post's held posts_scheduled unit: in ONE
+ * conditional update, flip `scheduleQuotaHeld` true→false only while the unit is
+ * still held AND the post has no live target, then report whether it changed.
+ * Folding the live-target check into the same statement (rather than gating on an
+ * app-side snapshot) closes the TOCTOU race where a concurrent re-queue/publish
+ * could create a live target between the check and the claim — and the held flag
+ * still prevents two concurrent cancels from double-refunding. Only the caller
+ * that wins the flip should refund the unit.
  */
 export async function releaseScheduleQuotaHold(id: string): Promise<boolean> {
   const rows = await db
     .update(posts)
     .set({ scheduleQuotaHeld: false, updatedAt: new Date() })
-    .where(and(eq(posts.id, id), eq(posts.scheduleQuotaHeld, true)))
+    .where(
+      and(
+        eq(posts.id, id),
+        eq(posts.scheduleQuotaHeld, true),
+        notExists(
+          db
+            .select({ id: postTargets.id })
+            .from(postTargets)
+            .where(
+              and(
+                eq(postTargets.postId, posts.id),
+                inArray(postTargets.status, LIVE_TARGET_STATUSES),
+              ),
+            ),
+        ),
+      ),
+    )
     .returning({ id: posts.id });
   return rows.length > 0;
 }
