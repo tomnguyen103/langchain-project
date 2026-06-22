@@ -22,7 +22,7 @@ export function ResearchForm() {
       try {
         await startResearch(niche);
         setNiche("");
-        toast.success("Research started — ideas will appear shortly.");
+        toast.success("Research started. Ideas will appear shortly.");
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Failed to start research.",

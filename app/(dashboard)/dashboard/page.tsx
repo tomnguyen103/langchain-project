@@ -137,7 +137,7 @@ export default async function OverviewPage() {
         <CardContent className="space-y-2">
           {failedTargets.length === 0 && unhealthy.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              All clear — no failed posts or disconnected accounts.
+              All clear. No failed posts or disconnected accounts.
             </p>
           ) : (
             <>
@@ -148,7 +148,7 @@ export default async function OverviewPage() {
                   className="hover:bg-accent flex items-center justify-between gap-3 rounded-lg border p-3"
                 >
                   <span className="truncate text-sm">
-                    {PLATFORM_META[a.platform].label} —{" "}
+                    {PLATFORM_META[a.platform].label}:{" "}
                     {a.displayName ?? a.handle ?? a.platformAccountId}
                   </span>
                   <Badge variant="destructive">{a.status} · reconnect</Badge>

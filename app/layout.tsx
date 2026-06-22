@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-const TITLE = "SocialFlow — AI Social Content Automation";
+const TITLE = "SocialFlow: AI Social Content Automation";
 const DESCRIPTION =
   "Research niches, generate platform-tailored content with AI, then schedule and auto-publish across every social platform.";
 

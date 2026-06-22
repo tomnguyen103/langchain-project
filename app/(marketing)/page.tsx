@@ -44,7 +44,7 @@ const features = [
     icon: Bot,
     title: "AI content generation",
     description:
-      "Captions, posts, ideas and platform-tailored variations — drafted in your voice.",
+      "Captions, posts, ideas and platform-tailored variations, drafted in your voice.",
   },
   {
     icon: Send,
@@ -62,7 +62,7 @@ const features = [
     icon: MessageSquare,
     title: "Auto comment-reply",
     description:
-      "Reply to comments by keyword — templated or AI-composed — without lifting a finger.",
+      "Reply to comments by keyword, templated or AI-composed, without lifting a finger.",
   },
   {
     icon: TrendingUp,
@@ -114,7 +114,7 @@ export default function LandingPage() {
             <p className="text-muted-foreground mt-5 text-lg text-pretty">
               SocialFlow researches your niche, generates platform-tailored
               content with AI, then schedules and auto-publishes up to seven
-              posts a day across every platform. You focus on strategy — the
+              posts a day across every platform. You focus on strategy. The
               agent handles execution.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -278,13 +278,13 @@ export default function LandingPage() {
             Spend your time on strategy, not scheduling.
           </h2>
           <p className="mt-3 text-pretty opacity-90">
-            Let the agent handle research, generation, and publishing — every
+            Let the agent handle research, generation, and publishing, every
             day, on every platform.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" variant="secondary">
               <Link href="/sign-up">
-                Get started free <ArrowRight className="size-4" />
+                Start free <ArrowRight className="size-4" />
               </Link>
             </Button>
           </div>

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 
@@ -67,9 +68,17 @@ export function TopicList({ topics }: { topics: TopicView[] }) {
               {t.ideaCount} idea{t.ideaCount === 1 ? "" : "s"}
             </div>
           </div>
-          <Badge variant={statusVariant[t.status] ?? "outline"}>
-            {t.status}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {(t.status === "pending" || t.status === "researching") && (
+              <Loader2
+                aria-hidden
+                className="text-muted-foreground size-3.5 animate-spin"
+              />
+            )}
+            <Badge variant={statusVariant[t.status] ?? "outline"}>
+              {t.status}
+            </Badge>
+          </div>
         </div>
       ))}
     </div>
