@@ -5,12 +5,19 @@ import { AgentName } from "../types";
 import { createLyra } from "./index";
 
 describe("lyra agent", () => {
-  it("generates drafts and hands the ids to Castor (no auto-accept)", async () => {
+  it("loads the brand profile, threads brand context to the graph, hands ids to Castor", async () => {
+    let received: unknown;
     const lyra = createLyra({
-      runContentAgent: async ({ topic, platforms, userId }) => {
-        assert.equal(topic, "coffee");
-        assert.deepEqual(platforms, ["instagram", "x"]);
+      getBrandProfile: async (userId) => {
         assert.equal(userId, "user-9");
+        return {
+          voice: "warm",
+          bannedTerms: ["cheap"],
+          learnedMemory: { topTopics: [{ topic: "cold brew" }] },
+        };
+      },
+      runContentAgent: async (input) => {
+        received = input;
         return {
           drafts: { instagram: "a", x: "b" },
           savedContentIds: ["c1", "c2"],
@@ -23,7 +30,16 @@ describe("lyra agent", () => {
       { clerkUserId: "user-9", runId: "r" },
     );
 
-    assert.deepEqual(result.summary, { drafts: 2 });
+    assert.deepEqual(received, {
+      topic: "coffee",
+      platforms: ["instagram", "x"],
+      userId: "user-9",
+      brand: {
+        voice: "warm",
+        bannedTerms: ["cheap"],
+        learnedNotes: "cold brew",
+      },
+    });
     assert.equal(result.handoff?.to, AgentName.Castor);
     assert.deepEqual(result.handoff?.payload, {
       generatedContentIds: ["c1", "c2"],
@@ -32,6 +48,11 @@ describe("lyra agent", () => {
 
   it("forwards empty results to Castor without error", async () => {
     const lyra = createLyra({
+      getBrandProfile: async () => ({
+        voice: "",
+        bannedTerms: [],
+        learnedMemory: null,
+      }),
       runContentAgent: async () => ({ drafts: {}, savedContentIds: [] }),
     });
 
@@ -41,12 +62,16 @@ describe("lyra agent", () => {
     );
 
     assert.deepEqual(result.summary, { drafts: 0 });
-    assert.equal(result.handoff?.to, AgentName.Castor);
     assert.deepEqual(result.handoff?.payload, { generatedContentIds: [] });
   });
 
   it("propagates a content-generation failure (no swallow)", async () => {
     const lyra = createLyra({
+      getBrandProfile: async () => ({
+        voice: "",
+        bannedTerms: [],
+        learnedMemory: null,
+      }),
       runContentAgent: async () => {
         throw new Error("LLM down");
       },

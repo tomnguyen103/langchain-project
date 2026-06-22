@@ -17,6 +17,8 @@ export async function draftPerPlatformNode(state: ContentStateType) {
           maxLength: meta.maxBodyLength,
           digest: state.digest,
           topic: state.topic,
+          voice: state.brandVoice,
+          bannedTerms: state.bannedTerms,
         }),
       );
       const body = textOf(res.content).trim().slice(0, meta.maxBodyLength);
