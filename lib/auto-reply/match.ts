@@ -2,6 +2,10 @@ import type { MatchType } from "@/db/schema";
 
 import { isSafeRegexSource, MAX_REGEX_TEST_LENGTH } from "./regex-guard";
 
+/** Max comment chars scanned for non-regex matching — bounds worst-case work on
+ *  the shared worker (the regex branch is bounded by MAX_REGEX_TEST_LENGTH). */
+const MAX_MATCH_TEXT_LENGTH = 10_000;
+
 export type RuleMatchSpec = {
   keywords: string[];
   matchType: MatchType;
@@ -17,7 +21,10 @@ export function commentMatchesRule(text: string, rule: RuleMatchSpec): boolean {
     .filter((k) => k.length > 0);
   if (keywords.length === 0) return false;
 
-  const haystack = text.toLowerCase();
+  // Bound the scanned text so a multi-megabyte comment can't amplify CPU/memory
+  // on the shared worker (the regex branch is already capped internally).
+  const scanned = text.slice(0, MAX_MATCH_TEXT_LENGTH);
+  const haystack = scanned.toLowerCase();
   switch (rule.matchType) {
     case "any":
       return keywords.some((k) => haystack.includes(k.toLowerCase()));
@@ -26,7 +33,7 @@ export function commentMatchesRule(text: string, rule: RuleMatchSpec): boolean {
     case "exact":
       return keywords.some((k) => haystack === k.toLowerCase());
     case "regex":
-      return keywords.some((k) => safeRegexTest(k, text));
+      return keywords.some((k) => safeRegexTest(k, scanned));
     default:
       return false;
   }

@@ -17,6 +17,12 @@ import { env } from "@/lib/env";
 const ALGORITHM = "aes-256-gcm";
 // Version marker so the payload format can evolve (e.g. key rotation) later.
 const VERSION = "v1";
+// Validate unconditionally — independent of SKIP_ENV_VALIDATION (which bypasses
+// the Zod schema) — so a missing/short key can never silently weak-encrypt the
+// stored OAuth tokens.
+if (!env.ENCRYPTION_KEY || env.ENCRYPTION_KEY.length < 32) {
+  throw new Error("ENCRYPTION_KEY must be set and at least 32 characters.");
+}
 const KEY = scryptSync(env.ENCRYPTION_KEY, "socialflow-token-kdf", 32);
 
 export function encrypt(plaintext: string): string {

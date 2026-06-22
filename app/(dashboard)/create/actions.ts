@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import type { MediaType, NewPostTarget, Platform } from "@/db/schema";
 import { consumeQuota, getCurrentPlan } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
+import { env } from "@/lib/env";
 import { buildTransformUrl, getVariantSpec } from "@/lib/imagekit/transform";
+import { isAllowedMediaUrl } from "@/lib/imagekit/url";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { enqueuePublish } from "@/lib/queue/jobs";
@@ -35,6 +37,15 @@ function deriveType(mimeType?: string): MediaType {
   return "image";
 }
 
+/** The trusted ImageKit host (e.g. "ik.imagekit.io") for media-URL validation. */
+function imageKitHost(): string | null {
+  try {
+    return new URL(env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT).host;
+  } catch {
+    return null;
+  }
+}
+
 export async function saveUploadedMedia(input: {
   fileId: string;
   url: string;
@@ -45,6 +56,17 @@ export async function saveUploadedMedia(input: {
   mimeType?: string;
 }): Promise<SavedMedia> {
   const userId = await requireUserId();
+  // SSRF guard: only persist media URLs on the trusted ImageKit host — the
+  // publish path later fetches these server-side (e.g. YouTube uploads).
+  const host = imageKitHost();
+  if (!isAllowedMediaUrl(input.url, host)) {
+    throw new Error("Media URL must be an https URL on the ImageKit endpoint.");
+  }
+  if (input.thumbnailUrl && !isAllowedMediaUrl(input.thumbnailUrl, host)) {
+    throw new Error(
+      "Thumbnail URL must be an https URL on the ImageKit endpoint.",
+    );
+  }
   const asset = await createMediaAsset({
     clerkUserId: userId,
     type: deriveType(input.mimeType),

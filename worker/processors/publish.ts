@@ -43,6 +43,24 @@ export async function publishProcessor(job: Job): Promise<void> {
   try {
     const account = await getSocialAccount(target.socialAccountId);
     if (!account) throw new Error("Connected account not found");
+    if (account.status !== "active") {
+      // Fail fast — don't burn the retry budget publishing with a dead token.
+      await updatePostTarget(target.id, {
+        status: "failed",
+        lastError: `Account ${account.status} — reconnect it to publish.`,
+      });
+      await updateScheduleStatus(QueueName.Publish, jobId, {
+        status: "failed",
+        finishedAt: new Date(),
+        lastError: `account ${account.status}`,
+      });
+      await recomputePostStatus(target.postId);
+      logger.warn("publish: account not active, failing fast", {
+        postTargetId,
+        status: account.status,
+      });
+      return;
+    }
 
     const assets = await resolveMediaAssets(target.mediaAssetIds);
     const media: MediaRef[] = assets.map((a) => ({
