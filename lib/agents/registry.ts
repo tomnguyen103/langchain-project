@@ -1,4 +1,6 @@
 import { runContentAgent } from "@/lib/agent";
+import { runBrandSafety } from "@/lib/agent/guardrails/brand-safety";
+import { makeModelJudge } from "@/lib/agent/guardrails/model-judge";
 import { runResearch } from "@/lib/agent/research";
 import {
   enqueuePublish,
@@ -7,6 +9,8 @@ import {
   unregisterSeeding,
 } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
+import { getBrandProfile } from "@/lib/repos/brand-profiles";
+import { recordReviews } from "@/lib/repos/content-reviews";
 import {
   getGeneratedContentByIds,
   markGeneratedContentAccepted,
@@ -26,6 +30,7 @@ import {
 } from "@/lib/repos/research";
 
 import { createAtlas } from "./atlas";
+import { createCastor } from "./castor";
 import { createLyra } from "./lyra";
 import { createPolaris } from "./polaris";
 import { createRigel } from "./rigel";
@@ -58,6 +63,16 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
   }),
   [AgentName.Lyra]: createLyra({
     runContentAgent,
+  }),
+  [AgentName.Castor]: createCastor({
+    getGeneratedContentByIds,
+    getBrandProfile,
+    reviewDrafts: (drafts, profile, passThreshold) =>
+      runBrandSafety(drafts, profile, {
+        judge: makeModelJudge(),
+        passThreshold,
+      }),
+    recordReviews,
     markGeneratedContentAccepted,
   }),
   [AgentName.Atlas]: createAtlas({

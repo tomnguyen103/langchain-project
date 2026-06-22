@@ -16,5 +16,6 @@ export * from "./schema/auto-reply";
 export * from "./schema/comment-events";
 export * from "./schema/agent-runs";
 export * from "./schema/agent-steps";
+export * from "./schema/brand-profiles";
 export * from "./schema/reports";
 export * from "./schema/rate-limits";

@@ -113,6 +113,20 @@
       "when": 1782137325280,
       "tag": "0015_short_joseph",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782140369611,
+      "tag": "0016_loose_angel",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782141576654,
+      "tag": "0017_goofy_mojo",
+      "breakpoints": true
     }
   ]
 }

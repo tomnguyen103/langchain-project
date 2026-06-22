@@ -1,0 +1,81 @@
+import { eq } from "drizzle-orm";
+
+import { db } from "@/db";
+import {
+  brandProfiles,
+  type NewBrandProfile,
+} from "@/db/schema";
+
+/** A tenant's brand profile with defaults applied — never returns undefined. */
+export type ResolvedBrandProfile = {
+  voice: string;
+  bannedTerms: string[];
+  autoPublishEnabled: boolean;
+  autoPublishThreshold: number;
+  learnedMemory: Record<string, unknown> | null;
+};
+
+/** Safe defaults for a tenant that hasn't configured a profile yet. */
+export const DEFAULT_BRAND_PROFILE: ResolvedBrandProfile = {
+  voice: "",
+  bannedTerms: [],
+  autoPublishEnabled: false,
+  autoPublishThreshold: 0.8,
+  learnedMemory: null,
+};
+
+/** Read a tenant's brand profile, falling back to safe defaults. */
+export async function getBrandProfile(
+  clerkUserId: string,
+): Promise<ResolvedBrandProfile> {
+  const [row] = await db
+    .select()
+    .from(brandProfiles)
+    .where(eq(brandProfiles.clerkUserId, clerkUserId))
+    .limit(1);
+  // Fresh copy, not the shared DEFAULT_BRAND_PROFILE reference, so a caller
+  // mutating the result can't leak into future tenants' defaults.
+  if (!row) return { ...DEFAULT_BRAND_PROFILE, bannedTerms: [] };
+  return {
+    voice: row.voice ?? "",
+    bannedTerms: row.bannedTerms ?? [],
+    autoPublishEnabled: row.autoPublishEnabled,
+    autoPublishThreshold: row.autoPublishThreshold,
+    learnedMemory: row.learnedMemory ?? null,
+  };
+}
+
+/** Create or update a tenant's brand profile (settings only). */
+export async function upsertBrandProfile(
+  clerkUserId: string,
+  data: {
+    clerkOrgId?: string | null;
+    voice?: string;
+    bannedTerms?: string[];
+    autoPublishEnabled?: boolean;
+    autoPublishThreshold?: number;
+  },
+): Promise<void> {
+  // Insert fills defaults for omitted fields; the conflict update only touches
+  // fields actually provided, so a partial save can't wipe existing settings.
+  const set: Partial<NewBrandProfile> = { updatedAt: new Date() };
+  if (data.clerkOrgId !== undefined) set.clerkOrgId = data.clerkOrgId;
+  if (data.voice !== undefined) set.voice = data.voice;
+  if (data.bannedTerms !== undefined) set.bannedTerms = data.bannedTerms;
+  if (data.autoPublishEnabled !== undefined)
+    set.autoPublishEnabled = data.autoPublishEnabled;
+  if (data.autoPublishThreshold !== undefined)
+    set.autoPublishThreshold = data.autoPublishThreshold;
+
+  await db
+    .insert(brandProfiles)
+    .values({
+      clerkUserId,
+      clerkOrgId: data.clerkOrgId ?? null,
+      voice: data.voice ?? "",
+      bannedTerms: data.bannedTerms ?? [],
+      autoPublishEnabled: data.autoPublishEnabled ?? false,
+      autoPublishThreshold: data.autoPublishThreshold ?? 0.8,
+    })
+    .onConflictDoUpdate({ target: brandProfiles.clerkUserId, set });
+}

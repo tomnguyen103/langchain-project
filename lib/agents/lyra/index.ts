@@ -11,7 +11,7 @@ export type LyraInput = {
 
 /**
  * Lyra's side effects, injected for testability (keeps this module free of
- * runtime db/env imports). Wired with the real content graph + repo in
+ * runtime db/env imports). Wired with the real content graph in
  * lib/agents/registry.ts.
  */
 export type LyraDeps = {
@@ -20,13 +20,12 @@ export type LyraDeps = {
     platforms: Platform[];
     userId: string;
   }) => Promise<{ drafts: Record<string, string>; savedContentIds: string[] }>;
-  markGeneratedContentAccepted: (ids: string[]) => Promise<void>;
 };
 
 /**
- * Lyra — content generation. A thin wrapper over the existing content
- * StateGraph (runContentAgent), which stays untouched as Lyra's engine. An
- * autonomous run auto-accepts its drafts and forwards their ids to Atlas.
+ * Lyra — content generation. A thin wrapper over the content StateGraph
+ * (runContentAgent). It no longer auto-accepts its drafts: it hands off to
+ * Castor, the brand-safety gate, which decides auto-publish vs. hold-for-review.
  */
 export function createLyra(deps: LyraDeps): AgentDefinition<LyraInput> {
   return {
@@ -38,13 +37,11 @@ export function createLyra(deps: LyraDeps): AgentDefinition<LyraInput> {
         userId: ctx.clerkUserId,
       });
 
-      await deps.markGeneratedContentAccepted(savedContentIds);
-
       return {
         summary: { drafts: Object.keys(drafts).length },
         handoff: {
-          to: AgentName.Atlas,
-          payload: { acceptedContentIds: savedContentIds },
+          to: AgentName.Castor,
+          payload: { generatedContentIds: savedContentIds },
         },
       };
     },
