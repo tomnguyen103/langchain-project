@@ -5,11 +5,16 @@ import { Worker, type Job, type Processor } from "bullmq";
 
 import { closeDbPool } from "@/db";
 import { connection } from "@/lib/queue/connection";
-import { registerReportSchedule, registerTokenRefresh } from "@/lib/queue/jobs";
+import {
+  registerReconcileSchedule,
+  registerReportSchedule,
+  registerTokenRefresh,
+} from "@/lib/queue/jobs";
 import { QueueName } from "@/lib/queue/queues";
 import { agentStepProcessor } from "./processors/agent-step";
 import { commentPollProcessor } from "./processors/comment-poll";
 import { publishProcessor } from "./processors/publish";
+import { reconcileProcessor } from "./processors/reconcile";
 import { replyProcessor } from "./processors/reply";
 import { reportProcessor } from "./processors/report";
 import { researchProcessor } from "./processors/research";
@@ -71,6 +76,7 @@ startWorker(QueueName.Reply, replyProcessor, 5);
 startWorker(QueueName.Report, reportProcessor, 1);
 startWorker(QueueName.Seeding, seedingProcessor, 2);
 startWorker(QueueName.TokenRefresh, tokenRefreshProcessor, 1);
+startWorker(QueueName.Reconcile, reconcileProcessor, 1);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });
 
@@ -114,6 +120,26 @@ async function ensureReportScheduler(attempt = 1): Promise<void> {
   }
 }
 void ensureReportScheduler();
+
+// Same retry-on-Redis-blip guard for the ledger-reconciliation sweep.
+async function ensureReconcileScheduler(attempt = 1): Promise<void> {
+  try {
+    await registerReconcileSchedule();
+    logger.info("reconcile scheduler registered");
+  } catch (error) {
+    logger.error("failed to register reconcile scheduler", {
+      attempt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    if (attempt < 10) {
+      setTimeout(
+        () => void ensureReconcileScheduler(attempt + 1),
+        Math.min(30_000, attempt * 5_000),
+      );
+    }
+  }
+}
+void ensureReconcileScheduler();
 
 let isShuttingDown = false;
 

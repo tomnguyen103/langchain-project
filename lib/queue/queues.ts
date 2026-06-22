@@ -17,6 +17,8 @@ export enum QueueName {
   Report = "report",
   // Polaris's repeatable per-account group-seeding queue.
   Seeding = "seeding",
+  // Periodic ledger-reconciliation sweep (orphaned record()→enqueue() gaps).
+  Reconcile = "reconcile",
 }
 
 const queueCache = new Map<QueueName, Queue>();

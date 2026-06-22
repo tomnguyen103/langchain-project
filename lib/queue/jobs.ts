@@ -243,6 +243,23 @@ export async function registerTokenRefresh(): Promise<void> {
   );
 }
 
+const RECONCILE_EVERY_MS = 10 * 60_000; // reconcile orphaned ledger rows every 10 min
+
+/** Register the single global ledger-reconciliation scheduler (idempotent upsert). */
+export async function registerReconcileSchedule(): Promise<void> {
+  await getQueue(QueueName.Reconcile).upsertJobScheduler(
+    "reconcile",
+    { every: RECONCILE_EVERY_MS },
+    {
+      name: "reconcile",
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
 const REPORT_EVERY_MS = 24 * 60 * 60_000; // compile reports daily
 
 /** Register the single global daily report scheduler (idempotent upsert). */
