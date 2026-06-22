@@ -21,6 +21,7 @@ export enum AgentName {
   Sirius = "sirius", // engagement / auto-reply
   Polaris = "polaris", // group seeding
   Rigel = "rigel", // reporting / insights
+  Castor = "castor", // brand-safety review / approval gate (Lyra → Castor → Atlas)
 }
 
 /** Ambient context threaded through every step of one pipeline run. */
@@ -37,6 +38,11 @@ export interface AgentResult {
   handoff?: { to: AgentName; payload: unknown };
   /** Structured summary for Rigel + LangSmith. */
   summary?: Record<string, unknown>;
+  /**
+   * Pause the run for human approval instead of handing off or completing.
+   * Mutually exclusive with `handoff`; used by Castor's brand-safety gate.
+   */
+  control?: { pause: "awaiting_approval"; reason?: string };
 }
 
 /**

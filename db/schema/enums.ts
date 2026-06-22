@@ -85,6 +85,7 @@ export const agentNameEnum = pgEnum("agent_name", [
   "sirius",
   "polaris",
   "rigel",
+  "castor", // brand-safety reviewer / approval gate (appended; keep last for additive migration)
 ]);
 
 /** Lifecycle of a whole pipeline run (agent_runs). */
@@ -94,6 +95,8 @@ export const agentRunStatusEnum = pgEnum("agent_run_status", [
   "completed",
   "failed",
   "cancelled",
+  "awaiting_approval", // paused: a draft needs human approval before Atlas schedules
+  "rejected", // a human rejected the held drafts; run finalized without publishing
 ]);
 
 /** Lifecycle of a single agent invocation within a run (agent_steps). */
