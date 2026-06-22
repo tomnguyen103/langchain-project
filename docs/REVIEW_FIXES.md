@@ -2,7 +2,9 @@
 
 Prioritized fixes from the full code-quality + frontend/a11y review (2026-06-22).
 Worked on the `review-fixes` branch; batched into two non-draft PRs (Goals 1–3,
-then 4–6), each driven to CI-green + CodeRabbit-clean; merged at the end.
+then 4–6), each driven to CI-green + CodeRabbit-clean. Merged to `main` only at
+the very end, after both batches are clean + green (batch 2 stays unmerged while
+batch 1 is under review).
 
 ## Batch 1 (Goals 1–3)
 
@@ -10,8 +12,9 @@ then 4–6), each driven to CI-green + CodeRabbit-clean; merged at the end.
 - Gate `POST /api/agents/run` behind the `research` entitlement (Pro+) and
   `consumeQuota(userId, "ai_generations")` with refund on enqueue failure —
   closes the unmetered-LLM-pipeline bypass.
-- Add a Redis fixed-window rate limiter; apply to `/api/agents/run` and
-  `/api/generate` (per-user) to bound burst abuse within quota.
+- Add a Postgres-backed fixed-window rate limiter (reusing the atomic-upsert
+  pattern, no new infra); apply per-user to `/api/agents/run` and
+  `/api/generate` to bound burst abuse within quota.
 - Fix the plan-limit inversion (`pro.postsPerDay` < `free.postsPerDay`) and add a
   guard test asserting `free ≤ pro ≤ premium` for every numeric limit.
 

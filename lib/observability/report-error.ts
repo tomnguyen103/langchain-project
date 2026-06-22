@@ -14,15 +14,22 @@ export function reportError(msg: string, error: unknown, meta?: Meta): void {
       ? { name: error.name, message: error.message, stack: error.stack }
       : { message: String(error) };
 
-  console.error(
-    JSON.stringify({
-      ts: new Date().toISOString(),
-      level: "error",
-      msg,
-      error: normalized,
-      ...meta,
-    }),
-  );
+  // meta is nested (not spread) so a caller key can't clobber an envelope key;
+  // and the whole serialization is guarded so the reporter can NEVER throw from
+  // inside a catch block (e.g. a circular ref or BigInt in meta).
+  try {
+    console.error(
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        level: "error",
+        msg,
+        error: normalized,
+        meta,
+      }),
+    );
+  } catch {
+    console.error("[reportError]", msg, normalized.message, meta);
+  }
 
   // TODO(observability): forward to Sentry/OTel here once a DSN is configured.
 }
