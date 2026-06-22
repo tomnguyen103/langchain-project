@@ -1,6 +1,11 @@
 import { runContentAgent } from "@/lib/agent";
 import { runResearch } from "@/lib/agent/research";
-import { enqueuePublish, registerCommentPoll } from "@/lib/queue/jobs";
+import {
+  enqueuePublish,
+  registerCommentPoll,
+  registerSeeding,
+  unregisterSeeding,
+} from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
   getGeneratedContentByIds,
@@ -22,6 +27,7 @@ import {
 
 import { createAtlas } from "./atlas";
 import { createLyra } from "./lyra";
+import { createPolaris } from "./polaris";
 import { createRigel } from "./rigel";
 import {
   countFailedPublishes,
@@ -73,6 +79,7 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
     countFailedPublishes,
     saveReport,
   }),
+  [AgentName.Polaris]: createPolaris({ registerSeeding, unregisterSeeding }),
 };
 
 /** Resolve an agent's definition. Throws if the agent isn't registered yet. */

@@ -21,3 +21,7 @@ export const commentReplyJobId = (commentEventId: string) =>
  */
 export const agentStepJobId = (runId: string, agent: string) =>
   `agent-step_${runId}_${agent}`;
+
+/** One repeatable seeding scheduler per account (idempotent upsert by id). */
+export const seedingSchedulerId = (socialAccountId: string) =>
+  `seeding_${socialAccountId}`;

@@ -5,10 +5,13 @@ import { PLATFORM_META } from "./constants";
 import { graphFetch, graphFetchAll } from "./_meta-graph";
 import type {
   CommentRef,
+  GroupPostRef,
   PlatformCapabilities,
   PostMetrics,
   PublishInput,
   PublishResult,
+  SeedInteraction,
+  SeedResult,
 } from "./types";
 
 /** Publishes to a Facebook Page feed via the Graph API. */
@@ -27,6 +30,8 @@ class FacebookConnector extends AbstractConnector {
     supportsComments: true,
     supportsNativeSchedule: true,
     supportsMetrics: true,
+    // Graph API can read group feeds + comment — the one seeding-capable adapter.
+    supportsSeeding: true,
   };
 
   async publishNow(
@@ -132,6 +137,71 @@ class FacebookConnector extends AbstractConnector {
       shares: res.shares?.count,
       raw: res,
     };
+  }
+
+  // --- Seeding (Polaris) ---------------------------------------------------
+  // Groups to seed are configured per account in metadata.seedGroupIds; with
+  // none configured this degrades to a no-op (empty list).
+
+  async listGroupPosts(
+    account: SocialAccount,
+    since?: Date,
+  ): Promise<GroupPostRef[]> {
+    const groupIds = this.seedGroupIds(account);
+    if (groupIds.length === 0) return [];
+
+    const token = this.accessToken(account);
+    const params: Record<string, string | undefined> = {
+      fields: "id,message,from{name,id},created_time,permalink_url",
+      limit: "25",
+    };
+    if (since) params.since = String(Math.floor(since.getTime() / 1000));
+
+    const posts: GroupPostRef[] = [];
+    for (const groupId of groupIds) {
+      const items = await graphFetchAll<{
+        id: string;
+        message?: string;
+        from?: { name?: string; id?: string };
+        created_time?: string;
+        permalink_url?: string;
+      }>(`/${groupId}/feed`, { accessToken: token, params });
+      for (const p of items) {
+        posts.push({
+          externalPostId: p.id,
+          groupId,
+          author: p.from?.name ?? p.from?.id ?? "",
+          text: p.message ?? "",
+          createdAt: p.created_time ? new Date(p.created_time) : new Date(),
+          url: p.permalink_url,
+        });
+      }
+    }
+    return posts;
+  }
+
+  async interactWithPost(
+    account: SocialAccount,
+    post: GroupPostRef,
+    interaction: SeedInteraction,
+  ): Promise<SeedResult> {
+    const res = await graphFetch<{ id: string }>(
+      `/${post.externalPostId}/comments`,
+      {
+        method: "POST",
+        accessToken: this.accessToken(account),
+        params: { message: interaction.comment },
+      },
+    );
+    return { externalId: res.id };
+  }
+
+  private seedGroupIds(account: SocialAccount): string[] {
+    const meta = account.metadata as { seedGroupIds?: unknown } | null;
+    const ids = meta?.seedGroupIds;
+    return Array.isArray(ids)
+      ? ids.filter((x): x is string => typeof x === "string")
+      : [];
   }
 }
 

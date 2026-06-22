@@ -15,6 +15,8 @@ export enum QueueName {
   AgentStep = "agent-step",
   // Rigel's scheduled reporting queue (daily, like token-refresh).
   Report = "report",
+  // Polaris's repeatable per-account group-seeding queue.
+  Seeding = "seeding",
 }
 
 const queueCache = new Map<QueueName, Queue>();

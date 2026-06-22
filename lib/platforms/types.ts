@@ -42,6 +42,8 @@ export interface PlatformCapabilities {
   supportsNativeSchedule: boolean;
   /** Whether the connector can pull back engagement metrics. */
   supportsMetrics?: boolean;
+  /** Whether the connector can seed groups/communities (Polaris). Default false. */
+  supportsSeeding?: boolean;
 }
 
 /** Engagement metrics for a published post (fields absent if unavailable). */
@@ -51,6 +53,25 @@ export interface PostMetrics {
   shares?: number;
   views?: number;
   raw?: unknown;
+}
+
+/** A post discovered in a group/community the account seeds (Polaris). */
+export interface GroupPostRef {
+  externalPostId: string;
+  groupId: string;
+  author: string;
+  text: string;
+  createdAt: Date;
+  url?: string;
+}
+
+/** How to interact with a group post (the seeding action). */
+export interface SeedInteraction {
+  comment: string;
+}
+
+export interface SeedResult {
+  externalId: string;
 }
 
 export interface OAuthTokens {
@@ -111,6 +132,20 @@ export interface PlatformConnector {
     account: SocialAccount,
     externalPostId: string,
   ): Promise<PostMetrics>;
+  /**
+   * Group seeding (Polaris) — optional, gated by capabilities.supportsSeeding.
+   * AbstractConnector supplies "unsupported" defaults so existing adapters need
+   * no changes.
+   */
+  listGroupPosts?(
+    account: SocialAccount,
+    since?: Date,
+  ): Promise<GroupPostRef[]>;
+  interactWithPost?(
+    account: SocialAccount,
+    post: GroupPostRef,
+    interaction: SeedInteraction,
+  ): Promise<SeedResult>;
 }
 
 export class UnsupportedOperationError extends Error {

@@ -7,6 +7,7 @@ import {
   commentReplyJobId,
   publishJobId,
   researchJobId,
+  seedingSchedulerId,
 } from "./job-ids";
 
 describe("job-ids", () => {
@@ -41,5 +42,11 @@ describe("job-ids", () => {
     assert.equal(agentStepJobId("run-1", "vega"), agentStepJobId("run-1", "vega"));
     assert.notEqual(agentStepJobId("run-1", "vega"), agentStepJobId("run-1", "lyra"));
     assert.notEqual(agentStepJobId("run-1", "vega"), agentStepJobId("run-2", "vega"));
+  });
+
+  it("seedingSchedulerId is deterministic per account (idempotent upsert key)", () => {
+    assert.equal(seedingSchedulerId("acc-1"), "seeding_acc-1");
+    assert.equal(seedingSchedulerId("acc-1"), seedingSchedulerId("acc-1"));
+    assert.notEqual(seedingSchedulerId("acc-1"), seedingSchedulerId("acc-2"));
   });
 });

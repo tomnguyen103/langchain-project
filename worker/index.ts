@@ -13,6 +13,7 @@ import { publishProcessor } from "./processors/publish";
 import { replyProcessor } from "./processors/reply";
 import { reportProcessor } from "./processors/report";
 import { researchProcessor } from "./processors/research";
+import { seedingProcessor } from "./processors/seeding";
 import { tokenRefreshProcessor } from "./processors/token-refresh";
 import { logger } from "./logger";
 
@@ -68,6 +69,7 @@ startWorker(QueueName.AgentStep, agentStepProcessor, 3);
 startWorker(QueueName.CommentPoll, commentPollProcessor, 5);
 startWorker(QueueName.Reply, replyProcessor, 5);
 startWorker(QueueName.Report, reportProcessor, 1);
+startWorker(QueueName.Seeding, seedingProcessor, 2);
 startWorker(QueueName.TokenRefresh, tokenRefreshProcessor, 1);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });

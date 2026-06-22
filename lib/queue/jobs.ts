@@ -6,6 +6,7 @@ import {
   commentReplyJobId,
   publishJobId,
   researchJobId,
+  seedingSchedulerId,
 } from "./job-ids";
 import { getQueue, QueueName } from "./queues";
 import { enqueueWithLedger } from "./with-ledger";
@@ -188,6 +189,38 @@ export async function unregisterCommentPoll(
 ): Promise<void> {
   await getQueue(QueueName.CommentPoll).removeJobScheduler(
     commentPollSchedulerId(socialAccountId),
+  );
+}
+
+export type SeedingJobData = { socialAccountId: string };
+
+const SEEDING_EVERY_MS = 30 * 60_000; // seed an account's groups every 30 min
+
+/**
+ * Register (or refresh) a repeating group-seeding job for an account (Polaris).
+ * Idempotent — keyed by the account id, mirroring registerCommentPoll.
+ */
+export async function registerSeeding(socialAccountId: string): Promise<void> {
+  await getQueue(QueueName.Seeding).upsertJobScheduler(
+    seedingSchedulerId(socialAccountId),
+    { every: SEEDING_EVERY_MS },
+    {
+      name: "seeding",
+      data: { socialAccountId } satisfies SeedingJobData,
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+/** Stop seeding an account's groups (e.g. on disconnect / deactivate). */
+export async function unregisterSeeding(
+  socialAccountId: string,
+): Promise<void> {
+  await getQueue(QueueName.Seeding).removeJobScheduler(
+    seedingSchedulerId(socialAccountId),
   );
 }
 
