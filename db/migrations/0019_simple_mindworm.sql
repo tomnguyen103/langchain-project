@@ -1,0 +1,1 @@
+CREATE INDEX "comment_events_account_post_idx" ON "comment_events" USING btree ("social_account_id","external_post_id");

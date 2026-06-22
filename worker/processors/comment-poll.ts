@@ -6,11 +6,11 @@ import { enqueueCommentReply, type CommentPollJobData } from "@/lib/queue/jobs";
 import { getSocialAccount } from "@/lib/repos/accounts";
 import { listPublishedTargetsForAccount } from "@/lib/repos/posts";
 import {
+  classifyCommentEvents,
   getActiveRulesForAccount,
-  ingestComment,
+  ingestComments,
   latestCommentedAtForPost,
   listMatchedUnrepliedForAccount,
-  updateCommentEvent,
 } from "@/lib/repos/replies";
 import { logger } from "../logger";
 
@@ -76,8 +76,12 @@ export async function commentPollProcessor(job: Job): Promise<void> {
       continue;
     }
 
-    for (const c of comments) {
-      const event = await ingestComment({
+    if (comments.length === 0) continue;
+
+    // Batch: one idempotent insert per target, classify in memory, then a
+    // handful of grouped updates — instead of 2 queries per comment.
+    const inserted = await ingestComments(
+      comments.map((c) => ({
         socialAccountId: account.id,
         postTargetId: target.id,
         platform: account.platform,
@@ -86,17 +90,20 @@ export async function commentPollProcessor(job: Job): Promise<void> {
         author: c.author,
         text: c.text,
         commentedAt: c.createdAt,
-      });
-      if (!event) continue; // already ingested on a prior poll
-      ingested += 1;
+      })),
+    );
+    ingested += inserted.length;
 
-      const rule = rules.find((r) => commentMatchesRule(c.text, r));
-      await updateCommentEvent(event.id, {
-        matchedRuleId: rule?.id ?? null,
-        status: rule ? "matched" : "skipped",
-      });
+    const classifications = inserted.map((event) => {
+      const rule = rules.find((r) => commentMatchesRule(event.text, r));
       if (rule) matched += 1;
-    }
+      return {
+        id: event.id,
+        matchedRuleId: rule?.id ?? null,
+        status: (rule ? "matched" : "skipped") as "matched" | "skipped",
+      };
+    });
+    await classifyCommentEvents(classifications);
   }
 
   // Phase 2: enqueue a reply for every matched-unreplied comment. Idempotent
