@@ -171,7 +171,7 @@ export default async function AutoReplyPage() {
                       {e.author || "Someone"}
                     </div>
                     <div className="text-muted-foreground truncate text-sm">
-                      {e.text || "—"}
+                      {e.text || "No text"}
                     </div>
                   </div>
                   <Badge variant={statusVariant[e.status]}>{e.status}</Badge>

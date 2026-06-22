@@ -117,6 +117,10 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
   ): Promise<AgentResult> {
     // Idempotency: if this agent already completed for the run, re-deliver its
     // handoff instead of re-running it (the retry-after-enqueue-failure path).
+    // NOTE: this keys on (runId, agent) and so assumes each agent runs at most
+    // once per run — true for the linear Vega -> Lyra -> Atlas -> Sirius
+    // pipeline. A plan that invokes the same agent twice in one run would need a
+    // per-step key instead.
     const prior = await deps.findCompletedStep(ctx.runId, step.agent);
     if (prior) {
       await deliverHandoff(prior.handoff, ctx);

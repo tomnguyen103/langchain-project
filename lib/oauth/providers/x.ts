@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 
 import { env } from "@/lib/env";
 import type { OAuthProvider } from "@/lib/platforms/types";
@@ -13,10 +13,14 @@ function b64url(buf: Buffer): string {
     .replace(/=+$/, "");
 }
 
-// PKCE verifier/challenge derived deterministically from the (secret) OAuth
-// state, so the verifier survives the redirect without extra storage.
+// PKCE verifier derived from the OAuth state via HMAC with a server-only secret
+// (ENCRYPTION_KEY), so it survives the redirect without extra storage yet can't
+// be reconstructed from the publicly-visible state — effectively a random
+// per-flow secret, which is what PKCE needs.
 function verifierFromState(state: string): string {
-  return b64url(createHash("sha256").update(`x-pkce:${state}`).digest());
+  return b64url(
+    createHmac("sha256", env.ENCRYPTION_KEY).update(`x-pkce:${state}`).digest(),
+  );
 }
 function challengeFromVerifier(verifier: string): string {
   return b64url(createHash("sha256").update(verifier).digest());

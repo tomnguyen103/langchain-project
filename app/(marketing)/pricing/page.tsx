@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Pricing — SocialFlow",
+  title: "Pricing",
   description: "Simple plans that scale with your content engine.",
 };
 
