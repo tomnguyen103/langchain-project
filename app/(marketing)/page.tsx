@@ -90,6 +90,30 @@ const steps = [
   },
 ];
 
+// Stages a post moves through — drives the hero's illustrative pipeline.
+const pipeline = [
+  {
+    icon: Search,
+    title: "Research the niche",
+    detail: "The agent gathers what's trending and worth saying.",
+  },
+  {
+    icon: Wand2,
+    title: "Draft in your voice",
+    detail: "Platform-tailored captions and posts, ready to approve.",
+  },
+  {
+    icon: CalendarClock,
+    title: "Schedule the queue",
+    detail: "Up to seven posts a day, timed to land.",
+  },
+  {
+    icon: Send,
+    title: "Publish & reply",
+    detail: "Posts go live automatically; comments get answered.",
+  },
+];
+
 export default function LandingPage() {
   return (
     <>
@@ -112,10 +136,9 @@ export default function LandingPage() {
               <span className="text-primary">without the burnout.</span>
             </h1>
             <p className="text-muted-foreground mt-5 text-lg text-pretty">
-              SocialFlow researches your niche, generates platform-tailored
-              content with AI, then schedules and auto-publishes up to seven
-              posts a day across every platform. You focus on strategy. The
-              agent handles execution.
+              SocialFlow&apos;s agent researches your niche, drafts content in
+              your voice, and publishes across eight platforms on schedule. You
+              set the strategy — it does the busywork.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Button asChild size="lg">
@@ -132,40 +155,32 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Product preview mock */}
-          <div className="bg-card rounded-xl border p-4 shadow-xl">
-            <div className="text-muted-foreground mb-3 flex items-center justify-between px-2 text-xs">
-              <span className="font-medium">Today&apos;s queue</span>
-              <span>4 scheduled</span>
-            </div>
-            <div className="space-y-2">
-              {[
-                { p: "Instagram", t: "9:00 AM", s: "Published" },
-                { p: "LinkedIn", t: "12:30 PM", s: "Scheduled" },
-                { p: "X", t: "3:00 PM", s: "Scheduled" },
-                { p: "TikTok", t: "6:15 PM", s: "Scheduled" },
-              ].map((row) => (
-                <div
-                  key={row.p}
-                  className="bg-background flex items-center justify-between rounded-lg border px-3 py-2.5 text-sm"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="bg-primary/10 text-primary flex size-7 items-center justify-center rounded-md text-xs font-semibold">
-                      {row.p.slice(0, 2)}
-                    </span>
-                    <span className="font-medium">{row.p}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-muted-foreground">{row.t}</span>
-                    <Badge
-                      variant={row.s === "Published" ? "default" : "secondary"}
-                    >
-                      {row.s}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* Agent pipeline — an honest illustration of the stages a post
+              moves through, not a faked product screenshot with invented data. */}
+          <div className="bg-primary/5 ring-primary/10 rounded-2xl p-6 ring-1 sm:p-8">
+            <ol aria-label="How the agent works">
+              {pipeline.map((stage, i) => {
+                const last = i === pipeline.length - 1;
+                return (
+                  <li key={stage.title} className="flex gap-4">
+                    <div className="flex flex-col items-center">
+                      <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm">
+                        <stage.icon className="size-5" />
+                      </span>
+                      {!last && (
+                        <span aria-hidden className="bg-border my-1.5 w-px flex-1" />
+                      )}
+                    </div>
+                    <div className={last ? "pt-2" : "pb-7 pt-2"}>
+                      <div className="font-medium">{stage.title}</div>
+                      <p className="text-muted-foreground mt-0.5 text-sm text-pretty">
+                        {stage.detail}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
         </div>
       </section>
@@ -231,16 +246,13 @@ export default function LandingPage() {
             </h2>
           </div>
           <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {steps.map((step, i) => (
+            {steps.map((step) => (
               <div key={step.title} className="relative">
                 <div className="bg-card rounded-xl border p-6">
                   <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-lg">
                     <step.icon className="size-5" />
                   </span>
-                  <div className="text-muted-foreground mt-4 text-sm font-medium">
-                    Step {i + 1}
-                  </div>
-                  <h3 className="mt-1 text-lg font-semibold">{step.title}</h3>
+                  <h3 className="mt-4 text-lg font-semibold">{step.title}</h3>
                   <p className="text-muted-foreground mt-1 text-sm">
                     {step.description}
                   </p>
