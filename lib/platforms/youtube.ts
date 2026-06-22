@@ -40,6 +40,9 @@ class YouTubeConnector extends AbstractConnector {
 
     const videoRes = await fetch(video.url, {
       signal: AbortSignal.timeout(60_000),
+      // Media URLs are validated to the ImageKit host at save time; don't follow
+      // redirects so one can't bounce our server to an internal address (SSRF).
+      redirect: "manual",
     });
     if (!videoRes.ok) {
       throw new Error(`Couldn't fetch video to upload (${videoRes.status})`);

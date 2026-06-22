@@ -11,6 +11,21 @@ import { logger } from "../logger";
 
 // Refresh tokens that expire within this window ahead of now.
 const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
+// Fallback expiry when a connector's refresh returns no expiry — keeps the
+// account out of the immediate re-refresh loop without nulling the column.
+const SYNTHETIC_EXPIRY_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
+
+/** Whether a refresh error is a definitive auth rejection (the provider says the
+ *  refresh token is invalid) vs. a transient network/5xx error. */
+function isAuthRejection(error: unknown): boolean {
+  const status =
+    error && typeof error === "object"
+      ? (error as { status?: unknown }).status
+      : undefined;
+  if (status === 400 || status === 401 || status === 403) return true;
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  return message.includes("invalid_grant") || message.includes("invalid_token");
+}
 
 /**
  * Proactively refresh social tokens nearing expiry. Connectors that can't
@@ -33,13 +48,19 @@ export async function tokenRefreshProcessor(_job: Job): Promise<void> {
         refreshToken: tokens.refreshToken
           ? encrypt(tokens.refreshToken)
           : undefined,
-        // Keep the prior expiry if the refresh didn't return one — nulling it
-        // would exclude the account from future refresh scans.
-        tokenExpiresAt: tokens.expiresAt ?? undefined,
+        // If the connector returns no expiry, set a synthetic future one so the
+        // account isn't re-selected for refresh on every tick (the stale past
+        // expiry would otherwise keep matching listAccountsNeedingRefresh).
+        tokenExpiresAt:
+          tokens.expiresAt ?? new Date(Date.now() + SYNTHETIC_EXPIRY_MS),
       });
       refreshed += 1;
     } catch (error) {
-      if (account.tokenExpiresAt && account.tokenExpiresAt < new Date()) {
+      // Only flag the account expired on a DEFINITIVE auth rejection (the
+      // provider says the refresh token is invalid). A transient network/5xx
+      // error leaves it active to retry next cycle, so a blip can't force an
+      // unnecessary reconnect.
+      if (isAuthRejection(error)) {
         await setAccountStatus(account.id, "expired");
         expired += 1;
       }
