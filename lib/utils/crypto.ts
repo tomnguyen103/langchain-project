@@ -1,6 +1,7 @@
 import {
   createCipheriv,
   createDecipheriv,
+  hkdfSync,
   randomBytes,
   scryptSync,
 } from "node:crypto";
@@ -61,4 +62,16 @@ export function decrypt(payload: string): string {
 /** Encrypt a value that may be null/undefined (e.g. an optional refresh token). */
 export function encryptNullable(value: string | null | undefined): string | null {
   return value ? encrypt(value) : null;
+}
+
+/**
+ * Derive a domain-separated key from ENCRYPTION_KEY for a NON-token-encryption
+ * purpose (e.g. the X OAuth PKCE HMAC), keyed by a per-purpose `info` label.
+ * HKDF-SHA256, so these uses don't share raw key material with token encryption
+ * — decoupling them so the PKCE secret isn't literally the storage key.
+ */
+export function deriveSubKey(purpose: string, length = 32): Buffer {
+  return Buffer.from(
+    hkdfSync("sha256", env.ENCRYPTION_KEY, "socialflow-subkey-salt", purpose, length),
+  );
 }

@@ -2,6 +2,11 @@ import { createHash, createHmac } from "node:crypto";
 
 import { env } from "@/lib/env";
 import type { OAuthProvider } from "@/lib/platforms/types";
+import { deriveSubKey } from "@/lib/utils/crypto";
+
+// Domain-separated PKCE HMAC key — an HKDF sub-key of ENCRYPTION_KEY, so the
+// OAuth PKCE flow doesn't use the raw token-encryption key as its secret.
+const PKCE_KEY = deriveSubKey("x-oauth-pkce");
 
 const SCOPES = ["tweet.read", "tweet.write", "users.read", "offline.access"];
 
@@ -14,12 +19,12 @@ function b64url(buf: Buffer): string {
 }
 
 // PKCE verifier derived from the OAuth state via HMAC with a server-only secret
-// (ENCRYPTION_KEY), so it survives the redirect without extra storage yet can't
-// be reconstructed from the publicly-visible state — effectively a random
+// (a derived sub-key), so it survives the redirect without extra storage yet
+// can't be reconstructed from the publicly-visible state — effectively a random
 // per-flow secret, which is what PKCE needs.
 function verifierFromState(state: string): string {
   return b64url(
-    createHmac("sha256", env.ENCRYPTION_KEY).update(`x-pkce:${state}`).digest(),
+    createHmac("sha256", PKCE_KEY).update(`x-pkce:${state}`).digest(),
   );
 }
 function challengeFromVerifier(verifier: string): string {

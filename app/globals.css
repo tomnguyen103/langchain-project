@@ -28,7 +28,10 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* 0.53 (not the shadcn default 0.556) so muted text clears WCAG AA 4.5:1 even
+     on --muted/--secondary/--accent surfaces (e.g. the landing platform pills +
+     section captions), where 0.556 dipped to ~4.34:1. Passes on white too. */
+  --muted-foreground: oklch(0.53 0 0);
   --accent: oklch(0.967 0.02 293.009);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);

@@ -36,4 +36,18 @@ Prioritized remediation of the code-quality / security / performance / design fi
 ## PR-E — Landing-page design polish (P1/P2) — ✅ shipped
 - **F-D2 — Landing hero** (`app/(marketing)/page.tsx`, `components/ui/button.tsx`). ✅ Replaced the div-based fake "product preview" (invented times/statuses) with an honest illustrative **agent pipeline** — the four stages a post moves through (research → draft → schedule → publish & reply), a labeled conceptual diagram rather than a faked screenshot (I-DES-1). ✅ Tightened the hero subtext from four sentences to two (S-DES-1). ✅ Dropped the literal "Step N" labels in *How it works* — the ordered grid already conveys sequence (S-DES-3). ✅ Added `active:scale-[0.98]` tactile feedback to every button (S-DES-5). Split out from PR-D so the design change gets its own focused review (code vs. design separation).
 
+## PR-G — Remaining Suggestion-level findings (P2) — ✅ shipped
+The lower-priority Suggestions the earlier batches scoped out. All that meet the "don't ignore taste when it affects a11y / security / perf / maintainability" bar are now done:
+- **S-DES-4 — muted-foreground contrast** (`app/globals.css`). ✅ Darkened light-mode `--muted-foreground` `oklch(0.556→0.53)` so muted text clears WCAG AA 4.5:1 on `--muted`/`--secondary`/`--accent` surfaces (it dipped to ~4.34:1). Dark mode already passed.
+- **S-SEC-2 — nesting-aware ReDoS guard** (`lib/auto-reply/regex-guard.ts`). ✅ Replaced the single-paren-level regexes with a stack-based scan that catches catastrophic shapes at any depth (`((a+))+`, `((a|b)+)+`) and fails closed on malformed patterns — without over-rejecting bounded reps like `(\d{3})+`. Tests added.
+- **S-SEC-3 — PKCE key separation** (`lib/utils/crypto.ts`, `lib/oauth/providers/x.ts`). ✅ New `deriveSubKey` (HKDF) gives the X OAuth PKCE HMAC its own key instead of reusing the raw `ENCRYPTION_KEY`; token-encryption salt untouched (would break stored data).
+- **S-CODE-3 — ledger reconciliation sweep** (`worker/processors/reconcile.ts` + queue/jobs/repo wiring). ✅ A periodic job fails `pending` ledger rows whose BullMQ job is missing (orphaned by a `record()`→`enqueue()` crash) and marks the stuck publish target failed so it surfaces in the retry UI.
+- **S-PERF-3 — single-query post load** (`lib/repos/posts.ts`). ✅ `getPostWithTargets` collapsed two sequential reads into one `LEFT JOIN`.
+- **S-CODE-4 — rate-limit guard** (`lib/repos/rate-limits.ts`). ✅ `takeRateLimit` bails on `limit <= 0`, mirroring `consumeUsage`.
+- **S-DES-2 — platform brand logos** (`app/(marketing)/page.tsx`). ✅ Replaced the text wordmark pills with monochrome brand glyphs (`react-icons/fa6`; simple-icons had dropped LinkedIn et al.).
+
+Already satisfied / deferred:
+- **S-DES-6 — dark-mode toggle**: already present in the product chrome (`components/shared/topbar.tsx` renders `ThemeToggle`). No change.
+- **F-C6 — atomic quota/slot concurrency test** (I-CODE-7): still deferred — needs a live Postgres with two connections (none in CI).
+
 *Acceptance per fix: local gates (lint · typecheck · drizzle-kit check · test · build) green; a regression test where the finding is testable; behavior unchanged for unaffected paths. Migrations generated, not applied (no live DB).*

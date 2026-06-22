@@ -12,6 +12,16 @@ import {
   TrendingUp,
   Wand2,
 } from "lucide-react";
+import {
+  FaDiscord,
+  FaFacebook,
+  FaInstagram,
+  FaLinkedin,
+  FaPinterest,
+  FaTiktok,
+  FaXTwitter,
+  FaYoutube,
+} from "react-icons/fa6";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,14 +33,14 @@ import {
 } from "@/components/ui/card";
 
 const platforms = [
-  "Instagram",
-  "YouTube",
-  "TikTok",
-  "Facebook",
-  "LinkedIn",
-  "Pinterest",
-  "Discord",
-  "X",
+  { name: "Instagram", Icon: FaInstagram },
+  { name: "YouTube", Icon: FaYoutube },
+  { name: "TikTok", Icon: FaTiktok },
+  { name: "Facebook", Icon: FaFacebook },
+  { name: "LinkedIn", Icon: FaLinkedin },
+  { name: "Pinterest", Icon: FaPinterest },
+  { name: "Discord", Icon: FaDiscord },
+  { name: "X", Icon: FaXTwitter },
 ];
 
 const features = [
@@ -191,12 +201,10 @@ export default function LandingPage() {
           <p className="text-muted-foreground mb-4 text-center text-sm">
             Publish natively to the platforms that matter
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-2.5">
-            {platforms.map((name) => (
-              <span
-                key={name}
-                className="bg-muted text-muted-foreground rounded-full px-4 py-1.5 text-sm font-medium"
-              >
+          <div className="text-muted-foreground flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
+            {platforms.map(({ name, Icon }) => (
+              <span key={name} className="flex items-center gap-2 text-sm font-medium">
+                <Icon size={18} aria-hidden />
                 {name}
               </span>
             ))}

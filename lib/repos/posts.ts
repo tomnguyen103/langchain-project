@@ -61,17 +61,18 @@ export async function getPostWithTargets(
   postId: string,
   clerkUserId: string,
 ): Promise<PostWithTargets | undefined> {
-  const [post] = await db
-    .select()
+  // One round-trip: LEFT JOIN so a target-less post still returns its row (with
+  // a null target), then regroup in memory.
+  const rows = await db
+    .select({ post: posts, target: postTargets })
     .from(posts)
-    .where(and(eq(posts.id, postId), eq(posts.clerkUserId, clerkUserId)))
-    .limit(1);
-  if (!post) return undefined;
-  const targets = await db
-    .select()
-    .from(postTargets)
-    .where(eq(postTargets.postId, postId));
-  return { ...post, targets };
+    .leftJoin(postTargets, eq(postTargets.postId, posts.id))
+    .where(and(eq(posts.id, postId), eq(posts.clerkUserId, clerkUserId)));
+  if (rows.length === 0) return undefined;
+  const targets = rows
+    .map((r) => r.target)
+    .filter((t): t is PostTarget => t !== null);
+  return { ...rows[0].post, targets };
 }
 
 export async function listPostsWithTargets(

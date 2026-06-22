@@ -1,7 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt } from "drizzle-orm";
 
 import { db } from "@/db";
-import { schedules, type NewSchedule } from "@/db/schema";
+import { schedules, type NewSchedule, type Schedule } from "@/db/schema";
 
 /** Record (or refresh) a job in the durable ledger. */
 export async function recordSchedule(data: NewSchedule): Promise<void> {
@@ -44,4 +44,24 @@ export async function deleteSchedule(
   await db
     .delete(schedules)
     .where(and(eq(schedules.queue, queue), eq(schedules.bullJobId, bullJobId)));
+}
+
+/**
+ * `pending` ledger rows not touched since `olderThan` — candidates for orphan
+ * reconciliation (a row whose `enqueue()` never ran after `record()`). Filtering
+ * on `updatedAt` (not `createdAt`) keeps a just-(re)queued row out of the sweep,
+ * since `recordSchedule`'s upsert refreshes `updatedAt` but keeps `createdAt`;
+ * the caller confirms the job is actually missing before acting.
+ */
+export async function listStalePendingSchedules(
+  olderThan: Date,
+  limit = 100,
+): Promise<Schedule[]> {
+  return db
+    .select()
+    .from(schedules)
+    .where(
+      and(eq(schedules.status, "pending"), lt(schedules.updatedAt, olderThan)),
+    )
+    .limit(limit);
 }

@@ -14,6 +14,10 @@ export async function takeRateLimit(
   windowStart: Date,
   limit: number,
 ): Promise<boolean> {
+  // A non-positive limit means "no slots" — bail before the upsert (mirrors the
+  // guard in consumeUsage), so a misconfig can't insert a count=1 row that
+  // exceeds an intended zero cap.
+  if (limit <= 0) return false;
   const rows = await db
     .insert(rateLimits)
     .values({ bucket, windowStart, count: 1 })
