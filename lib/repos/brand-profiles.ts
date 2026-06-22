@@ -79,3 +79,17 @@ export async function upsertBrandProfile(
     })
     .onConflictDoUpdate({ target: brandProfiles.clerkUserId, set });
 }
+
+/** Persist Rigel's learned-memory blob without touching the tenant's settings. */
+export async function setLearnedMemory(
+  clerkUserId: string,
+  learnedMemory: Record<string, unknown>,
+): Promise<void> {
+  await db
+    .insert(brandProfiles)
+    .values({ clerkUserId, learnedMemory })
+    .onConflictDoUpdate({
+      target: brandProfiles.clerkUserId,
+      set: { learnedMemory, updatedAt: new Date() },
+    });
+}

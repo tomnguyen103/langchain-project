@@ -1,7 +1,16 @@
 export const PROMPT_VERSION = "v1";
 
-export const digestPrompt = (topic: string) =>
-  `You are a social media strategist. Analyze this topic and produce a concise brief (3-5 sentences) covering the core angle, key talking points, target audience, and tone.
+export const digestPrompt = (
+  topic: string,
+  opts: { voice?: string; learnedNotes?: string } = {},
+) =>
+  `You are a social media strategist. Analyze this topic and produce a concise brief (3-5 sentences) covering the core angle, key talking points, target audience, and tone.${
+    opts.voice ? `\n\nBrand voice to honor: ${opts.voice}` : ""
+  }${
+    opts.learnedNotes
+      ? `\n\nThemes that have performed well recently — lean into them where relevant: ${opts.learnedNotes}`
+      : ""
+  }
 
 Topic: ${topic}`;
 
@@ -10,8 +19,16 @@ export const draftPrompt = (args: {
   maxLength: number;
   digest: string;
   topic: string;
+  voice?: string;
+  bannedTerms?: string[];
 }) =>
-  `Write a single ${args.platform} caption for this topic. Keep it under ${args.maxLength} characters, match ${args.platform} conventions (tone, and hashtags where appropriate), and make it engaging. Output ONLY the caption text, with no preamble or quotes.
+  `Write a single ${args.platform} caption for this topic. Keep it under ${args.maxLength} characters, match ${args.platform} conventions (tone, and hashtags where appropriate), and make it engaging.${
+    args.voice ? ` Brand voice: ${args.voice}.` : ""
+  }${
+    args.bannedTerms && args.bannedTerms.length > 0
+      ? ` Never use these words or phrases: ${args.bannedTerms.join(", ")}.`
+      : ""
+  } Output ONLY the caption text, with no preamble or quotes.
 
 Topic: ${args.topic}
 

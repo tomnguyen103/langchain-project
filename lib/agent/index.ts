@@ -14,6 +14,8 @@ export async function runContentAgent(input: {
   topic: string;
   platforms: Platform[];
   userId: string;
+  /** Brand context threaded into the digest + draft prompts (optional). */
+  brand?: { voice?: string; bannedTerms?: string[]; learnedNotes?: string };
 }): Promise<GenerateResult> {
   // Capture the root LangSmith run id so generated rows can deep-link to the trace.
   let langsmithRunId: string | undefined;
@@ -22,6 +24,9 @@ export async function runContentAgent(input: {
       topic: input.topic,
       platforms: input.platforms,
       userId: input.userId,
+      brandVoice: input.brand?.voice ?? "",
+      bannedTerms: input.brand?.bannedTerms ?? [],
+      learnedNotes: input.brand?.learnedNotes ?? "",
     },
     {
       callbacks: [

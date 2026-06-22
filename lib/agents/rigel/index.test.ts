@@ -6,8 +6,11 @@ import type { ReportData } from "@/db/schema";
 import { createRigel } from "./index";
 
 describe("rigel agent", () => {
-  it("builds a report from the fetched parts, persists it, and summarizes", async () => {
-    let saved: { clerkUserId: string; period: string; data: ReportData } | undefined;
+  it("builds a report, persists it + learned memory, and summarizes", async () => {
+    let saved:
+      | { clerkUserId: string; period: string; data: ReportData }
+      | undefined;
+    let learned: Record<string, unknown> | undefined;
     const rigel = createRigel({
       fetchPublishedTargets: async (clerkUserId) => {
         assert.equal(clerkUserId, "user-1");
@@ -16,13 +19,13 @@ describe("rigel agent", () => {
           { topic: "coffee", metrics: null },
         ];
       },
-      fetchRunOutcomes: async () => [
-        { status: "completed" },
-        { status: "failed" },
-      ],
+      fetchRunOutcomes: async () => [{ status: "completed" }, { status: "failed" }],
       countFailedPublishes: async () => 1,
       saveReport: async (clerkUserId, period, data) => {
         saved = { clerkUserId, period, data };
+      },
+      setLearnedMemory: async (_clerkUserId, memory) => {
+        learned = memory;
       },
     });
 
@@ -37,6 +40,10 @@ describe("rigel agent", () => {
     assert.equal(saved?.data.failedPublishCount, 1);
     assert.equal(saved?.data.runSuccessRate, 0.5);
     assert.equal(saved?.data.topTopics[0].topic, "coffee");
+    assert.deepEqual(learned, {
+      topTopics: [{ topic: "coffee", engagement: 3 }],
+      period: "30d",
+    });
     assert.deepEqual(result.summary, {
       totalPublished: 2,
       runSuccessRate: 0.5,
@@ -55,6 +62,7 @@ describe("rigel agent", () => {
       saveReport: async (_clerkUserId, period) => {
         savedPeriod = period;
       },
+      setLearnedMemory: async () => {},
     });
 
     await rigel.run({ period: "garbage" }, { clerkUserId: "u", runId: "r" });

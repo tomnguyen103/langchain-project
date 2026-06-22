@@ -90,3 +90,16 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 - **actions/repo**: reject is now atomic (`finalizeRunRejected` updates held drafts + run status in one `runAtomicWrite`); approve **compensates** (`restoreHeldDrafts`) if `resumeRun` fails, so a partial failure can't strand a run with no held drafts.
 - **evals/run.ts**: calibrate on RAW scores — pass `passThreshold: 0` so the verdict reflects only hard blocks (banned/PII) and `recommendThreshold` can sweep real candidate thresholds.
 - **metrics (Critical)**: guard `recommendThreshold` — non-positive/non-finite `step` defaults to 0.05 (no infinite loop), `floor` clamped to [0,1], and `Math.ceil(floor/step)` + a `< floor` skip prevent recommending below the floor.
+
+---
+
+## PR-4 — Memory + governance (P1: T10–T12)
+
+### T10 — Brand voice into generation
+- Added `brandVoice`/`bannedTerms`/`learnedNotes` channels to `ContentState` (default empty so nodes always have a value). `runContentAgent` takes an optional `brand`; digest + draft prompts now include voice / banned terms / learned notes. Lyra loads the brand profile and passes it in. The prompt builders are unit-tested (nodes stay thin wrappers around them, so no model needed in tests).
+
+### T11 — Learned memory + Rigel feedback loop
+- Rigel writes a bounded `learnedMemory` (`{ topTopics: [{topic, engagement}], period }` — engagement > 0, top 5) to `brand_profiles` via `setLearnedMemory` (insert-or-update, never touches settings). Lyra surfaces it as `learnedNotes` via the pure, tested `formatLearnedNotes`. Closes the analytics → drafting loop: what performed well feeds the next digest.
+
+### T12 — Least-privilege capabilities
+- **Deviation from the plan:** a central `AGENT_CAPABILITIES` matrix (`lib/agents/capabilities.ts`) + `hasCapability`/`assertCapability`, rather than a field on each `AgentDefinition`. Rationale: (a) the REAL enforcement is already structural — the registry injects only the deps each agent needs, so Castor literally has no publish dependency and cannot schedule posts; (b) a central map is one auditable source of truth and keeps the test free of the registry's env/db/queue import chain. The test enforces the contract (Castor is review-only; only Atlas publishes), so granting a sensitive capability to the wrong agent fails CI.

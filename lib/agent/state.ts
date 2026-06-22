@@ -8,6 +8,19 @@ export const ContentState = Annotation.Root({
   topic: Annotation<string>(),
   platforms: Annotation<Platform[]>(),
   userId: Annotation<string>(),
+  // Brand context (optional; default empty so nodes always have a value).
+  brandVoice: Annotation<string>({
+    reducer: (_current, next) => next,
+    default: () => "",
+  }),
+  bannedTerms: Annotation<string[]>({
+    reducer: (_current, next) => next,
+    default: () => [],
+  }),
+  learnedNotes: Annotation<string>({
+    reducer: (_current, next) => next,
+    default: () => "",
+  }),
 
   // Working state
   digest: Annotation<string>({

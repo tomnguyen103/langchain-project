@@ -1,4 +1,5 @@
 import type { Platform } from "@/db/schema";
+import { formatLearnedNotes } from "@/lib/brand/learned-notes";
 
 import { AgentName, type AgentDefinition } from "../types";
 
@@ -11,30 +12,43 @@ export type LyraInput = {
 
 /**
  * Lyra's side effects, injected for testability (keeps this module free of
- * runtime db/env imports). Wired with the real content graph in
- * lib/agents/registry.ts.
+ * runtime db/env imports). Wired with the real content graph + brand-profile
+ * repo in lib/agents/registry.ts.
  */
 export type LyraDeps = {
   runContentAgent: (input: {
     topic: string;
     platforms: Platform[];
     userId: string;
+    brand?: { voice?: string; bannedTerms?: string[]; learnedNotes?: string };
   }) => Promise<{ drafts: Record<string, string>; savedContentIds: string[] }>;
+  getBrandProfile: (clerkUserId: string) => Promise<{
+    voice: string;
+    bannedTerms: string[];
+    learnedMemory: Record<string, unknown> | null;
+  }>;
 };
 
 /**
- * Lyra — content generation. A thin wrapper over the content StateGraph
- * (runContentAgent). It no longer auto-accepts its drafts: it hands off to
- * Castor, the brand-safety gate, which decides auto-publish vs. hold-for-review.
+ * Lyra — content generation. A thin wrapper over the content StateGraph. It
+ * loads the tenant's brand profile (voice, banned terms, learned memory) and
+ * threads it into generation, then hands off to Castor, the brand-safety gate,
+ * which decides auto-publish vs. hold-for-review. It does not auto-accept.
  */
 export function createLyra(deps: LyraDeps): AgentDefinition<LyraInput> {
   return {
     name: AgentName.Lyra,
     async run(input, ctx) {
+      const profile = await deps.getBrandProfile(ctx.clerkUserId);
       const { drafts, savedContentIds } = await deps.runContentAgent({
         topic: input.topic,
         platforms: input.platforms,
         userId: ctx.clerkUserId,
+        brand: {
+          voice: profile.voice,
+          bannedTerms: profile.bannedTerms,
+          learnedNotes: formatLearnedNotes(profile.learnedMemory),
+        },
       });
 
       return {

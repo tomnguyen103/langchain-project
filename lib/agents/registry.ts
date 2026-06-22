@@ -9,7 +9,7 @@ import {
   unregisterSeeding,
 } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
-import { getBrandProfile } from "@/lib/repos/brand-profiles";
+import { getBrandProfile, setLearnedMemory } from "@/lib/repos/brand-profiles";
 import { recordReviews } from "@/lib/repos/content-reviews";
 import {
   getGeneratedContentByIds,
@@ -63,6 +63,7 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
   }),
   [AgentName.Lyra]: createLyra({
     runContentAgent,
+    getBrandProfile,
   }),
   [AgentName.Castor]: createCastor({
     getGeneratedContentByIds,
@@ -93,6 +94,7 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
     fetchRunOutcomes,
     countFailedPublishes,
     saveReport,
+    setLearnedMemory,
   }),
   [AgentName.Polaris]: createPolaris({ registerSeeding, unregisterSeeding }),
 };

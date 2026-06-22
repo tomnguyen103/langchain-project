@@ -24,6 +24,17 @@ export enum AgentName {
   Castor = "castor", // brand-safety review / approval gate (Lyra → Castor → Atlas)
 }
 
+/** Least-privilege capability tags for governance/audit (see capabilities.ts). */
+export type AgentCapability =
+  | "orchestrate"
+  | "research"
+  | "generate"
+  | "review"
+  | "publish"
+  | "engage"
+  | "report"
+  | "seed";
+
 /** Ambient context threaded through every step of one pipeline run. */
 export interface AgentContext {
   clerkUserId: string;
