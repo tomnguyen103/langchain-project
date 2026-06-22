@@ -5,12 +5,15 @@ import { Worker, type Job, type Processor } from "bullmq";
 
 import { closeDbPool } from "@/db";
 import { connection } from "@/lib/queue/connection";
-import { registerTokenRefresh } from "@/lib/queue/jobs";
+import { registerReportSchedule, registerTokenRefresh } from "@/lib/queue/jobs";
 import { QueueName } from "@/lib/queue/queues";
+import { agentStepProcessor } from "./processors/agent-step";
 import { commentPollProcessor } from "./processors/comment-poll";
 import { publishProcessor } from "./processors/publish";
 import { replyProcessor } from "./processors/reply";
+import { reportProcessor } from "./processors/report";
 import { researchProcessor } from "./processors/research";
+import { seedingProcessor } from "./processors/seeding";
 import { tokenRefreshProcessor } from "./processors/token-refresh";
 import { logger } from "./logger";
 
@@ -61,8 +64,12 @@ const stub =
 startWorker(QueueName.Publish, publishProcessor, 5);
 startWorker(QueueName.Generate, stub("generate"), 2);
 startWorker(QueueName.Research, researchProcessor, 2);
+// Orion: one worker routes every agent handoff by AgentName via getAgent(...).run.
+startWorker(QueueName.AgentStep, agentStepProcessor, 3);
 startWorker(QueueName.CommentPoll, commentPollProcessor, 5);
 startWorker(QueueName.Reply, replyProcessor, 5);
+startWorker(QueueName.Report, reportProcessor, 1);
+startWorker(QueueName.Seeding, seedingProcessor, 2);
 startWorker(QueueName.TokenRefresh, tokenRefreshProcessor, 1);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });
@@ -87,6 +94,26 @@ async function ensureTokenRefreshScheduler(attempt = 1): Promise<void> {
   }
 }
 void ensureTokenRefreshScheduler();
+
+// Same retry-on-Redis-blip guard for Rigel's daily report scheduler.
+async function ensureReportScheduler(attempt = 1): Promise<void> {
+  try {
+    await registerReportSchedule();
+    logger.info("report scheduler registered");
+  } catch (error) {
+    logger.error("failed to register report scheduler", {
+      attempt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    if (attempt < 10) {
+      setTimeout(
+        () => void ensureReportScheduler(attempt + 1),
+        Math.min(30_000, attempt * 5_000),
+      );
+    }
+  }
+}
+void ensureReportScheduler();
 
 let isShuttingDown = false;
 

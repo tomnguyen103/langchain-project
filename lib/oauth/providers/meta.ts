@@ -29,6 +29,23 @@ type FbPage = {
 };
 
 /**
+ * Meta OAuth credentials are optional env (the connect option is hidden in the
+ * UI when unset). These provider methods only run once a user initiates a Meta
+ * connect, so require the credentials here — narrowing `string | undefined` to
+ * `string` and failing loudly if somehow invoked while unconfigured.
+ */
+function requireMetaCredentials(): { appId: string; appSecret: string } {
+  const appId = env.META_APP_ID;
+  const appSecret = env.META_APP_SECRET;
+  if (!appId || !appSecret) {
+    throw new Error(
+      "Meta OAuth is not configured — set META_APP_ID and META_APP_SECRET.",
+    );
+  }
+  return { appId, appSecret };
+}
+
+/**
  * Meta (Facebook + Instagram) OAuth. One login yields the user's Pages and any
  * linked Instagram business accounts — each surfaced as its own ConnectedAccount.
  */
@@ -36,10 +53,11 @@ export const metaProvider: OAuthProvider = {
   id: "meta",
 
   getAuthUrl(state, redirectUri) {
+    const { appId } = requireMetaCredentials();
     const url = new URL(
       `https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth`,
     );
-    url.searchParams.set("client_id", env.META_APP_ID);
+    url.searchParams.set("client_id", appId);
     url.searchParams.set("redirect_uri", redirectUri);
     url.searchParams.set("state", state);
     url.searchParams.set("scope", SCOPES.join(","));
@@ -48,12 +66,13 @@ export const metaProvider: OAuthProvider = {
   },
 
   async exchangeCode(code, redirectUri) {
+    const { appId, appSecret } = requireMetaCredentials();
     // 1) code → short-lived user token
     const short = await graphGet<{ access_token: string }>(
       "/oauth/access_token",
       {
-        client_id: env.META_APP_ID,
-        client_secret: env.META_APP_SECRET,
+        client_id: appId,
+        client_secret: appSecret,
         redirect_uri: redirectUri,
         code,
       },
@@ -64,8 +83,8 @@ export const metaProvider: OAuthProvider = {
       "/oauth/access_token",
       {
         grant_type: "fb_exchange_token",
-        client_id: env.META_APP_ID,
-        client_secret: env.META_APP_SECRET,
+        client_id: appId,
+        client_secret: appSecret,
         fb_exchange_token: short.access_token,
       },
     );

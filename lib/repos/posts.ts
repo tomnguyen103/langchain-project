@@ -175,6 +175,18 @@ export async function getPostTarget(
   return row;
 }
 
+/** Distinct social-account ids behind a set of targets (Sirius engagement). */
+export async function getAccountIdsForTargets(
+  targetIds: string[],
+): Promise<string[]> {
+  if (targetIds.length === 0) return [];
+  const rows = await db
+    .selectDistinct({ socialAccountId: postTargets.socialAccountId })
+    .from(postTargets)
+    .where(inArray(postTargets.id, targetIds));
+  return rows.map((r) => r.socialAccountId);
+}
+
 export async function updatePostTarget(
   id: string,
   data: Partial<NewPostTarget>,
@@ -196,8 +208,8 @@ export async function updatePostStatus(
 }
 
 /** Derive a post's rollup status from its targets and persist it.
- *  When the post becomes fully unscheduled (pending/draft), also clears
- *  scheduledAt so the post stops appearing in calendar range queries. */
+ *  When the post rolls up to `draft` (no live targets), also clears scheduledAt
+ *  so the post stops appearing in calendar range queries. */
 export async function recomputePostStatus(
   postId: string,
 ): Promise<PostStatus> {
@@ -206,7 +218,7 @@ export async function recomputePostStatus(
     .from(postTargets)
     .where(eq(postTargets.postId, postId));
   const status = derivePostStatus(targets);
-  const clearSchedule = status === "pending" || status === "draft";
+  const clearSchedule = status === "draft";
   await db
     .update(posts)
     .set({

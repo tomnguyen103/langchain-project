@@ -4,6 +4,7 @@ import { decrypt } from "@/lib/utils/crypto";
 import {
   UnsupportedOperationError,
   type CommentRef,
+  type GroupPostRef,
   type OAuthTokens,
   type Platform,
   type PlatformCapabilities,
@@ -11,6 +12,8 @@ import {
   type PostMetrics,
   type PublishInput,
   type PublishResult,
+  type SeedInteraction,
+  type SeedResult,
 } from "./types";
 
 /**
@@ -51,6 +54,21 @@ export abstract class AbstractConnector implements PlatformConnector {
     _externalPostId: string,
   ): Promise<PostMetrics> {
     throw new UnsupportedOperationError(this.platform, "fetchMetrics");
+  }
+
+  async listGroupPosts(
+    _account: SocialAccount,
+    _since?: Date,
+  ): Promise<GroupPostRef[]> {
+    throw new UnsupportedOperationError(this.platform, "listGroupPosts");
+  }
+
+  async interactWithPost(
+    _account: SocialAccount,
+    _post: GroupPostRef,
+    _interaction: SeedInteraction,
+  ): Promise<SeedResult> {
+    throw new UnsupportedOperationError(this.platform, "interactWithPost");
   }
 
   /** Decrypt the stored access token for API calls. */

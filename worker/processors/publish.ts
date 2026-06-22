@@ -1,7 +1,7 @@
 import type { Job } from "bullmq";
 
 import type { MediaRef } from "@/lib/platforms/types";
-import type { PublishJobData } from "@/lib/queue/jobs";
+import { registerCommentPoll, type PublishJobData } from "@/lib/queue/jobs";
 import { QueueName } from "@/lib/queue/queues";
 import { getSocialAccount } from "@/lib/repos/accounts";
 import { resolveMediaAssets } from "@/lib/repos/media";
@@ -70,6 +70,16 @@ export async function publishProcessor(job: Job): Promise<void> {
       result: { externalPostId: result.externalPostId },
     });
     await recomputePostStatus(target.postId);
+
+    // Engagement (Sirius): ensure this account is polled for comments now that it
+    // has a live post. Idempotent + best-effort — never fail publishing on it.
+    await registerCommentPoll(target.socialAccountId).catch((error) => {
+      logger.warn("publish: comment-poll registration failed", {
+        postTargetId,
+        socialAccountId: target.socialAccountId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
 
     logger.info("publish: success", {
       postTargetId,

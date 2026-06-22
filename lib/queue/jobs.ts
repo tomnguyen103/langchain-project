@@ -1,9 +1,12 @@
+import { AgentName } from "@/lib/agents/types";
 import { deleteSchedule, recordSchedule } from "@/lib/repos/schedules";
 import {
+  agentStepJobId,
   commentPollSchedulerId,
   commentReplyJobId,
   publishJobId,
   researchJobId,
+  seedingSchedulerId,
 } from "./job-ids";
 import { getQueue, QueueName } from "./queues";
 import { enqueueWithLedger } from "./with-ledger";
@@ -102,6 +105,58 @@ export async function enqueueResearch(opts: {
   return jobId;
 }
 
+export type AgentStepJobData = {
+  runId: string;
+  agent: AgentName;
+  payload: unknown;
+};
+
+/**
+ * Enqueue one orchestrator handoff (the next agent's step) as a durable,
+ * idempotent job — same ledger-first pattern as enqueuePublish/enqueueResearch.
+ * `runId` is the run's uuid correlation id (also the ledger refId).
+ */
+export async function enqueueAgentStep(opts: {
+  runId: string;
+  agent: AgentName;
+  payload: unknown;
+  clerkUserId: string;
+}): Promise<string> {
+  const jobId = agentStepJobId(opts.runId, opts.agent);
+
+  await enqueueWithLedger({
+    record: () =>
+      recordSchedule({
+        clerkUserId: opts.clerkUserId,
+        queue: QueueName.AgentStep,
+        bullJobId: jobId,
+        refType: "agent_step",
+        refId: opts.runId,
+        runAt: new Date(),
+        status: "pending",
+      }),
+    enqueue: () =>
+      getQueue(QueueName.AgentStep).add(
+        "agent-step",
+        {
+          runId: opts.runId,
+          agent: opts.agent,
+          payload: opts.payload,
+        } satisfies AgentStepJobData,
+        {
+          jobId,
+          attempts: 3,
+          backoff: { type: "exponential", delay: 10_000 },
+          removeOnComplete: { age: 24 * 3600 },
+          removeOnFail: { age: 7 * 24 * 3600 },
+        },
+      ),
+    rollback: () => deleteSchedule(QueueName.AgentStep, jobId),
+  });
+
+  return jobId;
+}
+
 export type CommentPollJobData = { socialAccountId: string };
 export type CommentReplyJobData = { commentEventId: string };
 
@@ -137,6 +192,38 @@ export async function unregisterCommentPoll(
   );
 }
 
+export type SeedingJobData = { socialAccountId: string };
+
+const SEEDING_EVERY_MS = 30 * 60_000; // seed an account's groups every 30 min
+
+/**
+ * Register (or refresh) a repeating group-seeding job for an account (Polaris).
+ * Idempotent — keyed by the account id, mirroring registerCommentPoll.
+ */
+export async function registerSeeding(socialAccountId: string): Promise<void> {
+  await getQueue(QueueName.Seeding).upsertJobScheduler(
+    seedingSchedulerId(socialAccountId),
+    { every: SEEDING_EVERY_MS },
+    {
+      name: "seeding",
+      data: { socialAccountId } satisfies SeedingJobData,
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+/** Stop seeding an account's groups (e.g. on disconnect / deactivate). */
+export async function unregisterSeeding(
+  socialAccountId: string,
+): Promise<void> {
+  await getQueue(QueueName.Seeding).removeJobScheduler(
+    seedingSchedulerId(socialAccountId),
+  );
+}
+
 const TOKEN_REFRESH_EVERY_MS = 30 * 60_000; // proactively refresh every 30 min
 
 /** Register the single global token-refresh scheduler (idempotent upsert). */
@@ -146,6 +233,23 @@ export async function registerTokenRefresh(): Promise<void> {
     { every: TOKEN_REFRESH_EVERY_MS },
     {
       name: "token-refresh",
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+const REPORT_EVERY_MS = 24 * 60 * 60_000; // compile reports daily
+
+/** Register the single global daily report scheduler (idempotent upsert). */
+export async function registerReportSchedule(): Promise<void> {
+  await getQueue(QueueName.Report).upsertJobScheduler(
+    "report",
+    { every: REPORT_EVERY_MS },
+    {
+      name: "report",
       opts: {
         removeOnComplete: { age: 3600 },
         removeOnFail: { age: 24 * 3600 },
