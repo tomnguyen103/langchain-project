@@ -107,6 +107,18 @@ export const agentStepStatusEnum = pgEnum("agent_step_status", [
   "failed",
 ]);
 
+/**
+ * Brand-safety review state of a generated_content draft.
+ * `pending` = not yet gated; `held` = Castor held it for human approval;
+ * `approved` = cleared (auto or by a human); `rejected` = a human rejected it.
+ */
+export const reviewStatusEnum = pgEnum("review_status", [
+  "pending",
+  "held",
+  "approved",
+  "rejected",
+]);
+
 export type Platform = (typeof platformEnum.enumValues)[number];
 export type AccountStatus = (typeof accountStatusEnum.enumValues)[number];
 export type PostStatus = (typeof postStatusEnum.enumValues)[number];

@@ -37,3 +37,25 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 
 ### PR-1 — CodeRabbit round 2 (1 finding, applied)
 - **model-judge.ts `parseScore`**: round-1's `(?![\d.])` lookahead still let `"1/10"` match the leading `"1"` (→ false `1.0` pass) because `/` is neither a digit nor a dot. Switched to `(?=\s|$)` (the score must be followed by whitespace/end), so ratios and trailing junk fail closed. Extracted `parseScore`/`messageText` into a **pure, unit-tested** `parse-judge-response.ts` (no llm/env import) + `parse-judge-response.test.ts` covering ratios/out-of-range/prose — this parser had been a repeat offender, so it now has direct coverage.
+
+---
+
+## PR-2 — Backend approval gate (T4–T6)
+
+### T4 — Brand profile
+- `auto_publish_threshold` stored as Postgres `real` (a JS number) not `numeric` (drizzle returns numeric as a string) — avoids string↔number friction in the gate.
+- `autoPublishEnabled` defaults **false** (DB + repo) — nothing auto-publishes until a tenant opts in.
+- Pure `normalizeBrandProfileInput` (lib/brand/profile-input.ts) clamps the threshold to [0,1] and trims/dedupes/caps banned terms; unit-tested. The server action calls it before upsert.
+- `getBrandProfile` returns `DEFAULT_BRAND_PROFILE` when unset (never undefined) so Castor always has a profile.
+
+### T5 — Review persistence (consolidated onto generated_content; NO separate ledger)
+- **Deviation from the plan:** instead of a separate `content_reviews` ledger table, review state lives **on `generated_content`** (`reviewStatus`, `brandSafetyScore`, `reviewVerdict`, `reviewViolations`, `reviewedAt`, `reviewedBy`, `agentRunId`). Rationale: one source of truth (no two-table sync bugs); `agent_steps` already provides the audit history. `accepted` stays the "ready for Atlas" signal; the new columns add the gate's score/verdict/audit.
+- `reviewStatus` enum = pending | held | approved | rejected. `held` = Castor held it; the review queue lists `held`. Composer-generated content stays `pending` (never surfaces in the queue).
+- Added `agentRunId` to `generated_content` so the approve API (PR-3) can resume the right run after a human clears a held draft.
+- `recordReviews` is atomic via `runAtomicWrite`; the mapped statements are asserted to the non-empty tuple it requires (guarded by an empty-check first — same `as` pattern db/index.ts uses).
+
+### T6 — Castor + Lyra rewire (the live-path behavior change)
+- **Lyra no longer auto-accepts.** It hands off to **Castor** with `{ generatedContentIds }`; `markGeneratedContentAccepted` removed from Lyra's deps. This is the one behavior change to the publish path (everything else is additive).
+- Castor decides **per draft**: auto-publish only when `autoPublishEnabled && verdict==='pass' && score>=threshold`; a blocked/low draft is held. If ANY draft is held → the run pauses (awaiting_approval) while auto-approved drafts are still `accepted` (so a later resume schedules them). If ALL auto-cleared → hand off to Atlas.
+- The real model judge is wired in the registry (`makeModelJudge()` injected into `runBrandSafety`), keeping Castor's factory pure/testable.
+- **Intermediate state (safe):** the approve UI/API lands in PR-3. Until then a held run stays paused with no way to approve — harmless because nothing runs live yet (no DB/worker provisioned), per the project's build-now/verify-later norm.

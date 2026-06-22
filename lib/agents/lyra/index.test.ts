@@ -5,8 +5,7 @@ import { AgentName } from "../types";
 import { createLyra } from "./index";
 
 describe("lyra agent", () => {
-  it("generates drafts, auto-accepts them, hands the ids to Atlas", async () => {
-    const accepted: string[][] = [];
+  it("generates drafts and hands the ids to Castor (no auto-accept)", async () => {
     const lyra = createLyra({
       runContentAgent: async ({ topic, platforms, userId }) => {
         assert.equal(topic, "coffee");
@@ -17,9 +16,6 @@ describe("lyra agent", () => {
           savedContentIds: ["c1", "c2"],
         };
       },
-      markGeneratedContentAccepted: async (ids) => {
-        accepted.push(ids);
-      },
     });
 
     const result = await lyra.run(
@@ -27,21 +23,16 @@ describe("lyra agent", () => {
       { clerkUserId: "user-9", runId: "r" },
     );
 
-    assert.deepEqual(accepted, [["c1", "c2"]]);
     assert.deepEqual(result.summary, { drafts: 2 });
-    assert.equal(result.handoff?.to, AgentName.Atlas);
+    assert.equal(result.handoff?.to, AgentName.Castor);
     assert.deepEqual(result.handoff?.payload, {
-      acceptedContentIds: ["c1", "c2"],
+      generatedContentIds: ["c1", "c2"],
     });
   });
 
-  it("forwards empty results (count 0, empty handoff) without error", async () => {
-    const accepted: string[][] = [];
+  it("forwards empty results to Castor without error", async () => {
     const lyra = createLyra({
       runContentAgent: async () => ({ drafts: {}, savedContentIds: [] }),
-      markGeneratedContentAccepted: async (ids) => {
-        accepted.push(ids);
-      },
     });
 
     const result = await lyra.run(
@@ -49,9 +40,9 @@ describe("lyra agent", () => {
       { clerkUserId: "u", runId: "r" },
     );
 
-    assert.deepEqual(accepted, [[]]);
     assert.deepEqual(result.summary, { drafts: 0 });
-    assert.deepEqual(result.handoff?.payload, { acceptedContentIds: [] });
+    assert.equal(result.handoff?.to, AgentName.Castor);
+    assert.deepEqual(result.handoff?.payload, { generatedContentIds: [] });
   });
 
   it("propagates a content-generation failure (no swallow)", async () => {
@@ -59,7 +50,6 @@ describe("lyra agent", () => {
       runContentAgent: async () => {
         throw new Error("LLM down");
       },
-      markGeneratedContentAccepted: async () => {},
     });
 
     await assert.rejects(
