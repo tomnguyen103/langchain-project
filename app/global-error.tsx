@@ -33,7 +33,7 @@ export default function GlobalError({
           color: "CanvasText",
         }}
       >
-        <div style={{ textAlign: "center", padding: "2rem" }}>
+        <div role="alert" style={{ textAlign: "center", padding: "2rem" }}>
           <h2 style={{ fontSize: "1.25rem", fontWeight: 600 }}>
             Something went wrong
           </h2>

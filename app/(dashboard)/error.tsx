@@ -17,8 +17,11 @@ export default function DashboardError({
   }, [error]);
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
-      <AlertTriangle className="text-destructive size-8" />
+    <div
+      role="alert"
+      className="flex min-h-[60vh] flex-col items-center justify-center text-center"
+    >
+      <AlertTriangle aria-hidden className="text-destructive size-8" />
       <h2 className="mt-4 text-lg font-semibold">Something went wrong</h2>
       <p className="text-muted-foreground mt-1 max-w-md text-sm">
         An unexpected error occurred. Try again, or head back to your dashboard.

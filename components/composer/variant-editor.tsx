@@ -100,14 +100,17 @@ function Field({
         rows={7}
         placeholder={`Write your ${PLATFORM_META[platform].label} caption…`}
         aria-label={`${PLATFORM_META[platform].label} caption`}
+        aria-invalid={over}
       />
       <div
+        aria-live="polite"
         className={cn(
           "text-right text-xs",
           over ? "text-destructive" : "text-muted-foreground",
         )}
       >
         {value.length} / {max}
+        {over ? " (over limit)" : ""}
       </div>
     </div>
   );

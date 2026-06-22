@@ -26,7 +26,14 @@ function UsageBar({
             {used} / {limit}
           </span>
         </div>
-        <div className="bg-muted h-2 overflow-hidden rounded-full">
+        <div
+          className="bg-muted h-2 overflow-hidden rounded-full"
+          role="progressbar"
+          aria-label={`${label} usage`}
+          aria-valuenow={used}
+          aria-valuemin={0}
+          aria-valuemax={limit}
+        >
           <div
             className="bg-primary h-full rounded-full"
             style={{ width: `${pct}%` }}

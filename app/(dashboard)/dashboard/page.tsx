@@ -95,9 +95,9 @@ export default async function OverviewPage() {
                 className="hover:bg-accent flex items-center gap-2 rounded-lg p-2 text-sm"
               >
                 {step.done ? (
-                  <CheckCircle2 className="text-primary size-4" />
+                  <CheckCircle2 aria-hidden className="text-primary size-4" />
                 ) : (
-                  <Circle className="text-muted-foreground size-4" />
+                  <Circle aria-hidden className="text-muted-foreground size-4" />
                 )}
                 <span
                   className={
@@ -105,6 +105,7 @@ export default async function OverviewPage() {
                   }
                 >
                   {step.label}
+                  {step.done && <span className="sr-only"> (done)</span>}
                 </span>
               </Link>
             ))}
@@ -116,7 +117,7 @@ export default async function OverviewPage() {
         {stats.map((s) => (
           <Card key={s.label}>
             <CardContent className="flex items-center gap-3 py-5">
-              <s.icon className="text-muted-foreground size-5" />
+              <s.icon aria-hidden className="text-muted-foreground size-5" />
               <div>
                 <div className="text-2xl font-semibold">{s.value}</div>
                 <div className="text-muted-foreground text-xs">{s.label}</div>
