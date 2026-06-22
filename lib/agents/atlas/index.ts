@@ -28,6 +28,9 @@ export type AtlasDeps = {
     post: NewPost;
     targets: Array<Omit<NewPostTarget, "postId">>;
   }) => Promise<{ id: string; targets: Array<{ id: string; postId: string }> }>;
+  getPostTarget: (
+    id: string,
+  ) => Promise<{ id: string; postId: string } | undefined>;
   enqueuePublish: (opts: {
     postTargetId: string;
     clerkUserId: string;
@@ -85,11 +88,18 @@ export function createAtlas(deps: AtlasDeps): AgentDefinition<AtlasInput> {
     async run(input, ctx) {
       const runAt = input.runAt ?? new Date();
 
-      // Path B: targets already exist — just (re)schedule them.
+      // Path B: targets already exist — resolve each to carry its postId, so a
+      // failed (re)schedule still recomputes the parent post's rollup status.
       if (input.postTargetIds?.length) {
+        const resolved = await Promise.all(
+          input.postTargetIds.map((id) => deps.getPostTarget(id)),
+        );
+        const targets = resolved.filter(
+          (t): t is { id: string; postId: string } => Boolean(t),
+        );
         const scheduled = await scheduleTargets(
           deps,
-          input.postTargetIds.map((id) => ({ id })),
+          targets,
           ctx.clerkUserId,
           runAt,
         );

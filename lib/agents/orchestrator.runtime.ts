@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { enqueueAgentStep } from "@/lib/queue/jobs";
 import {
   createAgentRun,
+  findCompletedStep,
   recordAgentStep,
   updateAgentRun,
 } from "@/lib/repos/agent-runs";
@@ -21,6 +22,7 @@ export const orchestrator = createOrchestrator({
   createAgentRun,
   updateAgentRun,
   recordAgentStep,
+  findCompletedStep,
   enqueueAgentStep,
   newRunId: () => randomUUID(),
 });

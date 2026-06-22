@@ -27,6 +27,9 @@ export const agentSteps = pgTable(
     status: agentStepStatusEnum("status").notNull().default("pending"),
     input: jsonb("input").$type<unknown>(),
     summary: jsonb("summary").$type<Record<string, unknown>>(),
+    // The agent's handoff target, persisted so a retried dispatch can re-deliver
+    // it WITHOUT re-running an already-completed (non-idempotent) agent.
+    handoff: jsonb("handoff").$type<{ to: string; payload: unknown }>(),
     error: text("error"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),

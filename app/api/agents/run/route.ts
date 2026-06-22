@@ -29,9 +29,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "niche is required" }, { status: 400 });
   }
 
-  const platforms = parsed.data.platforms.filter(
-    (p): p is Platform => VALID_PLATFORMS.has(p),
-  );
+  // Reject unsupported platforms rather than silently dropping them — otherwise a
+  // typo would start a run against an unintended (or empty) target set.
+  const invalid = parsed.data.platforms.filter((p) => !VALID_PLATFORMS.has(p));
+  if (invalid.length > 0) {
+    return NextResponse.json(
+      { error: "unsupported platforms", invalid },
+      { status: 400 },
+    );
+  }
+  const platforms = parsed.data.platforms as Platform[];
 
   const { runId } = await orchestrator.startRun({
     clerkUserId,

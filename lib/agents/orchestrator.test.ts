@@ -17,6 +17,7 @@ function makeDeps(over: Partial<OrchestratorDeps>): OrchestratorDeps {
     createAgentRun: async () => ({}),
     updateAgentRun: async () => ({}),
     recordAgentStep: async () => ({}),
+    findCompletedStep: async () => undefined,
     enqueueAgentStep: async () => "job",
     newRunId: () => "run-fixed",
     ...over,
@@ -110,6 +111,64 @@ describe("orchestrator", () => {
     assert.equal(steps.length, 1);
     assert.equal(steps[0].status, "failed");
     assert.equal(steps[0].error, "boom");
+  });
+
+  it("dispatch re-delivers a completed step's handoff WITHOUT re-running the agent", async () => {
+    let agentRunCount = 0;
+    const enqueued: AgentName[] = [];
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        getAgent: (name) => ({
+          name,
+          run: async () => {
+            agentRunCount += 1;
+            return {};
+          },
+        }),
+        findCompletedStep: async () => ({
+          summary: { ideas: 2 },
+          handoff: { to: AgentName.Lyra, payload: { topic: "t" } },
+        }),
+        enqueueAgentStep: async (opts) => {
+          enqueued.push(opts.agent);
+          return "job";
+        },
+      }),
+    );
+
+    const result = await orchestrator.dispatch(
+      { agent: AgentName.Vega, payload: {} },
+      { clerkUserId: "u", runId: "run-1" },
+    );
+
+    assert.equal(agentRunCount, 0); // agent NOT re-invoked
+    assert.deepEqual(enqueued, [AgentName.Lyra]); // handoff re-delivered
+    assert.equal(result.handoff?.to, AgentName.Lyra);
+  });
+
+  it("startRun marks the run failed when the first enqueue throws", async () => {
+    const runUpdates: Partial<NewAgentRun>[] = [];
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        enqueueAgentStep: async () => {
+          throw new Error("redis down");
+        },
+        updateAgentRun: async (_runId, data) => {
+          runUpdates.push(data);
+          return {};
+        },
+      }),
+    );
+
+    await assert.rejects(
+      () =>
+        orchestrator.startRun({
+          clerkUserId: "u",
+          plan: { niche: "n", platforms: [] },
+        }),
+      /redis down/,
+    );
+    assert.ok(runUpdates.some((u) => u.status === "failed"));
   });
 
   it("startRun creates the run and enqueues the first step (default: Vega)", async () => {

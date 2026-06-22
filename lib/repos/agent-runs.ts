@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -9,6 +9,23 @@ import {
   type NewAgentRun,
   type NewAgentStep,
 } from "@/db/schema";
+
+/**
+ * The columns of a run that are safe to mutate after creation. Identity/correlation
+ * columns (id, runId, clerkUserId, clerkOrgId, createdAt) are intentionally
+ * excluded so a patch can't rewrite the run↔step correlation contract.
+ */
+export type AgentRunUpdate = Partial<
+  Pick<
+    NewAgentRun,
+    | "status"
+    | "plan"
+    | "currentAgent"
+    | "langsmithRunId"
+    | "startedAt"
+    | "finishedAt"
+  >
+>;
 
 /** Insert a new pipeline run and return the persisted row. */
 export async function createAgentRun(data: NewAgentRun): Promise<AgentRun> {
@@ -28,10 +45,10 @@ export async function getAgentRun(
   return row;
 }
 
-/** Patch a run by correlation id. Touches updatedAt like the other repos. */
+/** Patch the mutable fields of a run by correlation id (touches updatedAt). */
 export async function updateAgentRun(
   runId: string,
-  data: Partial<NewAgentRun>,
+  data: AgentRunUpdate,
 ): Promise<void> {
   await db
     .update(agentRuns)
@@ -44,6 +61,30 @@ export async function recordAgentStep(
   data: NewAgentStep,
 ): Promise<AgentStep> {
   const [row] = await db.insert(agentSteps).values(data).returning();
+  return row;
+}
+
+/**
+ * The earliest completed step for an agent in a run — the idempotency guard that
+ * lets a retried dispatch re-deliver a handoff WITHOUT re-running an
+ * already-completed (and possibly non-idempotent) agent.
+ */
+export async function findCompletedStep(
+  runId: string,
+  agent: AgentStep["agent"],
+): Promise<AgentStep | undefined> {
+  const [row] = await db
+    .select()
+    .from(agentSteps)
+    .where(
+      and(
+        eq(agentSteps.runId, runId),
+        eq(agentSteps.agent, agent),
+        eq(agentSteps.status, "completed"),
+      ),
+    )
+    .orderBy(asc(agentSteps.createdAt))
+    .limit(1);
   return row;
 }
 

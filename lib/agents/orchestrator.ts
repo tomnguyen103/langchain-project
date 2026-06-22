@@ -1,4 +1,5 @@
 import type { AgentRunPlan, NewAgentRun, NewAgentStep } from "@/db/schema";
+import type { AgentRunUpdate } from "@/lib/repos/agent-runs";
 
 import {
   AgentName,
@@ -10,6 +11,9 @@ import {
 /** One hop in a run: which agent to invoke with what payload. */
 export type RunStep = { agent: AgentName; payload: unknown };
 
+/** A persisted agent handoff (as stored on a completed agent_steps row). */
+type StoredHandoff = { to: string; payload: unknown } | null;
+
 /**
  * Orion's side effects, injected so the orchestrator unit-tests without a db,
  * queue, or env. The real registry + repos + queue are wired in
@@ -18,8 +22,15 @@ export type RunStep = { agent: AgentName; payload: unknown };
 export type OrchestratorDeps = {
   getAgent: (name: AgentName) => AgentDefinition;
   createAgentRun: (data: NewAgentRun) => Promise<unknown>;
-  updateAgentRun: (runId: string, data: Partial<NewAgentRun>) => Promise<unknown>;
+  updateAgentRun: (runId: string, data: AgentRunUpdate) => Promise<unknown>;
   recordAgentStep: (data: NewAgentStep) => Promise<unknown>;
+  /** Idempotency guard: the already-completed step for this (run, agent), if any. */
+  findCompletedStep: (
+    runId: string,
+    agent: AgentName,
+  ) => Promise<
+    { summary: Record<string, unknown> | null; handoff: StoredHandoff } | undefined
+  >;
   enqueueAgentStep: (opts: {
     runId: string;
     agent: AgentName;
@@ -40,10 +51,17 @@ export type Orchestrator = {
   }) => Promise<{ runId: string }>;
 };
 
-/** Default first hop for a plan: an explicit steps[0], else Vega over the niche. */
+const AGENT_NAMES = new Set<string>(Object.values(AgentName));
+
+/** Default first hop for a plan: an explicit, validated steps[0], else Vega. */
 function deriveFirstStep(plan: AgentRunPlan): RunStep {
   const first = plan.steps?.[0];
-  if (first) return { agent: first.agent as AgentName, payload: first.payload };
+  if (first) {
+    if (!AGENT_NAMES.has(first.agent)) {
+      throw new Error(`Invalid plan: unknown first agent "${first.agent}".`);
+    }
+    return { agent: first.agent as AgentName, payload: first.payload };
+  }
   return {
     agent: AgentName.Vega,
     payload: { niche: plan.niche, platforms: plan.platforms ?? [] },
@@ -52,51 +70,64 @@ function deriveFirstStep(plan: AgentRunPlan): RunStep {
 
 /**
  * Orion — the orchestrator. It owns the run plan and the handoffs; it does no
- * content work. After an agent returns an AgentResult, Orion records the step
- * and enqueues the next agent's job (or marks the run complete). Handoffs reuse
- * the durable ledger-backed enqueue, so every hop is idempotent on retry.
+ * content work. Reuses the durable ledger-backed enqueue so every hop is
+ * idempotent on retry.
+ *
+ * Agent execution and handoff delivery are handled as two separate failure
+ * domains: a completed step is committed (with its handoff) BEFORE delivery, and
+ * dispatch short-circuits on an already-completed step — so a retry after a
+ * handoff-enqueue failure re-delivers the handoff WITHOUT re-running a possibly
+ * non-idempotent agent (no duplicate content/posts).
  */
 export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
+  /** Enqueue the next hop, or mark the run complete when there's no handoff. */
+  async function deliverHandoff(
+    handoff: StoredHandoff,
+    ctx: AgentContext,
+  ): Promise<void> {
+    if (handoff) {
+      const to = handoff.to as AgentName;
+      await deps.enqueueAgentStep({
+        runId: ctx.runId,
+        agent: to,
+        payload: handoff.payload,
+        clerkUserId: ctx.clerkUserId,
+      });
+      await deps.updateAgentRun(ctx.runId, { currentAgent: to });
+    } else {
+      await deps.updateAgentRun(ctx.runId, {
+        status: "completed",
+        finishedAt: new Date(),
+      });
+    }
+  }
+
   async function dispatch(
     step: RunStep,
     ctx: AgentContext,
   ): Promise<AgentResult> {
+    // Idempotency: if this agent already completed for the run, re-deliver its
+    // handoff instead of re-running it (the retry-after-enqueue-failure path).
+    const prior = await deps.findCompletedStep(ctx.runId, step.agent);
+    if (prior) {
+      await deliverHandoff(prior.handoff, ctx);
+      return {
+        summary: prior.summary ?? undefined,
+        handoff: prior.handoff
+          ? { to: prior.handoff.to as AgentName, payload: prior.handoff.payload }
+          : undefined,
+      };
+    }
+
     await deps.updateAgentRun(ctx.runId, {
       status: "running",
       currentAgent: step.agent,
     });
     const startedAt = new Date();
+
+    let result: AgentResult;
     try {
-      const result = await deps.getAgent(step.agent).run(step.payload, ctx);
-
-      await deps.recordAgentStep({
-        runId: ctx.runId,
-        agent: step.agent,
-        status: "completed",
-        input: step.payload,
-        summary: result.summary,
-        startedAt,
-        finishedAt: new Date(),
-      });
-
-      if (result.handoff) {
-        await deps.enqueueAgentStep({
-          runId: ctx.runId,
-          agent: result.handoff.to,
-          payload: result.handoff.payload,
-          clerkUserId: ctx.clerkUserId,
-        });
-        await deps.updateAgentRun(ctx.runId, {
-          currentAgent: result.handoff.to,
-        });
-      } else {
-        // No handoff → this is the run's terminal step.
-        await deps.updateAgentRun(ctx.runId, {
-          status: "completed",
-          finishedAt: new Date(),
-        });
-      }
-      return result;
+      result = await deps.getAgent(step.agent).run(step.payload, ctx);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await deps.recordAgentStep({
@@ -112,8 +143,26 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         status: "failed",
         finishedAt: new Date(),
       });
-      throw error; // let BullMQ retry per the job's attempts policy
+      throw error; // the agent didn't complete — safe to retry the whole step
     }
+
+    // Commit the completed step (with its handoff) BEFORE delivery, so a delivery
+    // failure re-enters via the prior-step guard above rather than a re-run.
+    await deps.recordAgentStep({
+      runId: ctx.runId,
+      agent: step.agent,
+      status: "completed",
+      input: step.payload,
+      summary: result.summary,
+      handoff: result.handoff ?? null,
+      startedAt,
+      finishedAt: new Date(),
+    });
+
+    // A throw here (e.g. Redis down) propagates to BullMQ for retry; the step is
+    // already committed, so the retry only re-delivers — it does not re-run.
+    await deliverHandoff(result.handoff ?? null, ctx);
+    return result;
   }
 
   async function startRun(opts: {
@@ -135,12 +184,21 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
       startedAt: new Date(),
     });
 
-    await deps.enqueueAgentStep({
-      runId,
-      agent: firstStep.agent,
-      payload: firstStep.payload,
-      clerkUserId: opts.clerkUserId,
-    });
+    try {
+      await deps.enqueueAgentStep({
+        runId,
+        agent: firstStep.agent,
+        payload: firstStep.payload,
+        clerkUserId: opts.clerkUserId,
+      });
+    } catch (error) {
+      // No first step was enqueued — don't leave the run stuck in "running".
+      await deps.updateAgentRun(runId, {
+        status: "failed",
+        finishedAt: new Date(),
+      });
+      throw error;
+    }
 
     return { runId };
   }

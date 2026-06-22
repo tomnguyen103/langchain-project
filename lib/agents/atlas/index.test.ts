@@ -35,6 +35,7 @@ describe("atlas agent", () => {
           })),
         };
       },
+      getPostTarget: async () => undefined,
       enqueuePublish: async ({ postTargetId }) => {
         enqueued.push(postTargetId);
         return `job_${postTargetId}`;
@@ -70,6 +71,7 @@ describe("atlas agent", () => {
         id: "p1",
         targets: [{ id: "t0", postId: "p1" }],
       }),
+      getPostTarget: async () => undefined,
       enqueuePublish: async () => {
         throw new Error("redis down");
       },
@@ -105,6 +107,7 @@ describe("atlas agent", () => {
       createPostWithTargets: async () => {
         throw new Error("should not be called");
       },
+      getPostTarget: async (id) => ({ id, postId: `post_${id}` }),
       enqueuePublish: async ({ postTargetId }) => {
         enqueued.push(postTargetId);
         return "job";

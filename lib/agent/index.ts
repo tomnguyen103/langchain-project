@@ -44,5 +44,13 @@ export async function runContentAgent(input: {
       );
     }
   }
-  return { drafts: result.drafts, savedContentIds: result.savedContentIds ?? [] };
+  const savedContentIds = result.savedContentIds ?? [];
+  // A broken finalize contract (drafts produced but nothing persisted) would let
+  // downstream agents "succeed" with zero scheduled output — fail loudly instead.
+  if (Object.keys(result.drafts).length > 0 && savedContentIds.length === 0) {
+    throw new Error(
+      "content agent produced drafts but persisted no generated_content rows",
+    );
+  }
+  return { drafts: result.drafts, savedContentIds };
 }
