@@ -24,7 +24,9 @@ async function main(): Promise<void> {
     const [result] = await runBrandSafety(
       [{ text: example.text }],
       { voice: example.voice, bannedTerms: example.bannedTerms },
-      { judge },
+      // passThreshold 0 so the verdict reflects only hard blocks (banned/PII) and
+      // the raw score flows through — recommendThreshold then sweeps real scores.
+      { judge, passThreshold: 0 },
     );
     if (!result) continue;
     samples.push({

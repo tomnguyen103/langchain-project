@@ -73,11 +73,19 @@ export function recommendThreshold(
   step = 0.05,
   floor = 0.5,
 ): { threshold: number; metrics: ThresholdMetrics } {
+  // Guard inputs so the loop always terminates and never bypasses the floor.
+  const safeStep = Number.isFinite(step) && step > 0 ? step : 0.05;
+  const safeFloor = Math.min(
+    1,
+    Math.max(0, Number.isFinite(floor) ? floor : 0.5),
+  );
+
   let best: ThresholdMetrics | null = null;
-  const start = Math.round(floor / step);
-  const end = Math.round(1 / step);
+  const start = Math.ceil(safeFloor / safeStep);
+  const end = Math.round(1 / safeStep);
   for (let i = start; i <= end; i += 1) {
-    const threshold = Math.round(i * step * 100) / 100;
+    const threshold = Math.min(1, Math.round(i * safeStep * 100) / 100);
+    if (threshold < safeFloor) continue;
     const m = evaluateAtThreshold(samples, threshold);
     if (m.unsafeAutoPublished > 0) continue;
     // Ascending scan: the first zero-unsafe threshold has the most safe

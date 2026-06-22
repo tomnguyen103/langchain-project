@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db, runAtomicWrite } from "@/db";
-import { generatedContent, type Platform } from "@/db/schema";
+import { agentRuns, generatedContent, type Platform } from "@/db/schema";
 
 export type ReviewViolation = { rule: string; detail: string };
 export type ReviewVerdict = "pass" | "review" | "block";
@@ -154,4 +154,57 @@ export async function listAcceptedContentIdsForRun(
       ),
     );
   return rows.map((r) => r.id);
+}
+
+/**
+ * Atomically reject a run's held drafts and finalize the run as rejected, so a
+ * partial failure can't leave the run paused with no held drafts (stranded).
+ */
+export async function finalizeRunRejected(
+  agentRunId: string,
+  clerkUserId: string,
+): Promise<void> {
+  const now = new Date();
+  await runAtomicWrite((tx) => [
+    tx
+      .update(generatedContent)
+      .set({ reviewStatus: "rejected", reviewedBy: clerkUserId, reviewedAt: now })
+      .where(
+        and(
+          eq(generatedContent.clerkUserId, clerkUserId),
+          eq(generatedContent.agentRunId, agentRunId),
+          eq(generatedContent.reviewStatus, "held"),
+        ),
+      ),
+    tx
+      .update(agentRuns)
+      .set({ status: "rejected", finishedAt: now, updatedAt: now })
+      .where(eq(agentRuns.runId, agentRunId)),
+  ]);
+}
+
+/**
+ * Compensation for a failed approve-resume: put just-approved drafts back to
+ * `held` (and un-accept them) so the run stays visible/recoverable in the queue.
+ */
+export async function restoreHeldDrafts(
+  ids: string[],
+  clerkUserId: string,
+): Promise<void> {
+  if (ids.length === 0) return;
+  await db
+    .update(generatedContent)
+    .set({
+      reviewStatus: "held",
+      accepted: false,
+      reviewedBy: null,
+      reviewedAt: null,
+    })
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        inArray(generatedContent.id, ids),
+        eq(generatedContent.reviewStatus, "approved"),
+      ),
+    );
 }

@@ -84,3 +84,9 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 - Labeled dataset + runner (`npm run eval:brand-safety`) that runs the REAL judge; **deferred to run live** (needs an LLM key), like `db:migrate`. The metrics logic is fully tested without a model.
 
 **P0 is feature-complete** (gate + approval + evals). With `autoPublishEnabled` off by default every draft routes to the review queue; turning it on with a calibrated threshold enables safe auto-publish.
+
+### PR-3 — CodeRabbit round 1 (4 findings, all applied)
+- **actions**: gate approve/reject on `awaiting_approval` status (not ownership alone) — blocks replayed approvals / re-rejecting finished runs.
+- **actions/repo**: reject is now atomic (`finalizeRunRejected` updates held drafts + run status in one `runAtomicWrite`); approve **compensates** (`restoreHeldDrafts`) if `resumeRun` fails, so a partial failure can't strand a run with no held drafts.
+- **evals/run.ts**: calibrate on RAW scores — pass `passThreshold: 0` so the verdict reflects only hard blocks (banned/PII) and `recommendThreshold` can sweep real candidate thresholds.
+- **metrics (Critical)**: guard `recommendThreshold` — non-positive/non-finite `step` defaults to 0.05 (no infinite loop), `floor` clamped to [0,1], and `Math.ceil(floor/step)` + a `< floor` skip prevent recommending below the floor.

@@ -54,4 +54,21 @@ describe("recommendThreshold", () => {
     const { threshold } = recommendThreshold(samples, 0.05);
     assert.equal(threshold, 1);
   });
+
+  it("guards a non-positive step (no infinite loop)", () => {
+    const { threshold } = recommendThreshold(
+      [{ label: "auto_ok", score: 0.9, verdict: "pass" }],
+      0,
+    );
+    assert.ok(threshold >= 0.5 && threshold <= 1);
+  });
+
+  it("never recommends below the floor", () => {
+    const { threshold } = recommendThreshold(
+      [{ label: "auto_ok", score: 0.9, verdict: "pass" }],
+      0.05,
+      0.51,
+    );
+    assert.ok(threshold >= 0.51);
+  });
 });
