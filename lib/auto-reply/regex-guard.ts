@@ -46,13 +46,15 @@ function hasCatastrophicShape(pattern: string): boolean {
       const rest = pattern.slice(i + 1);
       const quantified = /^[*+]/.test(rest) || /^\{\d*,\}/.test(rest);
       if (quantified && (frame.quantifier || frame.alternation)) return true;
-      if (stack.length > 0) {
-        // Propagate "contains a quantifier" up so a deeper quantifier still trips
-        // an outer quantifier (`((a+))+`); a quantified sub-group is itself a
+      if (
+        stack.length > 0 &&
+        // Propagate danger up so an OUTER quantifier still trips on a quantifier
+        // or alternation buried in this (possibly unquantified) sub-group —
+        // `((a+))+`, `(((a|a)))+` — and a quantified sub-group is itself a
         // quantifier within its parent (`((a)+)+`).
-        if (frame.quantifier || quantified) {
-          stack[stack.length - 1].quantifier = true;
-        }
+        (frame.quantifier || frame.alternation || quantified)
+      ) {
+        stack[stack.length - 1].quantifier = true;
       }
       continue;
     }

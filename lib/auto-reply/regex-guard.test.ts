@@ -31,6 +31,15 @@ describe("isSafeRegexSource", () => {
     assert.equal(isSafeRegexSource("(\\d{2,})+"), false); // open-ended inner reps
   });
 
+  it("rejects alternation buried under an unquantified subgroup (ReDoS)", () => {
+    // `(((a|a)))+` backtracks exponentially even though the alternation isn't
+    // directly quantified — the danger must propagate up to the outer quantifier.
+    assert.equal(isSafeRegexSource("(((a|a)))+"), false);
+    assert.equal(isSafeRegexSource("((a|ab))+"), false);
+    assert.equal(isSafeRegexSource("((a|b)c)+"), false);
+    assert.equal(isSafeRegexSource("((a|b)c)"), true); // no outer quantifier → safe
+  });
+
   it("rejects unbalanced / malformed patterns (fail closed)", () => {
     assert.equal(isSafeRegexSource("(a+"), false); // unclosed group
     assert.equal(isSafeRegexSource("a+)"), false); // stray close
