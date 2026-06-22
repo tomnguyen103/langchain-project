@@ -30,3 +30,21 @@ export function derivePostStatus(
   }
   return "scheduled";
 }
+
+/**
+ * Whether a post still has a "live" target — one that is scheduled (`queued`),
+ * in-flight (`publishing`), or already out (`published`). A post with no live
+ * target has been fully retracted to `pending`/`failed` (e.g. every scheduled
+ * target was cancelled before anything published), which is the signal to refund
+ * its `posts_scheduled` quota unit. Pure, so it's unit-tested without the DB.
+ */
+export function hasLiveTarget(
+  targets: Pick<PostTarget, "status">[],
+): boolean {
+  return targets.some(
+    (t) =>
+      t.status === "queued" ||
+      t.status === "publishing" ||
+      t.status === "published",
+  );
+}

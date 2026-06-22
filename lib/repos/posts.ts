@@ -222,6 +222,33 @@ export async function updatePostStatus(
     .where(eq(posts.id, id));
 }
 
+/** Update a post's posts_scheduled quota accounting (held flag + the period the
+ *  held unit was consumed for). See `posts.scheduleQuotaPeriod`. */
+export async function setPostScheduleQuota(
+  id: string,
+  data: { scheduleQuotaPeriod?: string | null; scheduleQuotaHeld?: boolean },
+): Promise<void> {
+  await db
+    .update(posts)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(posts.id, id));
+}
+
+/**
+ * Atomically claim a refund of a post's held posts_scheduled unit: flip
+ * `scheduleQuotaHeld` true→false in one conditional update and report whether it
+ * actually changed. Only the caller that wins the flip should refund the unit,
+ * so two concurrent cancels can't double-refund.
+ */
+export async function releaseScheduleQuotaHold(id: string): Promise<boolean> {
+  const rows = await db
+    .update(posts)
+    .set({ scheduleQuotaHeld: false, updatedAt: new Date() })
+    .where(and(eq(posts.id, id), eq(posts.scheduleQuotaHeld, true)))
+    .returning({ id: posts.id });
+  return rows.length > 0;
+}
+
 /** Derive a post's rollup status from its targets and persist it.
  *  When the post rolls up to `draft` (no live targets), also clears scheduledAt
  *  so the post stops appearing in calendar range queries. */

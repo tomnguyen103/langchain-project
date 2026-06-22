@@ -36,11 +36,15 @@ function limitFor(metric: QuotaMetric): (l: PlanLimits) => number {
     : (l) => l.aiPerMonth;
 }
 
-/** Atomically consume one unit of quota or throw QuotaExceededError. */
+/**
+ * Atomically consume one unit of quota or throw QuotaExceededError. Returns the
+ * period the unit was consumed for, so callers can later refund that exact
+ * window (see `releaseQuotaForPeriod`).
+ */
 export async function consumeQuota(
   userId: string,
   metric: QuotaMetric,
-): Promise<void> {
+): Promise<string> {
   const limits = await getPlanLimits();
   const periodStart = periodStartFor(metric);
   const limit = limitFor(metric);
@@ -48,6 +52,7 @@ export async function consumeQuota(
   if (!ok) {
     throw new QuotaExceededError(metric, limit(limits));
   }
+  return periodStart;
 }
 
 /**
@@ -58,14 +63,32 @@ export async function releaseQuota(
   userId: string,
   metric: QuotaMetric,
 ): Promise<void> {
+  await releaseQuotaForPeriod(userId, metric, periodStartFor(metric));
+}
+
+/**
+ * Refund a unit consumed for a SPECIFIC period. Use this when the refund can
+ * land in a different window than "now" — e.g. cancelling today a post that was
+ * scheduled (and metered) yesterday — so the correct day's counter is decremented
+ * rather than an unrelated one.
+ */
+export async function releaseQuotaForPeriod(
+  userId: string,
+  metric: QuotaMetric,
+  periodStart: string,
+): Promise<void> {
   try {
-    await releaseUsage(userId, metric, periodStartFor(metric));
+    await releaseUsage(userId, metric, periodStart);
   } catch (error) {
     // A failed refund silently over-charges the user against their plan cap.
     // Callers treat releases as best-effort (they don't expect a throw), so
     // surface it here — the one place every refund flows through — rather than
     // letting it vanish in a caller's `.catch(() => {})`.
-    reportError("releaseQuota: refund failed", error, { userId, metric });
+    reportError("releaseQuota: refund failed", error, {
+      userId,
+      metric,
+      periodStart,
+    });
   }
 }
 
