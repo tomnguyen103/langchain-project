@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import type { NewPostTarget } from "@/db/schema";
 
+import { AgentName } from "../types";
 import { createAtlas } from "./index";
 
 describe("atlas agent", () => {
@@ -54,7 +55,11 @@ describe("atlas agent", () => {
     assert.deepEqual(enqueued, ["t0", "t1"]);
     assert.deepEqual(stamped, ["t0", "t1"]);
     assert.deepEqual(result.summary, { scheduled: 2 });
-    assert.equal(result.handoff, undefined); // terminal — no forward handoff in A1
+    // A3: Atlas now hands the scheduled accounts off to Sirius for engagement.
+    assert.equal(result.handoff?.to, AgentName.Sirius);
+    assert.deepEqual(result.handoff?.payload, {
+      socialAccountIds: ["acc-ig", "acc-x"],
+    });
   });
 
   it("marks a target failed (and does not throw) when its enqueue fails", async () => {
@@ -107,7 +112,11 @@ describe("atlas agent", () => {
       createPostWithTargets: async () => {
         throw new Error("should not be called");
       },
-      getPostTarget: async (id) => ({ id, postId: `post_${id}` }),
+      getPostTarget: async (id) => ({
+        id,
+        postId: `post_${id}`,
+        socialAccountId: `acc_${id}`,
+      }),
       enqueuePublish: async ({ postTargetId }) => {
         enqueued.push(postTargetId);
         return "job";
@@ -123,5 +132,9 @@ describe("atlas agent", () => {
 
     assert.deepEqual(enqueued, ["a", "b"]);
     assert.deepEqual(result.summary, { scheduled: 2 });
+    assert.equal(result.handoff?.to, AgentName.Sirius);
+    assert.deepEqual(result.handoff?.payload, {
+      socialAccountIds: ["acc_a", "acc_b"],
+    });
   });
 });

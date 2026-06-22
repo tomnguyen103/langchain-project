@@ -5,7 +5,7 @@ import type {
   Platform,
 } from "@/db/schema";
 
-import { AgentName, type AgentDefinition } from "../types";
+import { AgentName, type AgentDefinition, type AgentResult } from "../types";
 
 export type AtlasInput = {
   /** Accepted generated_content ids → turned into a post + per-platform targets. */
@@ -30,7 +30,9 @@ export type AtlasDeps = {
   }) => Promise<{ id: string; targets: Array<{ id: string; postId: string }> }>;
   getPostTarget: (
     id: string,
-  ) => Promise<{ id: string; postId: string } | undefined>;
+  ) => Promise<
+    { id: string; postId: string; socialAccountId: string } | undefined
+  >;
   enqueuePublish: (opts: {
     postTargetId: string;
     clerkUserId: string;
@@ -77,10 +79,25 @@ async function scheduleTargets(
 }
 
 /**
+ * Atlas's result: when something was scheduled, hand off to Sirius so the run
+ * ensures those accounts are polled for engagement. Nothing scheduled → no
+ * handoff (terminal).
+ */
+function atlasResult(scheduled: number, accountIds: string[]): AgentResult {
+  const socialAccountIds = [...new Set(accountIds)];
+  return {
+    summary: { scheduled },
+    handoff:
+      scheduled > 0 && socialAccountIds.length > 0
+        ? { to: AgentName.Sirius, payload: { socialAccountIds } }
+        : undefined,
+  };
+}
+
+/**
  * Atlas — autopost / scheduling. Turns accepted drafts into a post + one target
- * per platform that has an active account, then schedules each via
- * enqueuePublish. Publishing is terminal on the forward path (no handoff until
- * A3 wires publish-complete → Sirius).
+ * per platform that has an active account, schedules each via enqueuePublish,
+ * then hands off to Sirius so the run ensures those accounts are polled.
  */
 export function createAtlas(deps: AtlasDeps): AgentDefinition<AtlasInput> {
   return {
@@ -95,7 +112,10 @@ export function createAtlas(deps: AtlasDeps): AgentDefinition<AtlasInput> {
           input.postTargetIds.map((id) => deps.getPostTarget(id)),
         );
         const targets = resolved.filter(
-          (t): t is { id: string; postId: string } => Boolean(t),
+          (
+            t,
+          ): t is { id: string; postId: string; socialAccountId: string } =>
+            Boolean(t),
         );
         const scheduled = await scheduleTargets(
           deps,
@@ -103,7 +123,10 @@ export function createAtlas(deps: AtlasDeps): AgentDefinition<AtlasInput> {
           ctx.clerkUserId,
           runAt,
         );
-        return { summary: { scheduled } };
+        return atlasResult(
+          scheduled,
+          targets.map((t) => t.socialAccountId),
+        );
       }
 
       // Path A: build a post + per-platform targets from accepted drafts.
@@ -160,7 +183,7 @@ export function createAtlas(deps: AtlasDeps): AgentDefinition<AtlasInput> {
         ctx.clerkUserId,
         runAt,
       );
-      return { summary: { scheduled } };
+      return atlasResult(scheduled, [...usedAccountIds]);
     },
   };
 }

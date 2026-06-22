@@ -1,6 +1,6 @@
 import { runContentAgent } from "@/lib/agent";
 import { runResearch } from "@/lib/agent/research";
-import { enqueuePublish } from "@/lib/queue/jobs";
+import { enqueuePublish, registerCommentPoll } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
   getGeneratedContentByIds,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/repos/generated-content";
 import {
   createPostWithTargets,
+  getAccountIdsForTargets,
   getPostTarget,
   recomputePostStatus,
   updatePostTarget,
@@ -20,6 +21,7 @@ import {
 
 import { createAtlas } from "./atlas";
 import { createLyra } from "./lyra";
+import { createSirius } from "./sirius";
 import { AgentName, type AgentDefinition } from "./types";
 import { createVega } from "./vega";
 
@@ -53,6 +55,10 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
     enqueuePublish,
     updatePostTarget,
     recomputePostStatus,
+  }),
+  [AgentName.Sirius]: createSirius({
+    registerCommentPoll,
+    getAccountIdsForTargets,
   }),
 };
 

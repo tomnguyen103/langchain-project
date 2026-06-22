@@ -175,6 +175,18 @@ export async function getPostTarget(
   return row;
 }
 
+/** Distinct social-account ids behind a set of targets (Sirius engagement). */
+export async function getAccountIdsForTargets(
+  targetIds: string[],
+): Promise<string[]> {
+  if (targetIds.length === 0) return [];
+  const rows = await db
+    .selectDistinct({ socialAccountId: postTargets.socialAccountId })
+    .from(postTargets)
+    .where(inArray(postTargets.id, targetIds));
+  return rows.map((r) => r.socialAccountId);
+}
+
 export async function updatePostTarget(
   id: string,
   data: Partial<NewPostTarget>,
