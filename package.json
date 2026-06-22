@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"lib/**/*.test.ts\"",
+    "eval:brand-safety": "tsx evals/brand-safety/run.ts",
     "worker": "tsx worker/index.ts",
     "worker:dev": "tsx watch worker/index.ts",
     "db:generate": "drizzle-kit generate",

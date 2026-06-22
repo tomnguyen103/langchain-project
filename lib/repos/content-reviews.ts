@@ -119,3 +119,39 @@ export async function setReviewDecision(
     .returning({ id: generatedContent.id });
   return updated.map((r) => r.id);
 }
+
+/** Ids of drafts still held for review in a run (tenant-scoped). */
+export async function listHeldContentIdsForRun(
+  agentRunId: string,
+  clerkUserId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: generatedContent.id })
+    .from(generatedContent)
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.reviewStatus, "held"),
+      ),
+    );
+  return rows.map((r) => r.id);
+}
+
+/** Ids of accepted (ready-to-schedule) drafts in a run (tenant-scoped). */
+export async function listAcceptedContentIdsForRun(
+  agentRunId: string,
+  clerkUserId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: generatedContent.id })
+    .from(generatedContent)
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.accepted, true),
+      ),
+    );
+  return rows.map((r) => r.id);
+}

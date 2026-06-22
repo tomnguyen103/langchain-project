@@ -66,3 +66,21 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 - **Castor**: reconcile review results against every fetched draft (Map by id); a draft with no resolvable result **fails closed to `held`** instead of being silently dropped.
 - **getBrandProfile**: return a fresh copy, not the shared `DEFAULT_BRAND_PROFILE` reference.
 - **upsertBrandProfile**: the conflict update only touches **provided** fields, so a partial save can't wipe existing settings.
+
+---
+
+## PR-3 — Review UI + evals (T7–T9) — completes P0
+
+### T7 — Approve/reject/resume
+- Server actions (not a REST route) for `/review`, matching the dashboard's other actions. **Tenant-scoped** via a `getAgentRun` ownership check before any mutation.
+- **Approve approves the whole run** (all held drafts), not per-draft — simpler v1. It marks held drafts approved+accepted, then resumes via `orchestrator.resumeRun(Atlas, { acceptedContentIds: <all accepted for the run> })` so Atlas schedules auto-approved + just-approved together.
+- Reject rejects all held drafts + finalizes the run `rejected`. Known edge (mixed runs): auto-approved drafts in a rejected run stay accepted-but-unscheduled (the run is terminal, nothing publishes) — harmless; a future enhancement could discard them.
+
+### T8 — Review queue
+- `/review` groups held drafts by `agentRunId` (one card per run); approve/reject act on the whole run. Shows per-draft platform, verdict badge, score, and violations + empty state. Added a "Review" sidebar nav item (ShieldCheck).
+
+### T9 — Offline evals + threshold calibration
+- Pure, unit-tested `lib/evals/brand-safety-metrics.ts`: `recommendThreshold` finds the lowest threshold (≥ a 0.5 safety floor) with **zero** unsafe auto-publishes on a labeled set — max automation that never auto-publishes a "hold" sample. The floor avoids a degenerate `0` recommendation on a cleanly-separated dataset.
+- Labeled dataset + runner (`npm run eval:brand-safety`) that runs the REAL judge; **deferred to run live** (needs an LLM key), like `db:migrate`. The metrics logic is fully tested without a model.
+
+**P0 is feature-complete** (gate + approval + evals). With `autoPublishEnabled` off by default every draft routes to the review queue; turning it on with a calibrated threshold enables safe auto-publish.
