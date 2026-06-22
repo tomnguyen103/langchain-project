@@ -65,10 +65,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ drafts });
   } catch (error) {
     // The quota unit was already consumed; refund it so a transient LLM error
-    // doesn't burn the user's allowance.
-    await releaseQuota(userId, "ai_generations").catch((releaseError) =>
-      reportError("Failed to refund ai_generations quota", releaseError),
-    );
+    // doesn't burn the user's allowance. releaseQuota reports its own failures.
+    await releaseQuota(userId, "ai_generations");
     reportError("AI generation failed", error);
     const message =
       error instanceof Error ? error.message : "Generation failed";

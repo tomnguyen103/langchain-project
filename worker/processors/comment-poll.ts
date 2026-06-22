@@ -2,7 +2,7 @@ import type { Job } from "bullmq";
 
 import { commentMatchesRule } from "@/lib/auto-reply/match";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
-import { enqueueCommentReply, type CommentPollJobData } from "@/lib/queue/jobs";
+import { enqueueCommentReplies, type CommentPollJobData } from "@/lib/queue/jobs";
 import { getSocialAccount } from "@/lib/repos/accounts";
 import { listPublishedTargetsForAccount } from "@/lib/repos/posts";
 import {
@@ -106,12 +106,11 @@ export async function commentPollProcessor(job: Job): Promise<void> {
     await classifyCommentEvents(classifications);
   }
 
-  // Phase 2: enqueue a reply for every matched-unreplied comment. Idempotent
-  // (deterministic job id), so it also recovers enqueues that failed earlier.
+  // Phase 2: enqueue a reply for every matched-unreplied comment in one bulk
+  // round-trip. Idempotent (deterministic job id), so it also recovers enqueues
+  // that failed earlier.
   const pending = await listMatchedUnrepliedForAccount(account.id);
-  for (const event of pending) {
-    await enqueueCommentReply(event.id);
-  }
+  await enqueueCommentReplies(pending.map((event) => event.id));
 
   if (ingested > 0 || pending.length > 0) {
     logger.info("comment-poll: processed", {

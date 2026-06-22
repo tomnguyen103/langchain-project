@@ -41,7 +41,14 @@ export async function publishProcessor(job: Job): Promise<void> {
   });
 
   try {
-    const account = await getSocialAccount(target.socialAccountId);
+    // The account and media reads are independent — run them concurrently to
+    // shave a round-trip off the publish hot path. Media is resolved eagerly even
+    // for the rare inactive-account path below, but it's a cheap side-effect-free
+    // read, so the parallel win on the common path is worth it.
+    const [account, assets] = await Promise.all([
+      getSocialAccount(target.socialAccountId),
+      resolveMediaAssets(target.mediaAssetIds),
+    ]);
     if (!account) throw new Error("Connected account not found");
     if (account.status !== "active") {
       // Fail fast — don't burn the retry budget publishing with a dead token.
@@ -62,7 +69,6 @@ export async function publishProcessor(job: Job): Promise<void> {
       return;
     }
 
-    const assets = await resolveMediaAssets(target.mediaAssetIds);
     const media: MediaRef[] = assets.map((a) => ({
       type: a.type,
       url: a.url,

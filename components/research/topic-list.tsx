@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
+import { pollResearchStatuses } from "@/app/(dashboard)/research/actions";
 import { Badge } from "@/components/ui/badge";
 
 export type TopicView = {
@@ -23,29 +24,44 @@ const statusVariant: Record<
   failed: "destructive",
 };
 
+const IN_PROGRESS = new Set(["pending", "researching"]);
+
 export function TopicList({ topics }: { topics: TopicView[] }) {
   const router = useRouter();
-  const inProgress = topics.some(
-    (t) => t.status === "pending" || t.status === "researching",
-  );
+  // Stable key of the in-progress topic ids — only changes when that set does,
+  // so the poll effect isn't torn down and recreated on unrelated re-renders.
+  const inProgressKey = topics
+    .filter((t) => IN_PROGRESS.has(t.status))
+    .map((t) => t.id)
+    .join(",");
 
-  // Poll for completion while any run is in progress. Capped so a stuck run
-  // (e.g. the worker is down) can't poll forever; terminal statuses already
-  // flip `inProgress` to false and stop it via the effect cleanup.
+  // While any run is in progress, poll a LIGHTWEIGHT status endpoint (id + status
+  // only) every 4s instead of re-fetching the whole page. Trigger a single full
+  // refresh — to pull freshly-generated ideas — the moment a tracked run settles.
+  // Capped so a stuck run (e.g. the worker is down) can't poll forever.
   useEffect(() => {
-    if (!inProgress) return;
+    if (!inProgressKey) return;
+    const tracked = new Set(inProgressKey.split(","));
     const MAX_POLLS = 45; // ~3 minutes at 4s intervals
     let polls = 0;
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       polls += 1;
       if (polls > MAX_POLLS) {
         clearInterval(interval);
         return;
       }
-      router.refresh();
+      try {
+        const statuses = await pollResearchStatuses();
+        const settled = statuses.some(
+          (s) => tracked.has(s.id) && !IN_PROGRESS.has(s.status),
+        );
+        if (settled) router.refresh();
+      } catch {
+        // Transient poll failure — the next tick retries.
+      }
     }, 4000);
     return () => clearInterval(interval);
-  }, [inProgress, router]);
+  }, [inProgressKey, router]);
 
   if (topics.length === 0) {
     return (
@@ -69,7 +85,7 @@ export function TopicList({ topics }: { topics: TopicView[] }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {(t.status === "pending" || t.status === "researching") && (
+            {IN_PROGRESS.has(t.status) && (
               <Loader2
                 aria-hidden
                 className="text-muted-foreground size-3.5 animate-spin"

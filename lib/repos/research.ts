@@ -46,3 +46,18 @@ export async function listResearchTopics(
     .orderBy(desc(researchTopics.createdAt))
     .limit(limit);
 }
+
+/**
+ * Narrow projection (id + status only) for the in-progress status poll, so the
+ * Topics list can check for completion without re-fetching full topic rows (and
+ * the ideas join) every tick.
+ */
+export async function listResearchTopicStatuses(
+  clerkUserId: string,
+): Promise<Array<{ id: string; status: ResearchTopic["status"] }>> {
+  return db
+    .select({ id: researchTopics.id, status: researchTopics.status })
+    .from(researchTopics)
+    .where(eq(researchTopics.clerkUserId, clerkUserId))
+    .limit(200);
+}

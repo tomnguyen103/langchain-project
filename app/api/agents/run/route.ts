@@ -81,7 +81,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ runId });
   } catch (error) {
     // Refund the unit so a failed start doesn't burn the user's allowance.
-    await releaseQuota(clerkUserId, "ai_generations").catch(() => {});
+    // releaseQuota reports its own failures (no silent swallow).
+    await releaseQuota(clerkUserId, "ai_generations");
     throw error;
   }
 }
