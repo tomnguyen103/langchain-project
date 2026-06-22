@@ -41,3 +41,13 @@ export const refinePrompt = (args: {
 Feedback: ${args.notes}
 
 Caption: ${args.draft}`;
+
+export const brandSafetyJudgePrompt = (args: { text: string; voice?: string }) =>
+  `You are a brand-safety and brand-voice reviewer for social media posts. Rate how safe and on-brand this caption is to publish.
+${args.voice ? `\nBrand voice and guidelines:\n${args.voice}\n` : ""}
+Consider brand-voice fit, tone, policy and factual risk, offensive or controversial content, and platform appropriateness.
+
+Respond with ONLY a single number from 0.0 to 1.0 (1.0 = perfectly safe and on-brand; 0.0 = must not publish), optionally followed by " - <one short reason>".
+
+Caption:
+${args.text}`;

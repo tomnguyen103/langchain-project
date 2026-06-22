@@ -86,13 +86,16 @@ async function scheduleTargets(
  */
 function atlasResult(scheduled: number, accountIds: string[]): AgentResult {
   const socialAccountIds = [...new Set(accountIds)];
-  return {
-    summary: { scheduled },
-    handoff:
-      scheduled > 0 && socialAccountIds.length > 0
-        ? { to: AgentName.Sirius, payload: { socialAccountIds } }
-        : undefined,
-  };
+  // Branch (rather than a conditional-undefined handoff) so the result matches a
+  // single AgentResult variant: hand off to Sirius when something was scheduled,
+  // otherwise terminate the run.
+  if (scheduled > 0 && socialAccountIds.length > 0) {
+    return {
+      summary: { scheduled },
+      handoff: { to: AgentName.Sirius, payload: { socialAccountIds } },
+    };
+  }
+  return { summary: { scheduled } };
 }
 
 /**

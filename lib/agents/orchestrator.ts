@@ -19,6 +19,9 @@ export type RunStep = { agent: AgentName; payload: unknown };
 /** A persisted agent handoff (as stored on a completed agent_steps row). */
 type StoredHandoff = { to: string; payload: unknown } | null;
 
+/** A persisted pause control (as stored on a completed agent_steps row). */
+type StoredControl = { pause: "awaiting_approval"; reason?: string } | null;
+
 /**
  * Orion's side effects, injected so the orchestrator unit-tests without a db,
  * queue, or env. The real registry + repos + queue are wired in
@@ -34,7 +37,12 @@ export type OrchestratorDeps = {
     runId: string,
     agent: AgentName,
   ) => Promise<
-    { summary: Record<string, unknown> | null; handoff: StoredHandoff } | undefined
+    | {
+        summary: Record<string, unknown> | null;
+        handoff: StoredHandoff;
+        control?: StoredControl;
+      }
+    | undefined
   >;
   enqueueAgentStep: (opts: {
     runId: string;
@@ -58,6 +66,15 @@ export type Orchestrator = {
     plan: AgentRunPlan;
     firstStep?: RunStep;
   }) => Promise<{ runId: string }>;
+  /**
+   * Resume a paused (awaiting_approval) run by enqueuing its next step — the
+   * approve path for Castor's brand-safety gate.
+   */
+  resumeRun: (opts: {
+    runId: string;
+    clerkUserId: string;
+    step: RunStep;
+  }) => Promise<void>;
 };
 
 const AGENT_NAMES = new Set<string>(Object.values(AgentName));
@@ -111,6 +128,22 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
     }
   }
 
+  /**
+   * Apply an agent's terminal outcome. A pause takes precedence over a handoff
+   * and is idempotent (re-applying awaiting_approval is a no-op), so a retried
+   * dispatch of a paused step re-pauses instead of marking the run completed.
+   */
+  async function settle(
+    ctx: AgentContext,
+    outcome: { handoff: StoredHandoff; control: StoredControl },
+  ): Promise<void> {
+    if (outcome.control?.pause) {
+      await deps.updateAgentRun(ctx.runId, { status: outcome.control.pause });
+      return;
+    }
+    await deliverHandoff(outcome.handoff, ctx);
+  }
+
   async function dispatch(
     step: RunStep,
     ctx: AgentContext,
@@ -123,13 +156,23 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
     // per-step key instead.
     const prior = await deps.findCompletedStep(ctx.runId, step.agent);
     if (prior) {
-      await deliverHandoff(prior.handoff, ctx);
-      return {
-        summary: prior.summary ?? undefined,
-        handoff: prior.handoff
-          ? { to: prior.handoff.to as AgentName, payload: prior.handoff.payload }
-          : undefined,
-      };
+      await settle(ctx, {
+        handoff: prior.handoff,
+        control: prior.control ?? null,
+      });
+      // Reconstruct exactly one AgentResult variant (pause | handoff | terminal).
+      const summary = prior.summary ?? undefined;
+      if (prior.control) return { summary, control: prior.control };
+      if (prior.handoff) {
+        return {
+          summary,
+          handoff: {
+            to: prior.handoff.to as AgentName,
+            payload: prior.handoff.payload,
+          },
+        };
+      }
+      return { summary };
     }
 
     await deps.updateAgentRun(ctx.runId, {
@@ -167,13 +210,18 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
       input: step.payload,
       summary: result.summary,
       handoff: result.handoff ?? null,
+      control: result.control ?? null,
       startedAt,
       finishedAt: new Date(),
     });
 
     // A throw here (e.g. Redis down) propagates to BullMQ for retry; the step is
-    // already committed, so the retry only re-delivers — it does not re-run.
-    await deliverHandoff(result.handoff ?? null, ctx);
+    // already committed (with its handoff/pause), so the retry only re-settles —
+    // it does not re-run.
+    await settle(ctx, {
+      handoff: result.handoff ?? null,
+      control: result.control ?? null,
+    });
     return result;
   }
 
@@ -222,5 +270,28 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
     return { runId };
   }
 
-  return { dispatch, startRun };
+  /**
+   * Resume a paused run by enqueuing its next step, then flipping it to running.
+   * Enqueue-first means a failed enqueue leaves the run paused and consistent
+   * (status + currentAgent unchanged) instead of stranded in "running" or
+   * pointing at an agent that never ran.
+   */
+  async function resumeRun(opts: {
+    runId: string;
+    clerkUserId: string;
+    step: RunStep;
+  }): Promise<void> {
+    await deps.enqueueAgentStep({
+      runId: opts.runId,
+      agent: opts.step.agent,
+      payload: opts.step.payload,
+      clerkUserId: opts.clerkUserId,
+    });
+    await deps.updateAgentRun(opts.runId, {
+      status: "running",
+      currentAgent: opts.step.agent,
+    });
+  }
+
+  return { dispatch, startRun, resumeRun };
 }

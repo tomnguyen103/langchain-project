@@ -234,4 +234,144 @@ describe("orchestrator", () => {
       | undefined;
     assert.equal(plan?.priorReport?.totalPublished, 5);
   });
+
+  it("dispatch pauses the run for approval when the agent returns control.pause", async () => {
+    const runUpdates: Partial<NewAgentRun>[] = [];
+    const steps: NewAgentStep[] = [];
+    let enqueueCount = 0;
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        getAgent: (name) =>
+          stubAgent(name, {
+            summary: { reviewed: 2 },
+            control: { pause: "awaiting_approval", reason: "low score" },
+          }),
+        updateAgentRun: async (_runId, data) => {
+          runUpdates.push(data);
+          return {};
+        },
+        recordAgentStep: async (data) => {
+          steps.push(data);
+          return {};
+        },
+        enqueueAgentStep: async () => {
+          enqueueCount += 1;
+          return "job";
+        },
+      }),
+    );
+
+    await orchestrator.dispatch(
+      { agent: AgentName.Castor, payload: {} },
+      { clerkUserId: "u", runId: "run-1" },
+    );
+
+    assert.equal(enqueueCount, 0); // paused — nothing handed off
+    assert.ok(runUpdates.some((u) => u.status === "awaiting_approval"));
+    assert.ok(!runUpdates.some((u) => u.status === "completed"));
+    // The pause is persisted on the step so a retry re-pauses (retry-safety).
+    assert.deepEqual(steps.at(-1)?.control, {
+      pause: "awaiting_approval",
+      reason: "low score",
+    });
+  });
+
+  it("dispatch re-applies a paused step's awaiting_approval on retry WITHOUT re-running or completing", async () => {
+    let agentRunCount = 0;
+    let enqueueCount = 0;
+    const runUpdates: Partial<NewAgentRun>[] = [];
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        getAgent: (name) => ({
+          name,
+          run: async () => {
+            agentRunCount += 1;
+            return {};
+          },
+        }),
+        findCompletedStep: async () => ({
+          summary: { reviewed: 2 },
+          handoff: null,
+          control: { pause: "awaiting_approval" },
+        }),
+        updateAgentRun: async (_runId, data) => {
+          runUpdates.push(data);
+          return {};
+        },
+        enqueueAgentStep: async () => {
+          enqueueCount += 1;
+          return "job";
+        },
+      }),
+    );
+
+    await orchestrator.dispatch(
+      { agent: AgentName.Castor, payload: {} },
+      { clerkUserId: "u", runId: "run-1" },
+    );
+
+    assert.equal(agentRunCount, 0); // not re-run
+    assert.equal(enqueueCount, 0); // not delivered/completed
+    assert.ok(runUpdates.some((u) => u.status === "awaiting_approval"));
+    assert.ok(!runUpdates.some((u) => u.status === "completed"));
+  });
+
+  it("resumeRun flips the run to running and enqueues the next step", async () => {
+    const runUpdates: Partial<NewAgentRun>[] = [];
+    const enqueued: Array<{ agent: AgentName; payload: unknown }> = [];
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        updateAgentRun: async (_runId, data) => {
+          runUpdates.push(data);
+          return {};
+        },
+        enqueueAgentStep: async (opts) => {
+          enqueued.push({ agent: opts.agent, payload: opts.payload });
+          return "job";
+        },
+      }),
+    );
+
+    await orchestrator.resumeRun({
+      runId: "run-1",
+      clerkUserId: "u",
+      step: { agent: AgentName.Atlas, payload: { acceptedContentIds: ["c1"] } },
+    });
+
+    assert.ok(
+      runUpdates.some(
+        (u) => u.status === "running" && u.currentAgent === AgentName.Atlas,
+      ),
+    );
+    assert.deepEqual(enqueued, [
+      { agent: AgentName.Atlas, payload: { acceptedContentIds: ["c1"] } },
+    ]);
+  });
+
+  it("resumeRun leaves the run paused (no state change) if the enqueue fails", async () => {
+    const runUpdates: Partial<NewAgentRun>[] = [];
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        updateAgentRun: async (_runId, data) => {
+          runUpdates.push(data);
+          return {};
+        },
+        enqueueAgentStep: async () => {
+          throw new Error("redis down");
+        },
+      }),
+    );
+
+    await assert.rejects(
+      () =>
+        orchestrator.resumeRun({
+          runId: "run-1",
+          clerkUserId: "u",
+          step: { agent: AgentName.Atlas, payload: {} },
+        }),
+      /redis down/,
+    );
+    // Enqueue-first: a failed enqueue must NOT touch run state (stays paused).
+    assert.equal(runUpdates.length, 0);
+  });
 });

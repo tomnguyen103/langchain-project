@@ -30,6 +30,10 @@ export const agentSteps = pgTable(
     // The agent's handoff target, persisted so a retried dispatch can re-deliver
     // it WITHOUT re-running an already-completed (non-idempotent) agent.
     handoff: jsonb("handoff").$type<{ to: string; payload: unknown }>(),
+    // Set when an agent pauses the run for human approval (Castor's brand-safety
+    // gate). Persisted on the SAME row as the completed step so a retried dispatch
+    // re-applies the pause instead of marking the run completed.
+    control: jsonb("control").$type<{ pause: "awaiting_approval"; reason?: string }>(),
     error: text("error"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),

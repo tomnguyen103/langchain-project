@@ -21,6 +21,7 @@ export enum AgentName {
   Sirius = "sirius", // engagement / auto-reply
   Polaris = "polaris", // group seeding
   Rigel = "rigel", // reporting / insights
+  Castor = "castor", // brand-safety review / approval gate (Lyra → Castor → Atlas)
 }
 
 /** Ambient context threaded through every step of one pipeline run. */
@@ -31,13 +32,36 @@ export interface AgentContext {
   runId: string;
 }
 
-/** What an agent returns: an optional handoff to the next agent + a summary. */
-export interface AgentResult {
-  /** Which agent (if any) the orchestrator should hand off to next. */
-  handoff?: { to: AgentName; payload: unknown };
-  /** Structured summary for Rigel + LangSmith. */
+/** Hand off to the next agent. */
+type AgentHandoffResult = {
   summary?: Record<string, unknown>;
-}
+  handoff: { to: AgentName; payload: unknown };
+  control?: never;
+};
+
+/** Pause the run for human approval (Castor's brand-safety gate). */
+type AgentPauseResult = {
+  summary?: Record<string, unknown>;
+  control: { pause: "awaiting_approval"; reason?: string };
+  handoff?: never;
+};
+
+/** Terminal: no handoff and no pause — the run completes. */
+type AgentCompleteResult = {
+  summary?: Record<string, unknown>;
+  handoff?: undefined;
+  control?: undefined;
+};
+
+/**
+ * What an agent returns. A discriminated union so `handoff` and `control`
+ * (pause) are mutually exclusive at the type level — an agent either hands off,
+ * pauses for approval, or terminates the run.
+ */
+export type AgentResult =
+  | AgentHandoffResult
+  | AgentPauseResult
+  | AgentCompleteResult;
 
 /**
  * One roster agent. `run` performs a single unit of this agent's work and is a
