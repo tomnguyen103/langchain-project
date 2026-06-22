@@ -158,7 +158,7 @@ export default function LandingPage() {
           {/* Agent pipeline — an honest illustration of the stages a post
               moves through, not a faked product screenshot with invented data. */}
           <div className="bg-primary/5 ring-primary/10 rounded-2xl p-6 ring-1 sm:p-8">
-            <ol>
+            <ol aria-label="How the agent works">
               {pipeline.map((stage, i) => {
                 const last = i === pipeline.length - 1;
                 return (
