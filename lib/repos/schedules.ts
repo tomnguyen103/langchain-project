@@ -47,10 +47,11 @@ export async function deleteSchedule(
 }
 
 /**
- * `pending` ledger rows older than `olderThan` — candidates for orphan
- * reconciliation (a row whose `enqueue()` never ran after `record()`). The age
- * filter keeps a just-recorded row whose enqueue is still in flight out of the
- * sweep; the caller confirms the job is actually missing before acting.
+ * `pending` ledger rows not touched since `olderThan` — candidates for orphan
+ * reconciliation (a row whose `enqueue()` never ran after `record()`). Filtering
+ * on `updatedAt` (not `createdAt`) keeps a just-(re)queued row out of the sweep,
+ * since `recordSchedule`'s upsert refreshes `updatedAt` but keeps `createdAt`;
+ * the caller confirms the job is actually missing before acting.
  */
 export async function listStalePendingSchedules(
   olderThan: Date,
@@ -60,7 +61,7 @@ export async function listStalePendingSchedules(
     .select()
     .from(schedules)
     .where(
-      and(eq(schedules.status, "pending"), lt(schedules.createdAt, olderThan)),
+      and(eq(schedules.status, "pending"), lt(schedules.updatedAt, olderThan)),
     )
     .limit(limit);
 }

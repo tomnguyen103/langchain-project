@@ -44,22 +44,29 @@ function hasCatastrophicShape(pattern: string): boolean {
       const frame = stack.pop();
       if (!frame) return true; // unbalanced — bail closed
       const rest = pattern.slice(i + 1);
-      const quantified = /^[*+]/.test(rest) || /^\{\d*,\}/.test(rest);
-      if (quantified && (frame.quantifier || frame.alternation)) return true;
-      if (
-        stack.length > 0 &&
+      const unboundedQuantified = /^[*+]/.test(rest) || /^\{\d*,\}/.test(rest);
+      const optionalQuantified = rest.startsWith("?");
+      if (unboundedQuantified && (frame.quantifier || frame.alternation)) {
+        return true;
+      }
+      if (stack.length > 0) {
         // Propagate danger up so an OUTER quantifier still trips on a quantifier
         // or alternation buried in this (possibly unquantified) sub-group —
-        // `((a+))+`, `(((a|a)))+` — and a quantified sub-group is itself a
-        // quantifier within its parent (`((a)+)+`).
-        (frame.quantifier || frame.alternation || quantified)
-      ) {
-        stack[stack.length - 1].quantifier = true;
+        // `((a+))+`, `(((a|a)))+`; a quantified OR nullable sub-group is itself a
+        // quantifier within its parent (`((a)+)+`, `((a)?)+`).
+        const parent = stack[stack.length - 1];
+        if (frame.quantifier || unboundedQuantified || optionalQuantified) {
+          parent.quantifier = true;
+        }
+        if (frame.alternation) parent.alternation = true;
       }
       continue;
     }
     if (stack.length === 0) continue; // top-level quantifiers/alternation are safe
-    if (c === "*" || c === "+") {
+    if (c === "*" || c === "+" || (c === "?" && pattern[i - 1] !== "(")) {
+      // `?` on an atom inside a group makes that group nullable; a nullable group
+      // under an unbounded repeat backtracks. Skip `(?` (non-capturing / lookaround
+      // prefix), which isn't a quantifier.
       stack[stack.length - 1].quantifier = true;
     } else if (c === "{" && /^\{\d*,\}/.test(pattern.slice(i))) {
       // Only an OPEN-ENDED repetition {n,} is unbounded (dangerous); bounded

@@ -40,6 +40,13 @@ describe("isSafeRegexSource", () => {
     assert.equal(isSafeRegexSource("((a|b)c)"), true); // no outer quantifier → safe
   });
 
+  it("rejects nullable (optional) groups under an unbounded repeat", () => {
+    assert.equal(isSafeRegexSource("(a?)+"), false);
+    assert.equal(isSafeRegexSource("((a)?)+"), false);
+    assert.equal(isSafeRegexSource("(a+)?"), true); // bounded OUTER `?` is safe
+    assert.equal(isSafeRegexSource("(?:ab)+"), true); // non-capturing group is safe
+  });
+
   it("rejects unbalanced / malformed patterns (fail closed)", () => {
     assert.equal(isSafeRegexSource("(a+"), false); // unclosed group
     assert.equal(isSafeRegexSource("a+)"), false); // stray close

@@ -35,18 +35,24 @@ export async function reconcileProcessor(_job: Job): Promise<void> {
   for (const s of stale) {
     if (!KNOWN_QUEUES.has(s.queue)) continue;
     // A live job (waiting/delayed/active) means the row is legitimately pending —
-    // only a MISSING job is an orphan.
-    const job = await getQueue(s.queue as QueueName)
-      .getJob(s.bullJobId)
-      .catch(() => null);
+    // only a MISSING job is an orphan. A transient queue/Redis error is NOT proof
+    // the job is gone, so skip the row on lookup failure rather than orphaning it.
+    let job: Job | undefined;
+    try {
+      job = await getQueue(s.queue as QueueName).getJob(s.bullJobId);
+    } catch (error) {
+      logger.warn("reconcile: queue lookup failed; skipping row", {
+        queue: s.queue,
+        bullJobId: s.bullJobId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
     if (job) continue;
 
-    await updateScheduleStatus(s.queue, s.bullJobId, {
-      status: "failed",
-      finishedAt: new Date(),
-      lastError: "orphaned: ledger row had no live job (reconciled)",
-    });
-
+    // Update the dependent target/post FIRST, then flip the ledger row — so if
+    // the cascade throws, the row stays `pending` and the next sweep retries it,
+    // rather than being stranded `failed` with the target still stuck.
     if (s.refType === "post_target") {
       const target = await getPostTarget(s.refId);
       // Only fail a target that's still waiting — never clobber one that has
@@ -60,6 +66,11 @@ export async function reconcileProcessor(_job: Job): Promise<void> {
         await recomputePostStatus(target.postId);
       }
     }
+    await updateScheduleStatus(s.queue, s.bullJobId, {
+      status: "failed",
+      finishedAt: new Date(),
+      lastError: "orphaned: ledger row had no live job (reconciled)",
+    });
     orphaned += 1;
   }
 
