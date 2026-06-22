@@ -103,3 +103,16 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 
 ### T12 — Least-privilege capabilities
 - **Deviation from the plan:** a central `AGENT_CAPABILITIES` matrix (`lib/agents/capabilities.ts`) + `hasCapability`/`assertCapability`, rather than a field on each `AgentDefinition`. Rationale: (a) the REAL enforcement is already structural — the registry injects only the deps each agent needs, so Castor literally has no publish dependency and cannot schedule posts; (b) a central map is one auditable source of truth and keeps the test free of the registry's env/db/queue import chain. The test enforces the contract (Castor is review-only; only Atlas publishes), so granting a sensitive capability to the wrong agent fails CI.
+
+---
+
+## PR-5 — Audit + orchestration (P1/P2: T13–T15)
+
+### T13 — Tamper-evident audit chain
+- Added `prevHash`/`hash` to `agent_steps` (migration 0018). `recordAgentStep` chains each step's sha256 to the run's latest step; `verifyRunAudit(runId)` returns the first broken-link index (or -1). Pure hashing — canonical (recursively sorted-key) JSON so jsonb round-trips hash stably — in `lib/audit/run-audit.ts`, unit-tested (intact / tampered-summary / broken-link / key-order determinism). Assumes steps are recorded sequentially per run (true for the linear pipeline) so the read-then-insert is race-free.
+
+### T14 — Supervisor routing
+- Optional `supervisor` dep on the orchestrator: after an agent completes it may override that agent's handoff with a different next step (dynamic routing / bounded recovery). The override is persisted as the step's handoff so a retry re-delivers it. A **pause is never overridden** (the human gate stands). Absent → linear handoffs (default, regression-tested). The default runtime wires no supervisor, so live behavior is unchanged.
+
+### T15 — Parallel-draft synthesis
+- Drafting already fans out across platforms concurrently; added per-platform **best-of-N**: `DRAFT_VARIANTS` variants generated in parallel, then a pure, tested `selectBestDraft` fan-in (prefers clean + within-limit; longest-that-fits). Default `DRAFT_VARIANTS=1` keeps cost unchanged; bump it to enable best-of-N.

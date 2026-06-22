@@ -37,6 +37,10 @@ export const agentSteps = pgTable(
     error: text("error"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
+    // Tamper-evident audit chain (T13): hash = sha256(prevHash + canonical(step)),
+    // chained to the run's prior step so a silent edit breaks verification.
+    prevHash: text("prev_hash"),
+    hash: text("hash"),
     ...timestamps,
   },
   (t) => [index("agent_steps_run_idx").on(t.runId)],

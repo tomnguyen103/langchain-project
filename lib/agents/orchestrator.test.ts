@@ -374,4 +374,70 @@ describe("orchestrator", () => {
     // Enqueue-first: a failed enqueue must NOT touch run state (stays paused).
     assert.equal(runUpdates.length, 0);
   });
+
+  it("supervisor overrides the agent's handoff (dynamic routing)", async () => {
+    const enqueued: AgentName[] = [];
+    const steps: NewAgentStep[] = [];
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        getAgent: (name) =>
+          stubAgent(name, {
+            handoff: { to: AgentName.Lyra, payload: { topic: "t" } },
+          }),
+        supervisor: async () => ({ agent: AgentName.Atlas, payload: { x: 1 } }),
+        recordAgentStep: async (data) => {
+          steps.push(data);
+          return {};
+        },
+        enqueueAgentStep: async (opts) => {
+          enqueued.push(opts.agent);
+          return "job";
+        },
+      }),
+    );
+
+    await orchestrator.dispatch(
+      { agent: AgentName.Vega, payload: {} },
+      { clerkUserId: "u", runId: "run-1" },
+    );
+
+    assert.deepEqual(enqueued, [AgentName.Atlas]); // overridden, not Lyra
+    assert.deepEqual(steps[0].handoff, {
+      to: AgentName.Atlas,
+      payload: { x: 1 },
+    }); // override persisted for retry-safety
+  });
+
+  it("supervisor is never consulted on a pause (human gate stands)", async () => {
+    let supervisorCalled = false;
+    let enqueueCount = 0;
+    const runUpdates: Partial<NewAgentRun>[] = [];
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        getAgent: (name) =>
+          stubAgent(name, { control: { pause: "awaiting_approval" } }),
+        supervisor: async () => {
+          supervisorCalled = true;
+          return { agent: AgentName.Atlas, payload: {} };
+        },
+        updateAgentRun: async (_runId, data) => {
+          runUpdates.push(data);
+          return {};
+        },
+        enqueueAgentStep: async () => {
+          enqueueCount += 1;
+          return "job";
+        },
+      }),
+    );
+
+    await orchestrator.dispatch(
+      { agent: AgentName.Castor, payload: {} },
+      { clerkUserId: "u", runId: "run-1" },
+    );
+
+    assert.equal(supervisorCalled, false);
+    assert.equal(enqueueCount, 0);
+    assert.ok(runUpdates.some((u) => u.status === "awaiting_approval"));
+  });
 });

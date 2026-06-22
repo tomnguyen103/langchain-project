@@ -1,6 +1,7 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
+import { computeStepHash, verifyChain } from "@/lib/audit/run-audit";
 import {
   agentRuns,
   agentSteps,
@@ -56,12 +57,70 @@ export async function updateAgentRun(
     .where(eq(agentRuns.runId, runId));
 }
 
-/** Append one agent invocation to a run's trail and return the persisted row. */
+/**
+ * Append one agent invocation to a run's trail, chaining its tamper-evident hash
+ * to the run's latest step, and return the persisted row. Steps within a run are
+ * recorded sequentially (one agent at a time), so the read-then-insert is safe.
+ */
 export async function recordAgentStep(
   data: NewAgentStep,
 ): Promise<AgentStep> {
-  const [row] = await db.insert(agentSteps).values(data).returning();
+  const [latest] = await db
+    .select({ hash: agentSteps.hash })
+    .from(agentSteps)
+    .where(eq(agentSteps.runId, data.runId))
+    .orderBy(desc(agentSteps.createdAt))
+    .limit(1);
+  const prevHash = latest?.hash ?? null;
+  const hash = computeStepHash(
+    {
+      runId: data.runId,
+      agent: data.agent,
+      status: data.status ?? "pending",
+      input: data.input,
+      summary: data.summary,
+      handoff: data.handoff,
+      control: data.control,
+      error: data.error ?? null,
+    },
+    prevHash,
+  );
+  const [row] = await db
+    .insert(agentSteps)
+    .values({ ...data, prevHash, hash })
+    .returning();
   return row;
+}
+
+/**
+ * Verify a run's tamper-evident audit chain. Returns the first broken-link index
+ * (or -1 if intact) so a governance check can detect a silently-edited step.
+ */
+export async function verifyRunAudit(
+  runId: string,
+): Promise<{ valid: boolean; brokenAtIndex: number }> {
+  const steps = await db
+    .select()
+    .from(agentSteps)
+    .where(eq(agentSteps.runId, runId))
+    .orderBy(asc(agentSteps.createdAt));
+  const brokenAtIndex = verifyChain(
+    steps.map((s) => ({
+      step: {
+        runId: s.runId,
+        agent: s.agent,
+        status: s.status,
+        input: s.input,
+        summary: s.summary,
+        handoff: s.handoff,
+        control: s.control,
+        error: s.error,
+      },
+      prevHash: s.prevHash,
+      hash: s.hash ?? "",
+    })),
+  );
+  return { valid: brokenAtIndex === -1, brokenAtIndex };
 }
 
 /**

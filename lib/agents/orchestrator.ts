@@ -56,6 +56,18 @@ export type OrchestratorDeps = {
   ) => Promise<{ data: ReportData } | undefined>;
   /** Generate a run's uuid correlation id (injected for deterministic tests). */
   newRunId: () => string;
+  /**
+   * Optional dynamic-routing policy (supervisor mode). After an agent completes,
+   * it may override that agent's handoff with a different next step (e.g. bounded
+   * regenerate / recovery). Returning null keeps the agent's own handoff. A pause
+   * (awaiting_approval) is NEVER overridden — the human gate must stand. Absent →
+   * linear handoffs (the default).
+   */
+  supervisor?: (input: {
+    ctx: AgentContext;
+    completedAgent: AgentName;
+    result: AgentResult;
+  }) => Promise<RunStep | null>;
 };
 
 export type Orchestrator = {
@@ -203,23 +215,38 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
 
     // Commit the completed step (with its handoff) BEFORE delivery, so a delivery
     // failure re-enters via the prior-step guard above rather than a re-run.
+    // A supervisor (when configured) may override the agent's handoff with a
+    // different next step — but never a pause (the human gate must stand). The
+    // effective handoff is persisted on the step so a retry re-delivers it.
+    let effectiveHandoff: StoredHandoff = result.handoff ?? null;
+    if (deps.supervisor && !result.control?.pause) {
+      const override = await deps.supervisor({
+        ctx,
+        completedAgent: step.agent,
+        result,
+      });
+      if (override) {
+        effectiveHandoff = { to: override.agent, payload: override.payload };
+      }
+    }
+
     await deps.recordAgentStep({
       runId: ctx.runId,
       agent: step.agent,
       status: "completed",
       input: step.payload,
       summary: result.summary,
-      handoff: result.handoff ?? null,
+      handoff: effectiveHandoff,
       control: result.control ?? null,
       startedAt,
       finishedAt: new Date(),
     });
 
     // A throw here (e.g. Redis down) propagates to BullMQ for retry; the step is
-    // already committed (with its handoff/pause), so the retry only re-settles —
-    // it does not re-run.
+    // already committed (with its effective handoff/pause), so the retry only
+    // re-settles — it does not re-run.
     await settle(ctx, {
-      handoff: result.handoff ?? null,
+      handoff: effectiveHandoff,
       control: result.control ?? null,
     });
     return result;
