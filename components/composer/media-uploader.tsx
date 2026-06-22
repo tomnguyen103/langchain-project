@@ -161,6 +161,7 @@ export function MediaUploader({
           type="file"
           accept="image/*,video/*"
           className="hidden"
+          aria-label="Upload image or video"
           onChange={handleFile}
           disabled={uploading}
         />

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import { env } from "@/lib/env";
+import { reportError } from "@/lib/observability/report-error";
 import { getQueue, QueueName } from "@/lib/queue/queues";
 
 export const runtime = "nodejs";
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: totalFailed === 0, totalFailed, queues });
   } catch (error) {
     // Keep broker/infra detail server-side; return a generic message.
-    console.error("queue health check failed", error);
+    reportError("queue health check failed", error);
     return NextResponse.json(
       { ok: false, error: "Queue broker unreachable" },
       { status: 503 },

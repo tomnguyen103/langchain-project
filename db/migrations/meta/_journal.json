@@ -85,6 +85,20 @@
       "when": 1782090103219,
       "tag": "0011_black_bloodstorm",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782103426180,
+      "tag": "0012_wandering_zarek",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782105238803,
+      "tag": "0013_black_beyonder",
+      "breakpoints": true
     }
   ]
 }

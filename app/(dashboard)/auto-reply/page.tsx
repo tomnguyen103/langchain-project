@@ -37,7 +37,7 @@ function Heading() {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">Auto-reply</h1>
       <p className="text-muted-foreground mt-1">
-        Reply to comments automatically by keyword — templated or AI-composed.
+        Reply to comments automatically by keyword, templated or AI-composed.
       </p>
     </div>
   );
@@ -115,7 +115,7 @@ export default async function AutoReplyPage() {
     })),
     ...commentAccounts.map((a) => ({
       value: `account:${a.id}`,
-      label: `${PLATFORM_META[a.platform].label} — ${accountName(a)}`,
+      label: `${PLATFORM_META[a.platform].label} · ${accountName(a)}`,
     })),
   ];
 
@@ -171,7 +171,7 @@ export default async function AutoReplyPage() {
                       {e.author || "Someone"}
                     </div>
                     <div className="text-muted-foreground truncate text-sm">
-                      {e.text || "—"}
+                      {e.text || "No text"}
                     </div>
                   </div>
                   <Badge variant={statusVariant[e.status]}>{e.status}</Badge>

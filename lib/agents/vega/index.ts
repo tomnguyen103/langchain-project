@@ -57,42 +57,51 @@ export function createVega(deps: VegaDeps): AgentDefinition<VegaInput> {
           })
         ).id;
 
-      const { findings, ideas, langsmithRunId } = await deps.runResearch({
-        niche: input.niche,
-      });
+      try {
+        const { findings, ideas, langsmithRunId } = await deps.runResearch({
+          niche: input.niche,
+        });
 
-      // Idempotent on retry: replaces any ideas from a prior attempt.
-      const saved = await deps.replaceIdeasForTopic(
-        topicId,
-        ideas.map((content) => ({
-          clerkUserId: ctx.clerkUserId,
-          researchTopicId: topicId,
-          kind: "idea" as const,
-          topic: input.niche,
-          content,
-          promptVersion: "v1",
-          langsmithRunId,
-        })),
-      );
-
-      await deps.updateResearchTopic(topicId, { status: "done", findings });
-
-      return {
-        summary: {
-          ideas: ideas.length,
-          findings: findings.length,
-          researchTopicId: topicId,
-        },
-        handoff: {
-          to: AgentName.Lyra,
-          payload: {
+        // Idempotent on retry: replaces any ideas from a prior attempt.
+        const saved = await deps.replaceIdeasForTopic(
+          topicId,
+          ideas.map((content) => ({
+            clerkUserId: ctx.clerkUserId,
+            researchTopicId: topicId,
+            kind: "idea" as const,
             topic: input.niche,
-            platforms: input.platforms ?? [],
-            generatedContentIds: saved.map((row) => row.id),
+            content,
+            promptVersion: "v1",
+            langsmithRunId,
+          })),
+        );
+
+        await deps.updateResearchTopic(topicId, { status: "done", findings });
+
+        return {
+          summary: {
+            ideas: ideas.length,
+            findings: findings.length,
             researchTopicId: topicId,
           },
-        },
-      };
+          handoff: {
+            to: AgentName.Lyra,
+            payload: {
+              topic: input.niche,
+              platforms: input.platforms ?? [],
+              generatedContentIds: saved.map((row) => row.id),
+              researchTopicId: topicId,
+            },
+          },
+        };
+      } catch (error) {
+        // Don't leave the topic stuck "researching" if the run fails.
+        const message = error instanceof Error ? error.message : String(error);
+        await deps
+          .updateResearchTopic(topicId, { status: "failed", error: message })
+          .catch(() => {});
+        throw error;
+      }
     },
   };
 }

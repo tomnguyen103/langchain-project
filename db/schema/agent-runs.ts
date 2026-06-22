@@ -45,7 +45,11 @@ export const agentRuns = pgTable(
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     ...timestamps,
   },
-  (t) => [index("agent_runs_user_idx").on(t.clerkUserId)],
+  (t) => [
+    index("agent_runs_user_idx").on(t.clerkUserId),
+    // Supports Rigel's listReportUserIds (distinct active users since a cutoff).
+    index("agent_runs_created_idx").on(t.createdAt),
+  ],
 );
 
 export type AgentRun = typeof agentRuns.$inferSelect;

@@ -27,10 +27,10 @@ export function PostChip({ post }: { post: CalendarPost }) {
 
   const statusLabel = post.status.replace(/_/g, " ");
   const ariaLabel = post.scheduledAt
-    ? `${post.title} — ${statusLabel}, scheduled ${new Date(
+    ? `${post.title}, ${statusLabel}, scheduled ${new Date(
         post.scheduledAt,
       ).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`
-    : `${post.title} — ${statusLabel}`;
+    : `${post.title}, ${statusLabel}`;
 
   return (
     <Link

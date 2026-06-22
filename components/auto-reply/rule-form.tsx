@@ -83,9 +83,9 @@ export function RuleForm({ scopeOptions }: { scopeOptions: ScopeOption[] }) {
         <form onSubmit={submit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Applies to</Label>
+              <Label htmlFor="rule-scope">Applies to</Label>
               <Select value={scope} onValueChange={setScope}>
-                <SelectTrigger>
+                <SelectTrigger id="rule-scope">
                   <SelectValue placeholder="Choose account" />
                 </SelectTrigger>
                 <SelectContent>
@@ -98,12 +98,12 @@ export function RuleForm({ scopeOptions }: { scopeOptions: ScopeOption[] }) {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Match</Label>
+              <Label htmlFor="rule-match">Match</Label>
               <Select
                 value={matchType}
                 onValueChange={(v) => setMatchType(v as MatchType)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="rule-match">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

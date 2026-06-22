@@ -23,8 +23,16 @@ export type ExtractedComment = {
   createdAt: Date;
 };
 
+// Cap ingested free-text so a large (Meta-signed) payload can't inflate rows.
+const MAX_AUTHOR_LEN = 512;
+const MAX_TEXT_LEN = 8000;
+
 function str(v: unknown): string {
   return typeof v === "string" ? v : "";
+}
+
+function clamp(s: string, max: number): string {
+  return s.length > max ? s.slice(0, max) : s;
 }
 
 /**
@@ -51,8 +59,8 @@ export function extractComments(payload: WebhookPayload): ExtractedComment[] {
           accountExternalId,
           externalCommentId: v.comment_id,
           externalPostId: str(v.post_id),
-          author: from?.name ?? from?.id ?? "",
-          text: str(v.message),
+          author: clamp(from?.name ?? from?.id ?? "", MAX_AUTHOR_LEN),
+          text: clamp(str(v.message), MAX_TEXT_LEN),
           createdAt:
             typeof v.created_time === "number"
               ? new Date(v.created_time * 1000)
@@ -66,8 +74,8 @@ export function extractComments(payload: WebhookPayload): ExtractedComment[] {
           accountExternalId,
           externalCommentId: v.id,
           externalPostId: str(media?.id),
-          author: from?.username ?? from?.id ?? "",
-          text: str(v.text),
+          author: clamp(from?.username ?? from?.id ?? "", MAX_AUTHOR_LEN),
+          text: clamp(str(v.text), MAX_TEXT_LEN),
           createdAt: new Date(),
         });
       }

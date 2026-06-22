@@ -54,6 +54,8 @@ export const postTargets = pgTable(
     index("post_targets_post_idx").on(t.postId),
     index("post_targets_status_scheduled_idx").on(t.status, t.scheduledAt),
     index("post_targets_account_idx").on(t.socialAccountId),
+    // Supports Rigel's published-targets-since-cutoff reporting query.
+    index("post_targets_status_published_idx").on(t.status, t.publishedAt),
   ],
 );
 

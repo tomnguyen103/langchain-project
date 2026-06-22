@@ -42,7 +42,7 @@ export default async function CalendarPage() {
         <div className="mt-8">
           <h2 className="text-sm font-semibold">Drafts</h2>
           <p className="text-muted-foreground mb-2 text-xs">
-            Unscheduled — open one to set a time.
+            Unscheduled. Open one to set a time.
           </p>
           <div className="space-y-2">
             {drafts.map((d) => (

@@ -175,6 +175,21 @@ export async function getPostTarget(
   return row;
 }
 
+/** A target scoped to its owner via the parent post's clerkUserId (prevents
+ *  cross-tenant access when a caller supplies arbitrary target ids). */
+export async function getUserPostTarget(
+  id: string,
+  clerkUserId: string,
+): Promise<PostTarget | undefined> {
+  const [row] = await db
+    .select(getTableColumns(postTargets))
+    .from(postTargets)
+    .innerJoin(posts, eq(postTargets.postId, posts.id))
+    .where(and(eq(postTargets.id, id), eq(posts.clerkUserId, clerkUserId)))
+    .limit(1);
+  return row;
+}
+
 /** Distinct social-account ids behind a set of targets (Sirius engagement). */
 export async function getAccountIdsForTargets(
   targetIds: string[],

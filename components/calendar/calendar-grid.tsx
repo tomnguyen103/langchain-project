@@ -208,6 +208,7 @@ export function CalendarGrid({ posts }: { posts: CalendarPost[] }) {
                   {dayPosts.length > 3 && (
                     <button
                       onClick={() => setOverflowDay(day)}
+                      aria-label={`Show all ${dayPosts.length} posts for ${format(day, "MMMM d")}`}
                       className="text-muted-foreground hover:text-foreground px-1 text-xs transition-colors"
                     >
                       +{dayPosts.length - 3} more

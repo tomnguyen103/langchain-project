@@ -24,7 +24,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   pro: {
     label: "Pro",
-    postsPerDay: 7,
+    postsPerDay: 30,
     aiPerMonth: 200,
     accounts: 5,
     research: true,

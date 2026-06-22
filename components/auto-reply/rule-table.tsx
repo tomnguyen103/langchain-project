@@ -83,10 +83,10 @@ function RuleRow({ rule }: { rule: RuleView }) {
           <Badge variant="secondary">{rule.matchType}</Badge>
         </div>
         <div className="truncate text-sm font-medium">
-          {rule.keywords.join(", ") || "—"}
+          {rule.keywords.join(", ") || "None"}
         </div>
         <div className="text-muted-foreground truncate text-xs">
-          → {rule.replyTemplate || (rule.useAi ? "AI-composed reply" : "—")}
+          → {rule.replyTemplate || (rule.useAi ? "AI-composed reply" : "None")}
         </div>
         <div className="text-muted-foreground text-xs">
           Cooldown {rule.cooldownSec}s

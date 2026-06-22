@@ -30,3 +30,17 @@ describe("getVariantSpec", () => {
     assert.equal(getVariantSpec("nope"), undefined);
   });
 });
+
+describe("buildTransformUrl — invalid input", () => {
+  it("throws on a non-URL source", () => {
+    assert.throws(() => buildTransformUrl("not a url", "w-100,h-100"));
+  });
+
+  it("preserves unrelated query params while adding tr", () => {
+    const url = new URL(
+      buildTransformUrl("https://ik.imagekit.io/x/a.jpg?v=2", "w-100"),
+    );
+    assert.equal(url.searchParams.get("v"), "2");
+    assert.equal(url.searchParams.get("tr"), "w-100");
+  });
+});

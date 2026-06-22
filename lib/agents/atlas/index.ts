@@ -30,6 +30,7 @@ export type AtlasDeps = {
   }) => Promise<{ id: string; targets: Array<{ id: string; postId: string }> }>;
   getPostTarget: (
     id: string,
+    clerkUserId: string,
   ) => Promise<
     { id: string; postId: string; socialAccountId: string } | undefined
   >;
@@ -109,7 +110,9 @@ export function createAtlas(deps: AtlasDeps): AgentDefinition<AtlasInput> {
       // failed (re)schedule still recomputes the parent post's rollup status.
       if (input.postTargetIds?.length) {
         const resolved = await Promise.all(
-          input.postTargetIds.map((id) => deps.getPostTarget(id)),
+          input.postTargetIds.map((id) =>
+            deps.getPostTarget(id, ctx.clerkUserId),
+          ),
         );
         const targets = resolved.filter(
           (

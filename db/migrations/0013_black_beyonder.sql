@@ -1,0 +1,2 @@
+CREATE INDEX "post_targets_status_published_idx" ON "post_targets" USING btree ("status","published_at");--> statement-breakpoint
+CREATE INDEX "agent_runs_created_idx" ON "agent_runs" USING btree ("created_at");

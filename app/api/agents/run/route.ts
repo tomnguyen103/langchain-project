@@ -3,7 +3,14 @@ import { z } from "zod";
 
 import { platformEnum, type Platform } from "@/db/schema";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import {
+  consumeQuota,
+  getPlanLimits,
+  QuotaExceededError,
+  releaseQuota,
+} from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Orion + the agent pipeline touch BullMQ/Redis + the LangGraph engine, so this
 // must run on the Node.js runtime (not edge).
@@ -40,10 +47,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   const platforms = parsed.data.platforms as Platform[];
 
-  const { runId } = await orchestrator.startRun({
-    clerkUserId,
-    plan: { niche: parsed.data.niche, platforms },
-  });
+  // Autonomous runs bundle niche research + AI generation — a Pro+ feature,
+  // gated identically to the /research action and metered like /api/generate.
+  const limits = await getPlanLimits();
+  if (!limits.research) {
+    return NextResponse.json(
+      { error: "Autonomous runs are a Pro feature. Upgrade to use them." },
+      { status: 403 },
+    );
+  }
 
-  return NextResponse.json({ runId });
+  if (!(await rateLimit(`agents-run:${clerkUserId}`, 10, 60_000))) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again shortly." },
+      { status: 429 },
+    );
+  }
+
+  try {
+    await consumeQuota(clerkUserId, "ai_generations");
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
+    throw error;
+  }
+
+  try {
+    const { runId } = await orchestrator.startRun({
+      clerkUserId,
+      plan: { niche: parsed.data.niche, platforms },
+    });
+    return NextResponse.json({ runId });
+  } catch (error) {
+    // Refund the unit so a failed start doesn't burn the user's allowance.
+    await releaseQuota(clerkUserId, "ai_generations").catch(() => {});
+    throw error;
+  }
 }
