@@ -129,3 +129,21 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 - **Scaffold caveats (productionization):** the tenant is currently named in `params.clerkUserId` — production should map the A2A credential → a tenant; streaming (`message/stream` SSE) and the full task lifecycle are not implemented; the Agent Card is served at `/api/a2a` (a `/.well-known/agent-card.json` rewrite is a deployment step).
 
 **All 17 plan tasks (P0–P2) are implemented and merged.**
+
+---
+
+## Final status — plan complete (2026-06-22)
+
+All **17 tasks (P0–P2)** implemented and on `main`:
+- **PR-1 #27** T1–T3 · **PR-2 #28** T4–T6 · **PR-3 #29** T7–T9 — *P0 gate complete*
+- **PR-4 #30** T10–T12 · **PR-5 #31** T13–T15 · **PR-6 (a075452)** T16–T17
+
+Test suite: **179 passing**. Migrations: **0014–0018** (all additive). Every new integration defaults **OFF** (`autoPublishEnabled`, A2A, MCP), so live behavior is unchanged until opted in.
+
+### Process notes (honesty over tidiness)
+- **PR-6 (T16/T17) was committed directly to `main` by mistake** — after the PR-5 merge sync left HEAD on `main`, I forgot to branch. The commit is **CI-green on main** and the additions are **env-gated scaffolds** (A2A disabled, MCP unconfigured) with no live-path change, but it skipped the PR/CodeRabbit step.
+- **CodeRabbit was rate-limited from PR-4 onward** (adaptive per-developer limiter). PR-1/2/3 received full CodeRabbit reviews — every finding fixed (rounds documented above). PR-4/5 and the PR-6 changes merged on **CI-green + manual self-review** per the project norm.
+- **Recommended:** run `/code-review ultra` on `main` for a cumulative AI review of the whole series, especially T16/T17 and the rate-limited PR-4/5.
+
+### Runtime verification still deferred
+No DB/Redis/LLM creds are provisioned, so nothing has run against real services. To go live: apply migrations (through **0018**), deploy the always-on worker, then exercise the loop end-to-end (generate → Castor gate → review queue → approve → Atlas schedule).
