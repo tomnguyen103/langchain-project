@@ -5,7 +5,7 @@ import { orchestrator } from "@/lib/agents/orchestrator.runtime";
 import { AgentName, type AgentContext } from "@/lib/agents/types";
 import { agentStepJobId } from "@/lib/queue/job-ids";
 import { QueueName } from "@/lib/queue/queues";
-import { getAgentRun } from "@/lib/repos/agent-runs";
+import { getAgentRun, updateAgentRun } from "@/lib/repos/agent-runs";
 import { updateScheduleStatus } from "@/lib/repos/schedules";
 import { logger } from "../logger";
 
@@ -83,6 +83,11 @@ export async function agentStepProcessor(job: Job): Promise<void> {
       finishedAt: new Date(),
       lastError: message,
     });
+    // Only fail the run once retries are exhausted (the final attempt).
+    const isFinalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+    if (isFinalAttempt) {
+      await updateAgentRun(runId, { status: "failed", finishedAt: new Date() });
+    }
     logger.error("agent-step: error", { runId, agent, error: message });
     throw error;
   }

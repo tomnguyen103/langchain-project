@@ -148,11 +148,10 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         startedAt,
         finishedAt: new Date(),
       });
-      await deps.updateAgentRun(ctx.runId, {
-        status: "failed",
-        finishedAt: new Date(),
-      });
-      throw error; // the agent didn't complete — safe to retry the whole step
+      // Leave the run "running": the agent-step processor marks it failed only
+      // when BullMQ has exhausted retries, so a transient error doesn't flicker
+      // the run status mid-retry.
+      throw error;
     }
 
     // Commit the completed step (with its handoff) BEFORE delivery, so a delivery

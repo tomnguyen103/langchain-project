@@ -15,7 +15,7 @@ import {
 import {
   createPostWithTargets,
   getAccountIdsForTargets,
-  getPostTarget,
+  getUserPostTarget,
   recomputePostStatus,
   updatePostTarget,
 } from "@/lib/repos/posts";
@@ -64,7 +64,7 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
     getGeneratedContentByIds,
     listSocialAccounts,
     createPostWithTargets,
-    getPostTarget,
+    getPostTarget: getUserPostTarget,
     enqueuePublish,
     updatePostTarget,
     recomputePostStatus,

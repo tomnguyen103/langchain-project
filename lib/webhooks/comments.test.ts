@@ -157,4 +157,28 @@ describe("extractComments — robustness", () => {
       ["a", "b"],
     );
   });
+
+  it("clamps oversized author + text to bound row size", () => {
+    const [c] = extractComments({
+      entry: [
+        {
+          id: "p1",
+          changes: [
+            {
+              field: "feed",
+              value: {
+                item: "comment",
+                verb: "add",
+                comment_id: "c-big",
+                message: "x".repeat(20_000),
+                from: { name: "y".repeat(2_000), id: "u-1" },
+              },
+            },
+          ],
+        },
+      ],
+    });
+    assert.equal(c.text.length, 8_000);
+    assert.equal(c.author.length, 512);
+  });
 });
