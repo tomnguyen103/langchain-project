@@ -102,7 +102,9 @@ class FacebookConnector extends AbstractConnector {
       externalPostId,
       author: c.from?.name ?? c.from?.id ?? "",
       text: c.message ?? "",
-      createdAt: c.created_time ? new Date(c.created_time) : new Date(),
+      // No timestamp ⇒ epoch sentinel (not `now`), so a timestamp-less comment
+      // can't push the poll watermark (max(commentedAt)) to the present.
+      createdAt: c.created_time ? new Date(c.created_time) : new Date(0),
     }));
   }
 

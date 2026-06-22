@@ -40,6 +40,8 @@ export const socialAccounts = pgTable(
       t.platformAccountId,
     ),
     index("social_accounts_user_idx").on(t.clerkUserId),
+    // Token-refresh scan: status='active' AND tokenExpiresAt < threshold.
+    index("social_accounts_refresh_idx").on(t.status, t.tokenExpiresAt),
   ],
 );
 

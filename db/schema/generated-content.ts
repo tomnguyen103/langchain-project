@@ -51,6 +51,9 @@ export const generatedContent = pgTable(
   },
   (t) => [
     index("generated_content_user_kind_idx").on(t.clerkUserId, t.kind),
+    // Hot UI predicates: review queue (clerkUserId, reviewStatus) + run resume.
+    index("generated_content_review_idx").on(t.clerkUserId, t.reviewStatus),
+    index("generated_content_run_idx").on(t.agentRunId),
     // Keep the gate's persisted score/verdict in their valid domains at the DB
     // layer, so a non-Castor write can't corrupt review-state assumptions.
     check(

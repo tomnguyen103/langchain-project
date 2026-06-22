@@ -95,7 +95,9 @@ class InstagramConnector extends AbstractConnector {
       externalPostId,
       author: c.username ?? "",
       text: c.text ?? "",
-      createdAt: c.timestamp ? new Date(c.timestamp) : new Date(),
+      // No timestamp ⇒ epoch sentinel (not `now`), so a timestamp-less comment
+      // can't push the poll watermark (max(commentedAt)) to the present.
+      createdAt: c.timestamp ? new Date(c.timestamp) : new Date(0),
     }));
     // The IG comments edge has no reliable `since` filter — filter client-side
     // (inclusive, so a re-polled boundary second isn't dropped; DB dedupes).
