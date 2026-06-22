@@ -7,6 +7,7 @@ import {
   recordAgentStep,
   updateAgentRun,
 } from "@/lib/repos/agent-runs";
+import { getLatestReport } from "@/lib/repos/reports";
 
 import { createOrchestrator } from "./orchestrator";
 import { getAgent } from "./registry";
@@ -24,5 +25,6 @@ export const orchestrator = createOrchestrator({
   recordAgentStep,
   findCompletedStep,
   enqueueAgentStep,
+  getLatestReport,
   newRunId: () => randomUUID(),
 });

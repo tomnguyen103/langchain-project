@@ -208,6 +208,23 @@ export async function registerTokenRefresh(): Promise<void> {
   );
 }
 
+const REPORT_EVERY_MS = 24 * 60 * 60_000; // compile reports daily
+
+/** Register the single global daily report scheduler (idempotent upsert). */
+export async function registerReportSchedule(): Promise<void> {
+  await getQueue(QueueName.Report).upsertJobScheduler(
+    "report",
+    { every: REPORT_EVERY_MS },
+    {
+      name: "report",
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
 /** Enqueue a matched comment for reply dispatch (idempotent per comment). */
 export async function enqueueCommentReply(
   commentEventId: string,

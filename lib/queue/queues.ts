@@ -13,6 +13,8 @@ export enum QueueName {
   // Generic orchestrator handoff queue: one worker routes by AgentName via
   // getAgent(...).run(...). See lib/agents/orchestrator.ts.
   AgentStep = "agent-step",
+  // Rigel's scheduled reporting queue (daily, like token-refresh).
+  Report = "report",
 }
 
 const queueCache = new Map<QueueName, Queue>();

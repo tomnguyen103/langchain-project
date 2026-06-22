@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test lib/agents/atlas/index.test.ts lib/agents/lyra/index.test.ts lib/agents/orchestrator.test.ts lib/agents/sirius/index.test.ts lib/agents/vega/index.test.ts lib/auto-reply/match.test.ts lib/auto-reply/regex-guard.test.ts lib/auto-reply/slot.test.ts lib/auto-reply/template.test.ts lib/billing/period.test.ts lib/imagekit/transform.test.ts lib/posts/status.test.ts lib/queue/job-ids.test.ts lib/queue/with-ledger.test.ts lib/utils/crypto.test.ts lib/utils/schedule.test.ts lib/webhooks/comments.test.ts lib/webhooks/meta.test.ts",
+    "test": "tsx --test lib/agents/atlas/index.test.ts lib/agents/lyra/index.test.ts lib/agents/orchestrator.test.ts lib/agents/rigel/aggregate.test.ts lib/agents/rigel/index.test.ts lib/agents/sirius/index.test.ts lib/agents/vega/index.test.ts lib/auto-reply/match.test.ts lib/auto-reply/regex-guard.test.ts lib/auto-reply/slot.test.ts lib/auto-reply/template.test.ts lib/billing/period.test.ts lib/imagekit/transform.test.ts lib/posts/status.test.ts lib/queue/job-ids.test.ts lib/queue/with-ledger.test.ts lib/utils/crypto.test.ts lib/utils/schedule.test.ts lib/webhooks/comments.test.ts lib/webhooks/meta.test.ts",
     "worker": "tsx worker/index.ts",
     "worker:dev": "tsx watch worker/index.ts",
     "db:generate": "drizzle-kit generate",

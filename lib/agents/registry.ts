@@ -14,6 +14,7 @@ import {
   recomputePostStatus,
   updatePostTarget,
 } from "@/lib/repos/posts";
+import { saveReport } from "@/lib/repos/reports";
 import {
   createResearchTopic,
   updateResearchTopic,
@@ -21,6 +22,12 @@ import {
 
 import { createAtlas } from "./atlas";
 import { createLyra } from "./lyra";
+import { createRigel } from "./rigel";
+import {
+  countFailedPublishes,
+  fetchPublishedTargets,
+  fetchRunOutcomes,
+} from "./rigel/queries";
 import { createSirius } from "./sirius";
 import { AgentName, type AgentDefinition } from "./types";
 import { createVega } from "./vega";
@@ -59,6 +66,12 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
   [AgentName.Sirius]: createSirius({
     registerCommentPoll,
     getAccountIdsForTargets,
+  }),
+  [AgentName.Rigel]: createRigel({
+    fetchPublishedTargets,
+    fetchRunOutcomes,
+    countFailedPublishes,
+    saveReport,
   }),
 };
 

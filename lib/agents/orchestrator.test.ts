@@ -19,6 +19,7 @@ function makeDeps(over: Partial<OrchestratorDeps>): OrchestratorDeps {
     recordAgentStep: async () => ({}),
     findCompletedStep: async () => undefined,
     enqueueAgentStep: async () => "job",
+    getLatestReport: async () => undefined,
     newRunId: () => "run-fixed",
     ...over,
   };
@@ -201,5 +202,36 @@ describe("orchestrator", () => {
         payload: { niche: "coffee", platforms: ["instagram"] },
       },
     ]);
+  });
+
+  it("startRun seeds the plan with the latest report (feed-forward)", async () => {
+    let created: NewAgentRun | undefined;
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        getLatestReport: async () => ({
+          data: {
+            period: "7d",
+            totalPublished: 5,
+            topTopics: [],
+            runSuccessRate: 1,
+            failedPublishCount: 0,
+          },
+        }),
+        createAgentRun: async (data) => {
+          created = data;
+          return {};
+        },
+      }),
+    );
+
+    await orchestrator.startRun({
+      clerkUserId: "u",
+      plan: { niche: "n", platforms: [] },
+    });
+
+    const plan = created?.plan as
+      | { priorReport?: { totalPublished: number } }
+      | undefined;
+    assert.equal(plan?.priorReport?.totalPublished, 5);
   });
 });

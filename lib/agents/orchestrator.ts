@@ -1,4 +1,9 @@
-import type { AgentRunPlan, NewAgentRun, NewAgentStep } from "@/db/schema";
+import type {
+  AgentRunPlan,
+  NewAgentRun,
+  NewAgentStep,
+  ReportData,
+} from "@/db/schema";
 import type { AgentRunUpdate } from "@/lib/repos/agent-runs";
 
 import {
@@ -37,6 +42,10 @@ export type OrchestratorDeps = {
     payload: unknown;
     clerkUserId: string;
   }) => Promise<string>;
+  /** The user's latest report, if any — seeds the next run's plan (feed-forward). */
+  getLatestReport: (
+    clerkUserId: string,
+  ) => Promise<{ data: ReportData } | undefined>;
   /** Generate a run's uuid correlation id (injected for deterministic tests). */
   newRunId: () => string;
 };
@@ -174,12 +183,19 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
     const runId = deps.newRunId();
     const firstStep = opts.firstStep ?? deriveFirstStep(opts.plan);
 
+    // Feed-forward (Rigel → Orion): seed the plan with the latest report so the
+    // run can prioritize what performed. Optional — no prior report still works.
+    const latestReport = await deps.getLatestReport(opts.clerkUserId);
+    const plan: AgentRunPlan = latestReport
+      ? { ...opts.plan, priorReport: latestReport.data }
+      : opts.plan;
+
     await deps.createAgentRun({
       runId,
       clerkUserId: opts.clerkUserId,
       clerkOrgId: opts.clerkOrgId,
       status: "running",
-      plan: opts.plan,
+      plan,
       currentAgent: firstStep.agent,
       startedAt: new Date(),
     });
