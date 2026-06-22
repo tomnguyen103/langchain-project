@@ -58,10 +58,6 @@ const PII_PATTERNS: Array<{ label: string; re: RegExp }> = [
   { label: "API secret", re: /\b(?:sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})\b/ },
 ];
 
-function clamp01(n: number): number {
-  return Math.max(0, Math.min(1, n));
-}
-
 /**
  * Score each draft independently. Banned terms hard-block (score 0). Otherwise
  * the judge sets the score; a PII flag or a sub-threshold score downgrades
@@ -105,10 +101,16 @@ export async function runBrandSafety(
       let score: number;
       try {
         const judged = await deps.judge({ text: scanned, voice: profile.voice });
-        if (!Number.isFinite(judged.score)) {
-          throw new Error("judge returned a non-finite score");
+        // Fail closed: a non-finite OR out-of-range score is a broken judge, not
+        // a pass — route it to review rather than clamping it into a pass.
+        if (
+          !Number.isFinite(judged.score) ||
+          judged.score < 0 ||
+          judged.score > 1
+        ) {
+          throw new Error("judge returned an invalid score");
         }
-        score = clamp01(judged.score);
+        score = judged.score;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         violations.push({

@@ -23,12 +23,16 @@ function messageText(content: unknown): string {
   return "";
 }
 
-/** First number in the text, clamped to 0..1; null when none is present. */
+/**
+ * Strictly parse a leading score already in [0,1] (e.g. "0.82", "1", "1.0").
+ * Anything else — out-of-range, "7/10", prose — returns null so the guardrail
+ * engine fails closed to review rather than mis-scoring unsafe output.
+ */
 function parseScore(raw: string): number | null {
-  const match = raw.match(/-?\d+(?:\.\d+)?/);
+  const match = raw.match(/^\s*(0(?:\.\d+)?|1(?:\.0+)?)(?![\d.])/);
   if (!match) return null;
-  const n = Number(match[0]);
-  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**

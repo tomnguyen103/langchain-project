@@ -20,7 +20,7 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 - **Added `agent_steps.control` jsonb column** (migration `0015_short_joseph.sql`). **Why (off-spec):** the orchestrator's idempotency guard re-delivers a *completed* step's handoff on retry; a paused Castor step has **no handoff**, so a naive retry would hit the null-handoff branch and wrongly mark the run `completed`. Persisting the pause intent on the **same row** as the completed step lets a retry re-apply `awaiting_approval` instead. This is the correct, durable fix vs. overloading `summary`.
 - Added a `settle()` helper in the orchestrator that centralizes the three terminal outcomes (pause → `awaiting_approval`; handoff → enqueue next; neither → `completed`) so both the fresh-dispatch and idempotent re-delivery paths share one rule. Pause is idempotent (re-applying `awaiting_approval` is a no-op).
 - `AgentResult.control` is **mutually exclusive** with `handoff` — Castor returns one or the other.
-- `resumeRun({ runId, clerkUserId, step })` lives on the orchestrator returned by `createOrchestrator`, so the runtime composition root needs **no change** (it already injects `enqueueAgentStep`/`updateAgentRun`). It flips the run to `running` then enqueues, reverting to `awaiting_approval` if the enqueue throws (so a resume can't strand the run).
+- `resumeRun({ runId, clerkUserId, step })` lives on the orchestrator returned by `createOrchestrator`, so the runtime composition root needs **no change** (it already injects `enqueueAgentStep`/`updateAgentRun`). It enqueues the next step first, then flips the run to `running` — so a failed enqueue leaves the run paused and consistent (revised in CodeRabbit round 1 below).
 
 ### T3 — Brand-safety guardrail
 - **Engine kept pure** (`lib/agent/guardrails/brand-safety.ts`, no llm/env import) with an **injected `judge`**; the real temperature-0 model judge is a separate `model-judge.ts`. This mirrors the agent-factory split so the engine unit-tests without a model or env.
@@ -28,3 +28,9 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 - **PII/secret detectors are soft** (→ `review`, not `block`) to avoid false-positive blocks on intentionally-shared contact details; **banned terms hard-block** (score 0).
 - **Judge fails closed to `review`** (score 0 + a `policy` violation), never a silent pass.
 - The engine's `verdict` uses a default 0.8 threshold for offline/eval readability; **Castor (T6) will apply the per-tenant threshold** to the raw `score` it returns.
+
+### PR-1 — CodeRabbit round 1 (4 findings, all applied)
+- **brand-safety.ts**: out-of-range judge scores now fail closed to `review` (previously `clamp01` turned `2`/`10` into a passing `1.0`). Removed the now-unused `clamp01`.
+- **model-judge.ts**: `parseScore` strictly matches a leading `0..1` token and rejects everything else (so `7/10` / out-of-range → `null` → engine fails closed). Added a `(?![\d.])` lookahead beyond CodeRabbit's suggestion so `1.5` can't match the leading `1`.
+- **orchestrator.ts `resumeRun`**: enqueue-first, then flip state — a failed enqueue now leaves the run paused with `currentAgent` unchanged (no partial rollback). Test updated to assert *no* state change on failure.
+- **types.ts `AgentResult`**: now a discriminated union (handoff | pause | terminal) enforcing `handoff`/`control` exclusivity at compile time. Rippled to `atlasResult` (branch instead of conditional-undefined handoff) and the orchestrator idempotency-path return (one variant per branch).

@@ -348,7 +348,7 @@ describe("orchestrator", () => {
     ]);
   });
 
-  it("resumeRun reverts to awaiting_approval if the enqueue fails", async () => {
+  it("resumeRun leaves the run paused (no state change) if the enqueue fails", async () => {
     const runUpdates: Partial<NewAgentRun>[] = [];
     const orchestrator = createOrchestrator(
       makeDeps({
@@ -371,6 +371,7 @@ describe("orchestrator", () => {
         }),
       /redis down/,
     );
-    assert.equal(runUpdates.at(-1)?.status, "awaiting_approval");
+    // Enqueue-first: a failed enqueue must NOT touch run state (stays paused).
+    assert.equal(runUpdates.length, 0);
   });
 });

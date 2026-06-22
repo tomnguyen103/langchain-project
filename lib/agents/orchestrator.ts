@@ -160,13 +160,19 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         handoff: prior.handoff,
         control: prior.control ?? null,
       });
-      return {
-        summary: prior.summary ?? undefined,
-        handoff: prior.handoff
-          ? { to: prior.handoff.to as AgentName, payload: prior.handoff.payload }
-          : undefined,
-        control: prior.control ?? undefined,
-      };
+      // Reconstruct exactly one AgentResult variant (pause | handoff | terminal).
+      const summary = prior.summary ?? undefined;
+      if (prior.control) return { summary, control: prior.control };
+      if (prior.handoff) {
+        return {
+          summary,
+          handoff: {
+            to: prior.handoff.to as AgentName,
+            payload: prior.handoff.payload,
+          },
+        };
+      }
+      return { summary };
     }
 
     await deps.updateAgentRun(ctx.runId, {
@@ -265,30 +271,26 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
   }
 
   /**
-   * Resume a paused run by enqueuing its next step. Flips the run out of
-   * awaiting_approval first so the resume is visible, and reverts on an enqueue
-   * failure so the run isn't stranded in "running" with nothing queued.
+   * Resume a paused run by enqueuing its next step, then flipping it to running.
+   * Enqueue-first means a failed enqueue leaves the run paused and consistent
+   * (status + currentAgent unchanged) instead of stranded in "running" or
+   * pointing at an agent that never ran.
    */
   async function resumeRun(opts: {
     runId: string;
     clerkUserId: string;
     step: RunStep;
   }): Promise<void> {
+    await deps.enqueueAgentStep({
+      runId: opts.runId,
+      agent: opts.step.agent,
+      payload: opts.step.payload,
+      clerkUserId: opts.clerkUserId,
+    });
     await deps.updateAgentRun(opts.runId, {
       status: "running",
       currentAgent: opts.step.agent,
     });
-    try {
-      await deps.enqueueAgentStep({
-        runId: opts.runId,
-        agent: opts.step.agent,
-        payload: opts.step.payload,
-        clerkUserId: opts.clerkUserId,
-      });
-    } catch (error) {
-      await deps.updateAgentRun(opts.runId, { status: "awaiting_approval" });
-      throw error;
-    }
   }
 
   return { dispatch, startRun, resumeRun };

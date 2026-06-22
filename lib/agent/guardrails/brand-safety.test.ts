@@ -9,6 +9,8 @@ const throwingJudge: BrandJudge = async () => {
   throw new Error("model down");
 };
 
+const outOfRangeJudge: BrandJudge = async () => ({ score: 2 });
+
 describe("runBrandSafety", () => {
   it("hard-blocks a draft containing a banned term", async () => {
     const [r] = await runBrandSafety(
@@ -42,6 +44,17 @@ describe("runBrandSafety", () => {
       [{ text: "anything" }],
       {},
       { judge: throwingJudge },
+    );
+    assert.equal(r.verdict, "review");
+    assert.equal(r.score, 0);
+    assert.ok(r.violations.some((v) => v.rule === "policy"));
+  });
+
+  it("fails closed to review when the judge returns an out-of-range score", async () => {
+    const [r] = await runBrandSafety(
+      [{ text: "anything" }],
+      {},
+      { judge: outOfRangeJudge },
     );
     assert.equal(r.verdict, "review");
     assert.equal(r.score, 0);
