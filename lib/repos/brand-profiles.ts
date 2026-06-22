@@ -33,7 +33,9 @@ export async function getBrandProfile(
     .from(brandProfiles)
     .where(eq(brandProfiles.clerkUserId, clerkUserId))
     .limit(1);
-  if (!row) return DEFAULT_BRAND_PROFILE;
+  // Fresh copy, not the shared DEFAULT_BRAND_PROFILE reference, so a caller
+  // mutating the result can't leak into future tenants' defaults.
+  if (!row) return { ...DEFAULT_BRAND_PROFILE, bannedTerms: [] };
   return {
     voice: row.voice ?? "",
     bannedTerms: row.bannedTerms ?? [],
@@ -54,26 +56,26 @@ export async function upsertBrandProfile(
     autoPublishThreshold?: number;
   },
 ): Promise<void> {
-  const values: NewBrandProfile = {
-    clerkUserId,
-    clerkOrgId: data.clerkOrgId ?? null,
-    voice: data.voice ?? "",
-    bannedTerms: data.bannedTerms ?? [],
-    autoPublishEnabled: data.autoPublishEnabled ?? false,
-    autoPublishThreshold: data.autoPublishThreshold ?? 0.8,
-  };
+  // Insert fills defaults for omitted fields; the conflict update only touches
+  // fields actually provided, so a partial save can't wipe existing settings.
+  const set: Partial<NewBrandProfile> = { updatedAt: new Date() };
+  if (data.clerkOrgId !== undefined) set.clerkOrgId = data.clerkOrgId;
+  if (data.voice !== undefined) set.voice = data.voice;
+  if (data.bannedTerms !== undefined) set.bannedTerms = data.bannedTerms;
+  if (data.autoPublishEnabled !== undefined)
+    set.autoPublishEnabled = data.autoPublishEnabled;
+  if (data.autoPublishThreshold !== undefined)
+    set.autoPublishThreshold = data.autoPublishThreshold;
+
   await db
     .insert(brandProfiles)
-    .values(values)
-    .onConflictDoUpdate({
-      target: brandProfiles.clerkUserId,
-      set: {
-        clerkOrgId: values.clerkOrgId,
-        voice: values.voice,
-        bannedTerms: values.bannedTerms,
-        autoPublishEnabled: values.autoPublishEnabled,
-        autoPublishThreshold: values.autoPublishThreshold,
-        updatedAt: new Date(),
-      },
-    });
+    .values({
+      clerkUserId,
+      clerkOrgId: data.clerkOrgId ?? null,
+      voice: data.voice ?? "",
+      bannedTerms: data.bannedTerms ?? [],
+      autoPublishEnabled: data.autoPublishEnabled ?? false,
+      autoPublishThreshold: data.autoPublishThreshold ?? 0.8,
+    })
+    .onConflictDoUpdate({ target: brandProfiles.clerkUserId, set });
 }

@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   jsonb,
   pgTable,
@@ -47,7 +49,19 @@ export const generatedContent = pgTable(
     agentRunId: text("agent_run_id"),
     ...timestamps,
   },
-  (t) => [index("generated_content_user_kind_idx").on(t.clerkUserId, t.kind)],
+  (t) => [
+    index("generated_content_user_kind_idx").on(t.clerkUserId, t.kind),
+    // Keep the gate's persisted score/verdict in their valid domains at the DB
+    // layer, so a non-Castor write can't corrupt review-state assumptions.
+    check(
+      "generated_content_score_range",
+      sql`${t.brandSafetyScore} IS NULL OR (${t.brandSafetyScore} >= 0 AND ${t.brandSafetyScore} <= 1)`,
+    ),
+    check(
+      "generated_content_verdict_domain",
+      sql`${t.reviewVerdict} IS NULL OR ${t.reviewVerdict} IN ('pass', 'review', 'block')`,
+    ),
+  ],
 );
 
 export type GeneratedContent = typeof generatedContent.$inferSelect;

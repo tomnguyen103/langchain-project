@@ -59,3 +59,10 @@ Running log of decisions made that **weren't in the spec**, things changed, and 
 - Castor decides **per draft**: auto-publish only when `autoPublishEnabled && verdict==='pass' && score>=threshold`; a blocked/low draft is held. If ANY draft is held → the run pauses (awaiting_approval) while auto-approved drafts are still `accepted` (so a later resume schedules them). If ALL auto-cleared → hand off to Atlas.
 - The real model judge is wired in the registry (`makeModelJudge()` injected into `runBrandSafety`), keeping Castor's factory pure/testable.
 - **Intermediate state (safe):** the approve UI/API lands in PR-3. Until then a held run stays paused with no way to approve — harmless because nothing runs live yet (no DB/worker provisioned), per the project's build-now/verify-later norm.
+
+### PR-2 — CodeRabbit round 1 (7 findings, all applied)
+- **settings action**: validate the untrusted payload with zod before normalizing (malformed input → controlled error, not a 500 from `.trim()`/`.split()`).
+- **DB CHECK constraints (migration 0017)**: `brand_profiles.auto_publish_threshold ∈ [0,1]`; `generated_content.brand_safety_score` null-or-[0,1]; `generated_content.review_verdict` null-or-in(`pass`,`review`,`block`). Defense in depth beyond app-layer clamping.
+- **Castor**: reconcile review results against every fetched draft (Map by id); a draft with no resolvable result **fails closed to `held`** instead of being silently dropped.
+- **getBrandProfile**: return a fresh copy, not the shared `DEFAULT_BRAND_PROFILE` reference.
+- **upsertBrandProfile**: the conflict update only touches **provided** fields, so a partial save can't wipe existing settings.

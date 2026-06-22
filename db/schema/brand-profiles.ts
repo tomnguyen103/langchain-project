@@ -1,4 +1,13 @@
-import { boolean, jsonb, pgTable, real, text, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  boolean,
+  check,
+  jsonb,
+  pgTable,
+  real,
+  text,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { timestamps } from "./_helpers";
 
@@ -9,17 +18,27 @@ import { timestamps } from "./_helpers";
  * and Lyra reads later (T11). `autoPublishEnabled` defaults OFF so nothing
  * auto-publishes until a tenant opts in with a calibrated threshold.
  */
-export const brandProfiles = pgTable("brand_profiles", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  clerkUserId: text("clerk_user_id").notNull().unique(),
-  clerkOrgId: text("clerk_org_id"),
-  voice: text("voice"),
-  bannedTerms: jsonb("banned_terms").$type<string[]>().notNull().default([]),
-  autoPublishEnabled: boolean("auto_publish_enabled").notNull().default(false),
-  autoPublishThreshold: real("auto_publish_threshold").notNull().default(0.8),
-  learnedMemory: jsonb("learned_memory").$type<Record<string, unknown>>(),
-  ...timestamps,
-});
+export const brandProfiles = pgTable(
+  "brand_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clerkUserId: text("clerk_user_id").notNull().unique(),
+    clerkOrgId: text("clerk_org_id"),
+    voice: text("voice"),
+    bannedTerms: jsonb("banned_terms").$type<string[]>().notNull().default([]),
+    autoPublishEnabled: boolean("auto_publish_enabled").notNull().default(false),
+    autoPublishThreshold: real("auto_publish_threshold").notNull().default(0.8),
+    learnedMemory: jsonb("learned_memory").$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (t) => [
+    // Defense in depth: keep the threshold in [0,1] even if a non-UI path writes.
+    check(
+      "brand_profiles_threshold_range",
+      sql`${t.autoPublishThreshold} >= 0 AND ${t.autoPublishThreshold} <= 1`,
+    ),
+  ],
+);
 
 export type BrandProfile = typeof brandProfiles.$inferSelect;
 export type NewBrandProfile = typeof brandProfiles.$inferInsert;

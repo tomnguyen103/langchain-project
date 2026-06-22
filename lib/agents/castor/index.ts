@@ -73,25 +73,32 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
         profile.autoPublishThreshold,
       );
 
+      // Reconcile results against every fetched draft so none is silently
+      // dropped: a draft with no resolvable review result fails closed to held.
+      const resultById = new Map(
+        results.filter((r) => r.contentId).map((r) => [r.contentId as string, r]),
+      );
       const approvedIds: string[] = [];
-      const outcomes = results
-        .filter((r): r is ReviewResult & { contentId: string } =>
-          Boolean(r.contentId),
-        )
-        .map((r) => {
-          const canAuto =
-            profile.autoPublishEnabled &&
-            r.verdict === "pass" &&
-            r.score >= profile.autoPublishThreshold;
-          if (canAuto) approvedIds.push(r.contentId);
-          return {
-            generatedContentId: r.contentId,
-            score: r.score,
-            verdict: r.verdict,
-            violations: r.violations,
-            status: (canAuto ? "approved" : "held") as "approved" | "held",
-          };
-        });
+      const outcomes = contents.map((c) => {
+        const r = resultById.get(c.id);
+        const score = r?.score ?? 0;
+        const verdict = r?.verdict ?? "review";
+        const violations = r?.violations ?? [
+          { rule: "policy", detail: "no review result; held for manual review" },
+        ];
+        const canAuto =
+          profile.autoPublishEnabled &&
+          verdict === "pass" &&
+          score >= profile.autoPublishThreshold;
+        if (canAuto) approvedIds.push(c.id);
+        return {
+          generatedContentId: c.id,
+          score,
+          verdict,
+          violations,
+          status: (canAuto ? "approved" : "held") as "approved" | "held",
+        };
+      });
 
       await deps.recordReviews(ctx.runId, outcomes);
       if (approvedIds.length > 0) {

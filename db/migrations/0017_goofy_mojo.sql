@@ -1,0 +1,3 @@
+ALTER TABLE "generated_content" ADD CONSTRAINT "generated_content_score_range" CHECK ("generated_content"."brand_safety_score" IS NULL OR ("generated_content"."brand_safety_score" >= 0 AND "generated_content"."brand_safety_score" <= 1));--> statement-breakpoint
+ALTER TABLE "generated_content" ADD CONSTRAINT "generated_content_verdict_domain" CHECK ("generated_content"."review_verdict" IS NULL OR "generated_content"."review_verdict" IN ('pass', 'review', 'block'));--> statement-breakpoint
+ALTER TABLE "brand_profiles" ADD CONSTRAINT "brand_profiles_threshold_range" CHECK ("brand_profiles"."auto_publish_threshold" >= 0 AND "brand_profiles"."auto_publish_threshold" <= 1);
