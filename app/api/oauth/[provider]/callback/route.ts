@@ -7,6 +7,7 @@ import { getProvider } from "@/lib/oauth/registry";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { registerCommentPoll } from "@/lib/queue/jobs";
 import { listSocialAccounts, upsertSocialAccount } from "@/lib/repos/accounts";
+import { reportError } from "@/lib/observability/report-error";
 import { encrypt, encryptNullable } from "@/lib/utils/crypto";
 import { getAppUrl } from "@/lib/utils/app-url";
 
@@ -56,7 +57,7 @@ export async function GET(
   try {
     connected = await provider.exchangeCode(code, redirectUri, state);
   } catch (error) {
-    console.error("OAuth exchange failed", { provider: providerId, error });
+    reportError("OAuth exchange failed", error, { provider: providerId });
     return NextResponse.redirect(accountsUrl({ error: "exchange_failed" }));
   }
 
@@ -109,17 +110,15 @@ export async function GET(
         getConnector(savedAccount.platform).capabilities.supportsComments
       ) {
         await registerCommentPoll(savedAccount.id).catch((error) => {
-          console.error("Failed to register comment poll", {
+          reportError("Failed to register comment poll", error, {
             accountId: savedAccount.id,
-            error,
           });
         });
       }
     } catch (error) {
-      console.error("Failed to save connected account", {
+      reportError("Failed to save connected account", error, {
         provider: providerId,
         platform: acct.platform,
-        error,
       });
     }
   }

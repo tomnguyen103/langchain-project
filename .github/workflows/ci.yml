@@ -54,8 +54,17 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Migration check
+        # Fails if the committed Drizzle migrations are inconsistent.
+        run: npx drizzle-kit check
+
       - name: Test
         run: npm run test
 
       - name: Build
         run: npm run build
+
+      - name: Security audit (advisory)
+        # Advisory only — surfaces high-severity advisories without blocking CI.
+        continue-on-error: true
+        run: npm audit --audit-level=high

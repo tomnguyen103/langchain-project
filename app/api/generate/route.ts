@@ -9,6 +9,7 @@ import {
   QuotaExceededError,
   releaseQuota,
 } from "@/lib/billing/entitlements";
+import { reportError } from "@/lib/observability/report-error";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -66,9 +67,9 @@ export async function POST(req: NextRequest) {
     // The quota unit was already consumed; refund it so a transient LLM error
     // doesn't burn the user's allowance.
     await releaseQuota(userId, "ai_generations").catch((releaseError) =>
-      console.error("Failed to refund ai_generations quota", releaseError),
+      reportError("Failed to refund ai_generations quota", releaseError),
     );
-    console.error("AI generation failed", error);
+    reportError("AI generation failed", error);
     const message =
       error instanceof Error ? error.message : "Generation failed";
     return NextResponse.json({ error: message }, { status: 500 });

@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { reportError } from "@/lib/observability/report-error";
+
 /**
  * Top-level error boundary. Replaces the root layout when a render error
  * escapes everything else, so it must render its own <html>/<body>.
@@ -14,7 +16,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("global error boundary", error);
+    reportError("global error boundary", error);
   }, [error]);
 
   return (

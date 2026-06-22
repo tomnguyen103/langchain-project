@@ -14,6 +14,7 @@ import {
   type ExtractedComment,
   type WebhookPayload,
 } from "@/lib/webhooks/comments";
+import { reportError } from "@/lib/observability/report-error";
 import { verifyMetaSignature } from "@/lib/webhooks/meta";
 
 export const runtime = "nodejs";
@@ -102,9 +103,8 @@ export async function POST(
     try {
       await handleComment(comment);
     } catch (error) {
-      console.error("comment webhook: handling failed", {
+      reportError("comment webhook: handling failed", error, {
         platform: comment.platform,
-        error: error instanceof Error ? error.message : String(error),
       });
     }
   }

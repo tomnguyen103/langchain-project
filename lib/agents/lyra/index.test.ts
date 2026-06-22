@@ -34,4 +34,41 @@ describe("lyra agent", () => {
       acceptedContentIds: ["c1", "c2"],
     });
   });
+
+  it("forwards empty results (count 0, empty handoff) without error", async () => {
+    const accepted: string[][] = [];
+    const lyra = createLyra({
+      runContentAgent: async () => ({ drafts: {}, savedContentIds: [] }),
+      markGeneratedContentAccepted: async (ids) => {
+        accepted.push(ids);
+      },
+    });
+
+    const result = await lyra.run(
+      { topic: "t", platforms: ["instagram"] },
+      { clerkUserId: "u", runId: "r" },
+    );
+
+    assert.deepEqual(accepted, [[]]);
+    assert.deepEqual(result.summary, { drafts: 0 });
+    assert.deepEqual(result.handoff?.payload, { acceptedContentIds: [] });
+  });
+
+  it("propagates a content-generation failure (no swallow)", async () => {
+    const lyra = createLyra({
+      runContentAgent: async () => {
+        throw new Error("LLM down");
+      },
+      markGeneratedContentAccepted: async () => {},
+    });
+
+    await assert.rejects(
+      () =>
+        lyra.run(
+          { topic: "t", platforms: ["instagram"] },
+          { clerkUserId: "u", runId: "r" },
+        ),
+      /LLM down/,
+    );
+  });
 });
