@@ -1,3 +1,5 @@
+import type { JobsOptions } from "bullmq";
+
 import { AgentName } from "@/lib/agents/types";
 import { deleteSchedule, recordSchedule } from "@/lib/repos/schedules";
 import {
@@ -258,6 +260,17 @@ export async function registerReportSchedule(): Promise<void> {
   );
 }
 
+/** Shared BullMQ opts for a reply job — the deterministic id keeps it idempotent. */
+function replyJobOpts(commentEventId: string): JobsOptions {
+  return {
+    jobId: commentReplyJobId(commentEventId),
+    attempts: 3,
+    backoff: { type: "exponential", delay: 15_000 },
+    removeOnComplete: { age: 24 * 3600 },
+    removeOnFail: { age: 7 * 24 * 3600 },
+  };
+}
+
 /** Enqueue a matched comment for reply dispatch (idempotent per comment). */
 export async function enqueueCommentReply(
   commentEventId: string,
@@ -266,13 +279,25 @@ export async function enqueueCommentReply(
   await getQueue(QueueName.Reply).add(
     "reply",
     { commentEventId } satisfies CommentReplyJobData,
-    {
-      jobId,
-      attempts: 3,
-      backoff: { type: "exponential", delay: 15_000 },
-      removeOnComplete: { age: 24 * 3600 },
-      removeOnFail: { age: 7 * 24 * 3600 },
-    },
+    replyJobOpts(commentEventId),
   );
   return jobId;
+}
+
+/**
+ * Enqueue replies for many matched comments in ONE round-trip (addBulk) instead
+ * of a serial `add` per comment. Still idempotent — each job keeps its
+ * deterministic id, so a redelivered poll can't double-enqueue.
+ */
+export async function enqueueCommentReplies(
+  commentEventIds: string[],
+): Promise<void> {
+  if (commentEventIds.length === 0) return;
+  await getQueue(QueueName.Reply).addBulk(
+    commentEventIds.map((commentEventId) => ({
+      name: "reply",
+      data: { commentEventId } satisfies CommentReplyJobData,
+      opts: replyJobOpts(commentEventId),
+    })),
+  );
 }

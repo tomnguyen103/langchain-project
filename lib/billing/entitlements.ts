@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 
+import { reportError } from "@/lib/observability/report-error";
 import { consumeUsage, getUsageCount, releaseUsage } from "@/lib/repos/usage";
 import { periodStartFor, type QuotaMetric } from "./period";
 import { PLAN_LIMITS, type PlanId, type PlanLimits } from "./plans";
@@ -57,7 +58,15 @@ export async function releaseQuota(
   userId: string,
   metric: QuotaMetric,
 ): Promise<void> {
-  await releaseUsage(userId, metric, periodStartFor(metric));
+  try {
+    await releaseUsage(userId, metric, periodStartFor(metric));
+  } catch (error) {
+    // A failed refund silently over-charges the user against their plan cap.
+    // Callers treat releases as best-effort (they don't expect a throw), so
+    // surface it here — the one place every refund flows through — rather than
+    // letting it vanish in a caller's `.catch(() => {})`.
+    reportError("releaseQuota: refund failed", error, { userId, metric });
+  }
 }
 
 export async function getUsageSummary(userId: string): Promise<{

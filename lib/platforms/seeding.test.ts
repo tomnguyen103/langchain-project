@@ -37,11 +37,13 @@ describe("seedGroupPosts", () => {
 
   it("interacts up to the rate cap and stops", async () => {
     const interacted: string[] = [];
+    const comments: string[] = [];
     const connector: SeedableConnector = {
       capabilities: { supportsSeeding: true },
       listGroupPosts: async () => [post("p1"), post("p2"), post("p3"), post("p4")],
-      interactWithPost: async (_account, p) => {
+      interactWithPost: async (_account, p, interaction) => {
         interacted.push(p.externalPostId);
+        comments.push(interaction.comment);
         return { externalId: `c_${p.externalPostId}` };
       },
     };
@@ -53,6 +55,8 @@ describe("seedGroupPosts", () => {
 
     assert.equal(count, 2);
     assert.deepEqual(interacted, ["p1", "p2"]);
+    // The configured comment is forwarded to every interaction.
+    assert.deepEqual(comments, ["nice post", "nice post"]);
   });
 
   it("skips a failing interaction and continues (no batch-abort/replay)", async () => {

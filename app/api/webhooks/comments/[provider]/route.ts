@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+
 import { NextResponse, type NextRequest } from "next/server";
 
 import { commentMatchesRule } from "@/lib/auto-reply/match";
@@ -25,6 +27,14 @@ export const dynamic = "force-dynamic";
 // per change below, not from the path.
 const META_PROVIDERS = new Set(["meta", "facebook", "instagram"]);
 
+/** Constant-time compare of the webhook verify token (length-guarded first, as
+ *  timingSafeEqual throws on a length mismatch). */
+function verifyTokenMatches(provided: string | null, expected: string): boolean {
+  const a = Buffer.from(provided ?? "");
+  const b = Buffer.from(expected);
+  return a.length === b.length && a.length > 0 && timingSafeEqual(a, b);
+}
+
 /** Meta webhook subscription handshake (echo hub.challenge). */
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
@@ -32,7 +42,7 @@ export async function GET(req: NextRequest) {
   if (
     sp.get("hub.mode") === "subscribe" &&
     token &&
-    sp.get("hub.verify_token") === token
+    verifyTokenMatches(sp.get("hub.verify_token"), token)
   ) {
     return new NextResponse(sp.get("hub.challenge") ?? "", { status: 200 });
   }

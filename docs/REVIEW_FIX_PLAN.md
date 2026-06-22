@@ -24,9 +24,16 @@ Prioritized remediation of the code-quality / security / performance / design fi
 - **F-C1 — Quota refund on cancel** (I-CODE-1). DEFERRED. `createPost` consumes one `posts_scheduled` **per post** (`create/actions.ts:228`), but `cancelTarget` operates **per target** and `reschedulePost` re-queues without re-consuming. A naive "refund on cancel" therefore over-refunds multi-target posts and reschedule→cancel cycles (lets a user exceed the cap — a worse bug than the one being fixed). Correct fix needs a refund-idempotency signal (a `quotaConsumed`/`quotaRefunded` flag on `posts`, set at create, cleared on the cancel that unschedules the last target, re-set on reschedule) **or** a switch to metering on publish. Both are schema + multi-call changes — tracked for its own PR.
 - **F-C6 — Concurrency tests** (I-CODE-7). DEFERRED. The race-safety lives in the conditional SQL (`onConflictDoUpdate … setWhere`, atomic `consumeQuota`), not in pure logic, so a meaningful test needs two concurrent Postgres connections — there is no live DB provisioned in CI. A pure-logic test here would be theater (it wouldn't exercise the race). Tracked for when an integration-test DB is available.
 
-## PR-D — Perf + design + suggestions (P1/P2)
-- **F-D1 — Publish parallelism** (`worker/processors/publish.ts`). Parallelize the independent account/media reads (I-PERF-4).
-- **F-D2 — Landing hero** (`app/(marketing)/page.tsx`). Replace the div-based fake "product preview" (I-DES-1); tighten hero subtext (S-DES-1); drop "Step N" labels (S-DES-3); add `:active` button feedback (S-DES-5).
-- **F-D3 — Suggestions**: seeding-test assert (S-CODE-1); `releaseQuota` observability (S-CODE-2); webhook GET timing-safe compare (S-SEC-1); comment-poll `addBulk` (S-PERF-1); narrow research status poll (S-PERF-2).
+## PR-D — Backend perf + suggestions (P1/P2) — ✅ shipped
+- **F-D1 — Publish parallelism** (`worker/processors/publish.ts`). ✅ The account + media reads run concurrently via `Promise.all` (independent, side-effect-free), shaving a round-trip off the publish hot path (I-PERF-4).
+- **F-D3 — Suggestions** (all ✅):
+  - **S-CODE-1** seeding test now asserts the configured `comment` is forwarded to every `interactWithPost` call (`lib/platforms/seeding.test.ts`).
+  - **S-CODE-2** `releaseQuota` reports its own refund failures via `reportError` (`lib/billing/entitlements.ts`); the two callers (`api/generate`, `api/agents/run`) drop their now-redundant `.catch` — including the silent `.catch(() => {})` that hid the agents/run path.
+  - **S-SEC-1** webhook GET verifies `hub.verify_token` with a constant-time `timingSafeEqual` (length-guarded), matching the A2A/health pattern (`app/api/webhooks/comments/[provider]/route.ts`).
+  - **S-PERF-1** comment-poll enqueues replies with one `addBulk` round-trip via `enqueueCommentReplies` instead of a serial `add` per comment (`lib/queue/jobs.ts`, `worker/processors/comment-poll.ts`).
+  - **S-PERF-2** the Topics list polls a narrow `listResearchTopicStatuses` (id + status only) via the `pollResearchStatuses` action and only triggers a full page refresh when a tracked run settles — instead of refreshing the whole RSC every 4 s (`lib/repos/research.ts`, `app/(dashboard)/research/actions.ts`, `components/research/topic-list.tsx`).
+
+## PR-E — Landing-page design polish (P1/P2)
+- **F-D2 — Landing hero** (`app/(marketing)/page.tsx`, `components/ui/button.tsx`). Replace the div-based fake "product preview" with an honest illustrative visual (I-DES-1); tighten the hero subtext (S-DES-1); drop the literal "Step N" labels (S-DES-3); add `:active` tactile feedback to the button (S-DES-5). Split out from PR-D so the design change gets its own focused review (code vs. design separation).
 
 *Acceptance per fix: local gates (lint · typecheck · drizzle-kit check · test · build) green; a regression test where the finding is testable; behavior unchanged for unaffected paths. Migrations generated, not applied (no live DB).*

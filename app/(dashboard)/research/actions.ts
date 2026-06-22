@@ -7,6 +7,7 @@ import { requireUserId } from "@/lib/clerk";
 import { enqueueResearch } from "@/lib/queue/jobs";
 import {
   createResearchTopic,
+  listResearchTopicStatuses,
   updateResearchTopic,
 } from "@/lib/repos/research";
 
@@ -36,4 +37,15 @@ export async function startResearch(niche: string): Promise<void> {
     throw new Error("Could not start research. Please try again.");
   }
   revalidatePath("/research");
+}
+
+/**
+ * Lightweight status poll for the Topics list while a run is in progress — id +
+ * status only (no full rows / ideas). Tenant-scoped via the caller's auth.
+ */
+export async function pollResearchStatuses(): Promise<
+  Array<{ id: string; status: string }>
+> {
+  const userId = await requireUserId();
+  return listResearchTopicStatuses(userId);
 }
