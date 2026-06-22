@@ -1,5 +1,7 @@
+import { AgentName } from "@/lib/agents/types";
 import { deleteSchedule, recordSchedule } from "@/lib/repos/schedules";
 import {
+  agentStepJobId,
   commentPollSchedulerId,
   commentReplyJobId,
   publishJobId,
@@ -97,6 +99,58 @@ export async function enqueueResearch(opts: {
         },
       ),
     rollback: () => deleteSchedule(QueueName.Research, jobId),
+  });
+
+  return jobId;
+}
+
+export type AgentStepJobData = {
+  runId: string;
+  agent: AgentName;
+  payload: unknown;
+};
+
+/**
+ * Enqueue one orchestrator handoff (the next agent's step) as a durable,
+ * idempotent job — same ledger-first pattern as enqueuePublish/enqueueResearch.
+ * `runId` is the run's uuid correlation id (also the ledger refId).
+ */
+export async function enqueueAgentStep(opts: {
+  runId: string;
+  agent: AgentName;
+  payload: unknown;
+  clerkUserId: string;
+}): Promise<string> {
+  const jobId = agentStepJobId(opts.runId, opts.agent);
+
+  await enqueueWithLedger({
+    record: () =>
+      recordSchedule({
+        clerkUserId: opts.clerkUserId,
+        queue: QueueName.AgentStep,
+        bullJobId: jobId,
+        refType: "agent_step",
+        refId: opts.runId,
+        runAt: new Date(),
+        status: "pending",
+      }),
+    enqueue: () =>
+      getQueue(QueueName.AgentStep).add(
+        "agent-step",
+        {
+          runId: opts.runId,
+          agent: opts.agent,
+          payload: opts.payload,
+        } satisfies AgentStepJobData,
+        {
+          jobId,
+          attempts: 3,
+          backoff: { type: "exponential", delay: 10_000 },
+          removeOnComplete: { age: 24 * 3600 },
+          removeOnFail: { age: 7 * 24 * 3600 },
+        },
+      ),
+    rollback: () => deleteSchedule(QueueName.AgentStep, jobId),
   });
 
   return jobId;

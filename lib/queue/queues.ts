@@ -10,6 +10,9 @@ export enum QueueName {
   CommentPoll = "comment-poll",
   Reply = "reply",
   TokenRefresh = "token-refresh",
+  // Generic orchestrator handoff queue: one worker routes by AgentName via
+  // getAgent(...).run(...). See lib/agents/orchestrator.ts.
+  AgentStep = "agent-step",
 }
 
 const queueCache = new Map<QueueName, Queue>();

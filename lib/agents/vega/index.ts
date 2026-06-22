@@ -2,11 +2,17 @@ import type {
   Finding,
   NewGeneratedContent,
   NewResearchTopic,
+  Platform,
 } from "@/db/schema";
 
 import { AgentName, type AgentDefinition } from "../types";
 
-export type VegaInput = { niche: string; researchTopicId?: string };
+export type VegaInput = {
+  niche: string;
+  /** Carried from the run plan and forwarded to Lyra (which generates per platform). */
+  platforms?: Platform[];
+  researchTopicId?: string;
+};
 
 /**
  * Vega's side effects, injected so the wrapper is unit-testable with fakes and
@@ -81,6 +87,7 @@ export function createVega(deps: VegaDeps): AgentDefinition<VegaInput> {
           to: AgentName.Lyra,
           payload: {
             topic: input.niche,
+            platforms: input.platforms ?? [],
             generatedContentIds: saved.map((row) => row.id),
             researchTopicId: topicId,
           },

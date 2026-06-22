@@ -14,3 +14,10 @@ export const commentPollSchedulerId = (socialAccountId: string) =>
 
 export const commentReplyJobId = (commentEventId: string) =>
   `reply_${commentEventId}`;
+
+/**
+ * One deterministic id per (run, agent) hop — so an orchestrator handoff is
+ * idempotent (a retry re-uses the id) and individually cancellable.
+ */
+export const agentStepJobId = (runId: string, agent: string) =>
+  `agent-step_${runId}_${agent}`;

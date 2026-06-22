@@ -25,7 +25,7 @@ describe("vega agent", () => {
     });
 
     const result = await vega.run(
-      { niche: "urban gardening" },
+      { niche: "urban gardening", platforms: ["instagram", "x"] },
       { clerkUserId: "user-1", runId: "run-1" },
     );
 
@@ -38,6 +38,7 @@ describe("vega agent", () => {
     assert.equal(result.handoff?.to, AgentName.Lyra);
     assert.deepEqual(result.handoff?.payload, {
       topic: "urban gardening",
+      platforms: ["instagram", "x"],
       generatedContentIds: ["gc-0", "gc-1"],
       researchTopicId: "topic-1",
     });

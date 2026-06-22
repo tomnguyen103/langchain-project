@@ -7,6 +7,7 @@ import { closeDbPool } from "@/db";
 import { connection } from "@/lib/queue/connection";
 import { registerTokenRefresh } from "@/lib/queue/jobs";
 import { QueueName } from "@/lib/queue/queues";
+import { agentStepProcessor } from "./processors/agent-step";
 import { commentPollProcessor } from "./processors/comment-poll";
 import { publishProcessor } from "./processors/publish";
 import { replyProcessor } from "./processors/reply";
@@ -61,6 +62,8 @@ const stub =
 startWorker(QueueName.Publish, publishProcessor, 5);
 startWorker(QueueName.Generate, stub("generate"), 2);
 startWorker(QueueName.Research, researchProcessor, 2);
+// Orion: one worker routes every agent handoff by AgentName via getAgent(...).run.
+startWorker(QueueName.AgentStep, agentStepProcessor, 3);
 startWorker(QueueName.CommentPoll, commentPollProcessor, 5);
 startWorker(QueueName.Reply, replyProcessor, 5);
 startWorker(QueueName.TokenRefresh, tokenRefreshProcessor, 1);

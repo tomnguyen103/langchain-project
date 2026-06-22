@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  agentStepJobId,
   commentPollSchedulerId,
   commentReplyJobId,
   publishJobId,
@@ -33,5 +34,12 @@ describe("job-ids", () => {
 
   it("distinct targets get distinct ids", () => {
     assert.notEqual(publishJobId("a"), publishJobId("b"));
+  });
+
+  it("agentStepJobId is deterministic per (run, agent) and distinguishes hops", () => {
+    assert.equal(agentStepJobId("run-1", "vega"), "agent-step_run-1_vega");
+    assert.equal(agentStepJobId("run-1", "vega"), agentStepJobId("run-1", "vega"));
+    assert.notEqual(agentStepJobId("run-1", "vega"), agentStepJobId("run-1", "lyra"));
+    assert.notEqual(agentStepJobId("run-1", "vega"), agentStepJobId("run-2", "vega"));
   });
 });
