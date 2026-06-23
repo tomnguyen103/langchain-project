@@ -20,9 +20,9 @@ Prioritized remediation of the code-quality / security / performance / design fi
 - **F-C4 — Indexes** (`db/schema/social-accounts.ts`, `generated-content.ts`, migration `0020`). ✅ `social_accounts(status, tokenExpiresAt)`; `generated_content(clerkUserId, reviewStatus)` + `(agentRunId)` (I-PERF-1, I-PERF-2).
 - **F-C5 — Bound list reads** (`lib/repos/content-reviews.ts`, `generated-content.ts`, `research.ts`). ✅ `limit = 100` default on `listPendingReviews`/`listGeneratedContent`/`listIdeas`/`listResearchTopics` (I-PERF-3).
 
-### F-C1 — shipped later in PR-F; F-C6 still deferred
+### F-C1 — shipped in PR-F; F-C6 test added in PR-H
 - **F-C1 — Quota refund on cancel** (I-CODE-1). ✅ SHIPPED in PR-F (its own coherent change, as planned). Two columns on `posts` make refunds idempotent and over-refund-proof: `scheduleQuotaPeriod` (the daily window the unit was consumed for; null = unmetered, e.g. agent-scheduled posts) and `scheduleQuotaHeld` (held vs refunded). `cancelTarget` refunds the exact period the moment a cancel fully retracts the post (`hasLiveTarget` false — nothing queued/publishing/published) via an atomic held→false claim (no double-refund). `reschedulePost`/`retryTarget` re-consume a previously-refunded post before re-activating it, closing the cancel→reschedule-for-free loophole. Agent posts (unmetered, `scheduleQuotaPeriod` null) are never touched.
-- **F-C6 — Concurrency tests** (I-CODE-7). DEFERRED. The race-safety lives in the conditional SQL (`onConflictDoUpdate … setWhere`, atomic `consumeQuota`), not in pure logic, so a meaningful test needs two concurrent Postgres connections — there is no live DB provisioned in CI. A pure-logic test here would be theater (it wouldn't exercise the race). Tracked for when an integration-test DB is available.
+- **F-C6 — Concurrency tests** (I-CODE-7). ✅ TEST WRITTEN (PR-H). `tests/integration/quota-concurrency.test.ts` exercises the atomic `onConflictDoUpdate … setWhere` race under genuine concurrency: N concurrent `consumeUsage`/`takeRateLimit` against a real Postgres must let through exactly the cap, and `releaseUsage` floors at 0. It is NOT a pure-logic stub — it needs a live DB, so it's excluded from `npm test` and run via `npm run test:integration` with a `DATABASE_URL`; with none set the suite SKIPS (CI stays green, no false failure). Authored + typechecked + verified to skip cleanly; the DB-connected assertions run when a throwaway Postgres is supplied (not executed in this environment, which has no live DB).
 
 ## PR-D — Backend perf + suggestions (P1/P2) — ✅ shipped
 - **F-D1 — Publish parallelism** (`worker/processors/publish.ts`). ✅ The account + media reads run concurrently via `Promise.all` (independent, side-effect-free), shaving a round-trip off the publish hot path (I-PERF-4).
@@ -48,6 +48,6 @@ The lower-priority Suggestions the earlier batches scoped out. All that meet the
 
 Already satisfied / deferred:
 - **S-DES-6 — dark-mode toggle**: already present in the product chrome (`components/shared/topbar.tsx` renders `ThemeToggle`). No change.
-- **F-C6 — atomic quota/slot concurrency test** (I-CODE-7): still deferred — needs a live Postgres with two connections (none in CI).
+- **F-C6 — atomic quota/slot concurrency test** (I-CODE-7): ✅ test written in PR-H (`tests/integration/`, run via `npm run test:integration` against a real DB; skips in CI).
 
 *Acceptance per fix: local gates (lint · typecheck · drizzle-kit check · test · build) green; a regression test where the finding is testable; behavior unchanged for unaffected paths. Migrations generated, not applied (no live DB).*
