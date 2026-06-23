@@ -81,7 +81,9 @@ describe("atomic quota / rate-limit race-safety (F-C6)", { skip }, () => {
 
   it("releaseUsage floors the counter at 0 under concurrency", async () => {
     const period = "1970-01-03";
-    await usageRepo.consumeUsage(userId, metric, period, 5); // count = 1
+    const seeded = await usageRepo.consumeUsage(userId, metric, period, 5);
+    assert.equal(seeded, true, "failed to seed the usage row before releases");
+    assert.equal(await usageRepo.getUsageCount(userId, metric, period), 1);
     await Promise.all([
       usageRepo.releaseUsage(userId, metric, period),
       usageRepo.releaseUsage(userId, metric, period),
