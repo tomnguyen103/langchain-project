@@ -42,7 +42,7 @@ These were verified by opening the code and are the load-bearing constraints beh
 
 ### Q1. Per-target metrics-fetch worker (close the analytics loop) — Eng 5 · Sec 4 · Cost 4 · Val 5 · Arch 5
 The single highest leverage gap. `post_targets.metrics` is **already a `jsonb $type<Record<string, number>>` column with `metricsUpdatedAt`** ([db/schema/post-targets.ts]), connectors **already expose `fetchMetrics(account, externalPostId)`** ([lib/platforms/types.ts]), and Rigel **already aggregates from published targets** ([lib/agents/rigel/index.ts:55-67]) — but *nothing populates `metrics`*. Add one repeatable BullMQ job (mirror `registerTokenRefresh` / `registerSeeding`, [lib/queue/jobs.ts:229-261]) that walks recently-published targets, calls `fetchMetrics`, and writes the jsonb. No new table, no migration, no new agent. Rationale: turns the existing dashboard + Rigel feed-forward from estimates into real engagement data.
-- Key files: `worker/processors/metrics.ts` (new), [lib/queue/jobs.ts], [lib/queue/queues.ts], [lib/platforms/types.ts], [lib/agents/rigel/aggregate.ts], `worker/index.ts`.
+- Key files: `worker/processors/metrics-poll.ts` (new), [lib/queue/jobs.ts], [lib/queue/queues.ts], [lib/platforms/types.ts], [lib/agents/rigel/aggregate.ts], `worker/index.ts`.
 - Risk note: third-party read-API rate limits (Cost 4 not 5) — throttle per platform; failures are non-fatal.
 
 ### Q2. Run cost & token telemetry (FinOps groundwork, "Quaestor/Tally" MVP) — Eng 4 · Sec 5 · Cost 5 · Val 4 · Arch 5

@@ -82,6 +82,6 @@ The roadmap's keystone finding: the **publish→measure→learn loop is dead at 
 C2PA/SynthID media signing · spend-cap enforcement (after Quaestor) · Campaigns/Meridian · multi-brand/Atrium · vector store/RAG · true ReAct tool-calling · A2A marketplace · Dreaming memory-consolidation · parallel subagent fan-out.
 
 ## /goal condition (paste to install a hard completion-gate)
-```
+```text
 /goal Execute docs/FIX_PLAN.md: build the 6 build-first goals (Pulse, Quaestor, Vigil, Sirius Triage v1, Run Doctor, Praxis Live v1) in priority order, keeping lint/typecheck/unit-tests/build/drizzle-check green. After each batch of >=3 goals with green gates, push a NON-DRAFT PR, wait for CodeRabbit, apply fixes, drive CI green + review clean, then merge to main. Done when all 6 are merged to main.
 ```
