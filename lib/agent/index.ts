@@ -72,6 +72,9 @@ export async function runContentAgent(input: {
     );
   }
   const usage = usageCollector.usage();
+  // Cost is priced entirely against the configured provider's model
+  // (modelForProvider). The content graph is single-model today; if a node ever
+  // uses a different model/provider, this estimate would need per-call pricing.
   const costUsd = estimateCostUsd(usage, modelForProvider(env.LLM_PROVIDER));
   return { drafts: result.drafts, savedContentIds, usage, costUsd };
 }
