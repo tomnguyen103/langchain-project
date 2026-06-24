@@ -9,8 +9,10 @@ import { agentLabel, stepStatusBadge } from "./run-meta";
 /** Render a scalar/jsonb summary value compactly (objects stringify). */
 function renderValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
+  const str = typeof value === "object" ? JSON.stringify(value) : String(value);
+  // Summary jsonb is unbounded; cap it so a large/nested blob can't blow out the
+  // timeline layout. The full value is always available via LangSmith.
+  return str.length > 200 ? `${str.slice(0, 200)}…` : str;
 }
 
 /** The agent's structured summary as a tight key/value grid. */

@@ -1,4 +1,4 @@
-import { verifyChain, type ChainEntry } from "@/lib/audit/run-audit";
+import { stepToChainEntry, verifyChain } from "@/lib/audit/run-audit";
 import type { AgentRun, AgentStep } from "@/db/schema";
 
 /**
@@ -59,35 +59,18 @@ function toStepView(step: AgentStep): StepView {
   };
 }
 
-/** Map a persisted step onto the audit-chain entry the verifier expects. */
-function toChainEntry(step: AgentStep): ChainEntry {
-  return {
-    step: {
-      runId: step.runId,
-      agent: step.agent,
-      status: step.status,
-      input: step.input,
-      summary: step.summary,
-      handoff: step.handoff,
-      control: step.control,
-      error: step.error,
-    },
-    prevHash: step.prevHash,
-    hash: step.hash ?? "",
-  };
-}
-
 /**
  * Build the inspector timeline from a run's steps (chronological order assumed —
  * the repo returns them ascending by createdAt). Verifies the tamper-evident
- * hash chain inline so the page makes a single query, not two.
+ * hash chain inline, so the page doesn't need a second steps query just to check
+ * integrity.
  */
 export function buildRunTimeline(steps: AgentStep[]): RunTimeline {
   const views = steps.map(toStepView);
   const measured = views
     .map((v) => v.durationMs)
     .filter((d): d is number => d !== null);
-  const brokenAtIndex = verifyChain(steps.map(toChainEntry));
+  const brokenAtIndex = verifyChain(steps.map(stepToChainEntry));
   return {
     steps: views,
     stepCount: views.length,

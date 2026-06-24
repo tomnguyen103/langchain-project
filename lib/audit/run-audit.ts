@@ -63,6 +63,31 @@ export type ChainEntry = {
 };
 
 /**
+ * Project a persisted step row (its auditable fields + stored hashes) into a
+ * {@link ChainEntry}. The single source of truth for which fields participate in
+ * the chain, so the repo verifier and the run-timeline UI can't drift apart.
+ * Structurally typed (no schema import) to keep this module dependency-free.
+ */
+export function stepToChainEntry(
+  step: AuditableStep & { prevHash: string | null; hash: string | null },
+): ChainEntry {
+  return {
+    step: {
+      runId: step.runId,
+      agent: step.agent,
+      status: step.status,
+      input: step.input,
+      summary: step.summary,
+      handoff: step.handoff,
+      control: step.control,
+      error: step.error,
+    },
+    prevHash: step.prevHash,
+    hash: step.hash ?? "",
+  };
+}
+
+/**
  * Verify a run's hash chain (entries in chronological order). Returns the index
  * of the first broken link — a bad prevHash linkage or a recomputed-hash
  * mismatch — or -1 when the whole chain is intact.

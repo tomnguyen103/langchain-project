@@ -1,7 +1,11 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { computeStepHash, verifyChain } from "@/lib/audit/run-audit";
+import {
+  computeStepHash,
+  stepToChainEntry,
+  verifyChain,
+} from "@/lib/audit/run-audit";
 import {
   agentRuns,
   agentSteps,
@@ -139,22 +143,7 @@ export async function verifyRunAudit(
     .from(agentSteps)
     .where(eq(agentSteps.runId, runId))
     .orderBy(asc(agentSteps.createdAt));
-  const brokenAtIndex = verifyChain(
-    steps.map((s) => ({
-      step: {
-        runId: s.runId,
-        agent: s.agent,
-        status: s.status,
-        input: s.input,
-        summary: s.summary,
-        handoff: s.handoff,
-        control: s.control,
-        error: s.error,
-      },
-      prevHash: s.prevHash,
-      hash: s.hash ?? "",
-    })),
-  );
+  const brokenAtIndex = verifyChain(steps.map(stepToChainEntry));
   return { valid: brokenAtIndex === -1, brokenAtIndex };
 }
 
