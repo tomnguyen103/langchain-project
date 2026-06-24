@@ -3,8 +3,10 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   brandProfiles,
+  type DisclosurePolicy,
   type NewBrandProfile,
 } from "@/db/schema";
+import { DEFAULT_DISCLOSURE_POLICY } from "@/lib/compliance/disclosure";
 
 /** A tenant's brand profile with defaults applied — never returns undefined. */
 export type ResolvedBrandProfile = {
@@ -78,6 +80,32 @@ export async function upsertBrandProfile(
       autoPublishThreshold: data.autoPublishThreshold ?? 0.8,
     })
     .onConflictDoUpdate({ target: brandProfiles.clerkUserId, set });
+}
+
+/** Read a tenant's AI-content disclosure policy, falling back to "off". */
+export async function getDisclosurePolicy(
+  clerkUserId: string,
+): Promise<DisclosurePolicy> {
+  const [row] = await db
+    .select({ disclosurePolicy: brandProfiles.disclosurePolicy })
+    .from(brandProfiles)
+    .where(eq(brandProfiles.clerkUserId, clerkUserId))
+    .limit(1);
+  return row?.disclosurePolicy ?? { ...DEFAULT_DISCLOSURE_POLICY };
+}
+
+/** Save a tenant's disclosure policy without touching other settings. */
+export async function setDisclosurePolicy(
+  clerkUserId: string,
+  disclosurePolicy: DisclosurePolicy,
+): Promise<void> {
+  await db
+    .insert(brandProfiles)
+    .values({ clerkUserId, disclosurePolicy })
+    .onConflictDoUpdate({
+      target: brandProfiles.clerkUserId,
+      set: { disclosurePolicy, updatedAt: new Date() },
+    });
 }
 
 /** Persist Rigel's learned-memory blob without touching the tenant's settings. */

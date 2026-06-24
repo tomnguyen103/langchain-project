@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { NewPostTarget } from "@/db/schema";
+import type { NewDisclosureLedgerEntry, NewPostTarget } from "@/db/schema";
 
 import { AgentName } from "../types";
 import { createAtlas } from "./index";
@@ -136,5 +136,60 @@ describe("atlas agent", () => {
     assert.deepEqual(result.handoff?.payload, {
       socialAccountIds: ["acc_a", "acc_b"],
     });
+  });
+
+  it("applies the disclosure policy to bodies and records the audit ledger", async () => {
+    const createdBodies: string[] = [];
+    let ledger: NewDisclosureLedgerEntry[] = [];
+    const atlas = createAtlas({
+      getGeneratedContentByIds: async () => [
+        { id: "c1", platform: "instagram", content: "IG body" },
+        { id: "c2", platform: "x", content: "X body" }, // no native AI label
+      ],
+      listSocialAccounts: async () => [
+        { id: "acc-ig", platform: "instagram", status: "active" },
+        { id: "acc-x", platform: "x", status: "active" },
+      ],
+      createPostWithTargets: async (input) => {
+        for (const t of input.targets) createdBodies.push(t.body ?? "");
+        return {
+          id: "p1",
+          targets: input.targets.map((_t, i) => ({ id: `t${i}`, postId: "p1" })),
+        };
+      },
+      getPostTarget: async () => undefined,
+      enqueuePublish: async ({ postTargetId }) => `job_${postTargetId}`,
+      updatePostTarget: async () => {},
+      recomputePostStatus: async () => "scheduled",
+      getDisclosurePolicy: async () => ({
+        labelAiContent: true,
+        disclosureText: "Made with AI.",
+        jurisdiction: "EU",
+      }),
+      recordDisclosures: async (entries) => {
+        ledger = entries;
+      },
+    });
+
+    const result = await atlas.run(
+      { acceptedContentIds: ["c1", "c2"] },
+      { clerkUserId: "user-1", runId: "run-1" },
+    );
+
+    assert.deepEqual(result.summary, { scheduled: 2 });
+    // The disclosure text is appended to each platform body.
+    assert.deepEqual(createdBodies, [
+      "IG body\n\nMade with AI.",
+      "X body\n\nMade with AI.",
+    ]);
+    // One ledger row per target; the native label is flagged for Instagram, not X.
+    assert.equal(ledger.length, 2);
+    assert.equal(ledger[0].postTargetId, "t0");
+    assert.equal(ledger[0].platform, "instagram");
+    assert.equal(ledger[0].platformLabelApplied, true);
+    assert.equal(ledger[0].disclosureText, "Made with AI.");
+    assert.equal(ledger[0].jurisdiction, "EU");
+    assert.equal(ledger[1].platform, "x");
+    assert.equal(ledger[1].platformLabelApplied, false);
   });
 });
