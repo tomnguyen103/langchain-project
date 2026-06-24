@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 
 import { textOf } from "@/lib/agent/_util";
+import { buildReplyPrompt } from "@/lib/auto-reply/reply-prompt";
 import { renderTemplate } from "@/lib/auto-reply/template";
 import { getChatModel } from "@/lib/llm/factory";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
@@ -122,16 +123,12 @@ async function composeAiReply(
   vars: { author: string; text: string },
 ): Promise<string> {
   const model = getChatModel({ temperature: 0.7 });
-  const prompt = [
-    "You are a friendly social media manager replying to a comment on a post.",
-    "Write a short, warm, on-brand reply of 1-2 sentences. No hashtags, no surrounding quotes.",
-    guidance ? `Voice / guidance to follow: ${guidance}` : "",
-    `Commenter: ${vars.author || "a follower"}`,
-    `Their comment: "${vars.text}"`,
-    "Reply:",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  // Untrusted author/text are length-bounded + fenced as data (injection guard).
+  const prompt = buildReplyPrompt({
+    guidance,
+    author: vars.author,
+    text: vars.text,
+  });
   const res = await model.invoke(prompt);
   return textOf(res.content).trim();
 }

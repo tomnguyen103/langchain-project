@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 
 import { commentMatchesRule } from "@/lib/auto-reply/match";
+import { classifyComment, isAutoReplySafe } from "@/lib/auto-reply/triage";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { enqueueCommentReplies, type CommentPollJobData } from "@/lib/queue/jobs";
 import { getSocialAccount } from "@/lib/repos/accounts";
@@ -81,21 +82,33 @@ export async function commentPollProcessor(job: Job): Promise<void> {
     // Batch: one idempotent insert per target, classify in memory, then a
     // handful of grouped updates — instead of 2 queries per comment.
     const inserted = await ingestComments(
-      comments.map((c) => ({
-        socialAccountId: account.id,
-        postTargetId: target.id,
-        platform: account.platform,
-        externalCommentId: c.externalCommentId,
-        externalPostId: c.externalPostId,
-        author: c.author,
-        text: c.text,
-        commentedAt: c.createdAt,
-      })),
+      comments.map((c) => {
+        // Heuristic triage tags, persisted at ingest (Sirius+).
+        const triage = classifyComment(c.text);
+        return {
+          socialAccountId: account.id,
+          postTargetId: target.id,
+          platform: account.platform,
+          externalCommentId: c.externalCommentId,
+          externalPostId: c.externalPostId,
+          author: c.author,
+          text: c.text,
+          commentedAt: c.createdAt,
+          intent: triage.intent,
+          sentiment: triage.sentiment,
+          urgency: triage.urgency,
+        };
+      }),
     );
     ingested += inserted.length;
 
     const classifications = inserted.map((event) => {
-      const rule = rules.find((r) => commentMatchesRule(event.text, r));
+      // Safety gate: never auto-reply to abuse/complaints — leave them unmatched
+      // for a human even if a keyword rule matched (re-classify is deterministic).
+      const safeToReply = isAutoReplySafe(classifyComment(event.text));
+      const rule = safeToReply
+        ? rules.find((r) => commentMatchesRule(event.text, r))
+        : undefined;
       if (rule) matched += 1;
       return {
         id: event.id,
