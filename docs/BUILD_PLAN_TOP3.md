@@ -1,4 +1,4 @@
-# Build Plan — Recommended Top 3 (Aletheia · Triage · Atrium+Praetor)
+# Build Plan — Recommended Top 3 (Triage · Aletheia · Atrium+Praetor)
 
 > Execution plan for the three "Recommended Top 3" features from
 > [AGENT_FEATURE_IDEAS_V2.md](AGENT_FEATURE_IDEAS_V2.md). Living document — slices may be
@@ -32,7 +32,7 @@ Replace whole-run approve/reject with per-item **Accept / Edit / Respond / Ignor
 - **G1.2 — Repo.** Per-item ops in `lib/repos/generated-content.ts` / `content-reviews.ts`: approve-one, edit-body, reject-one, respond (mark for re-draft).
 - **G1.3 — Orchestrator.** Per-item resume in `lib/agents/orchestrator.ts`: accept-subset → Atlas with only accepted ids; respond → single-item Lyra refine that re-enters review; reuse idempotent `(runId, agent)` guard. Run completes only when no item is still `held`.
 - **G1.4 — Server actions.** `app/(dashboard)/review/actions.ts`: `acceptDraftAction`, `editDraftAction`, `respondDraftAction`, `ignoreDraftAction` (+ keep a bulk path). Revalidate `/review`.
-- **G1.5 — UI.** `review-queue.tsx`: per-draft action row (Accept/Edit/Respond/Ignore), inline edit, respond box, bulk-accept, optimistic state.
+- **G1.5 — UI.** `review-queue.tsx`: per-draft action row (Accept/Edit/Respond/Ignore + Reject), inline edit, respond box, run-level bulk Accept all / Reject all, optimistic state.
 - **G1.6 — Tests.** Unit tests for repo + orchestrator per-item resume (no duplicate steps; only accepted publish).
 - **Acceptance:** 5 held drafts → edit 1, respond-redraft 1, accept 2, reject 1 → exactly the accepted publish; redrafted re-enters review; `agent_steps` shows no dup hops; gates green.
 

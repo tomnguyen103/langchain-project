@@ -8,6 +8,7 @@ import { AgentName } from "@/lib/agents/types";
 import { requireUserId } from "@/lib/clerk";
 import { getAgentRun } from "@/lib/repos/agent-runs";
 import {
+  acceptHeldDraft,
   countHeldForRun,
   editHeldDraftBody,
   finalizeRunRejected,
@@ -77,7 +78,7 @@ export async function acceptDraftAction(
 ): Promise<void> {
   const userId = await requireUserId();
   await requireApprovableRun(runId, userId);
-  await setReviewDecision([contentId], userId, "approved", userId);
+  await acceptHeldDraft(contentId, runId, userId);
   await maybeResolveRun(runId, userId);
   revalidatePath("/review");
 }
@@ -89,7 +90,7 @@ export async function rejectDraftAction(
 ): Promise<void> {
   const userId = await requireUserId();
   await requireApprovableRun(runId, userId);
-  await rejectHeldDraft(contentId, userId);
+  await rejectHeldDraft(contentId, runId, userId);
   await maybeResolveRun(runId, userId);
   revalidatePath("/review");
 }
@@ -104,7 +105,7 @@ export async function ignoreDraftAction(
 ): Promise<void> {
   const userId = await requireUserId();
   await requireApprovableRun(runId, userId);
-  await rejectHeldDraft(contentId, userId, "Ignored by reviewer");
+  await rejectHeldDraft(contentId, runId, userId, "Ignored by reviewer");
   await maybeResolveRun(runId, userId);
   revalidatePath("/review");
 }
@@ -121,7 +122,7 @@ export async function editDraftAction(
   if (!text) {
     throw new Error("Draft can't be empty.");
   }
-  const changed = await editHeldDraftBody(contentId, userId, text);
+  const changed = await editHeldDraftBody(contentId, runId, userId, text);
   if (changed.length === 0) {
     throw new Error("This draft is no longer editable.");
   }
@@ -143,7 +144,7 @@ export async function respondDraftAction(
   if (!note) {
     throw new Error("Add a note so the agent knows what to change.");
   }
-  const draft = await getHeldDraft(contentId, userId);
+  const draft = await getHeldDraft(contentId, runId, userId);
   if (!draft) {
     throw new Error("This draft is no longer held for review.");
   }
@@ -152,7 +153,18 @@ export async function respondDraftAction(
     draft: draft.content,
     feedback: note,
   });
-  const changed = await respondHeldDraft(contentId, userId, revised, note);
+  if (!revised.trim()) {
+    throw new Error(
+      "The agent returned an empty draft. Try rephrasing your note.",
+    );
+  }
+  const changed = await respondHeldDraft(
+    contentId,
+    runId,
+    userId,
+    revised,
+    note,
+  );
   if (changed.length === 0) {
     throw new Error("This draft is no longer held for review.");
   }

@@ -214,12 +214,43 @@ export async function restoreHeldDrafts(
 }
 
 /**
+ * Per-item Accept (Agent Inbox): approve + accept one held draft. Scoped to the
+ * tenant + run + the `held` state so a mismatched id can't reach another run's
+ * drafts. Returns the ids actually changed.
+ */
+export async function acceptHeldDraft(
+  id: string,
+  agentRunId: string,
+  clerkUserId: string,
+): Promise<string[]> {
+  const updated = await db
+    .update(generatedContent)
+    .set({
+      reviewStatus: "approved",
+      accepted: true,
+      reviewedBy: clerkUserId,
+      reviewedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.reviewStatus, "held"),
+        eq(generatedContent.id, id),
+      ),
+    )
+    .returning({ id: generatedContent.id });
+  return updated.map((r) => r.id);
+}
+
+/**
  * Per-item Edit (Agent Inbox): replace a held draft's body in place. Scoped to
- * the tenant + the `held` state so it can't mutate an already-decided draft.
- * Returns the ids actually changed (empty if it was no longer held).
+ * the tenant + run + the `held` state so it can't mutate an already-decided
+ * draft or one from another run. Returns the ids actually changed.
  */
 export async function editHeldDraftBody(
   id: string,
+  agentRunId: string,
   clerkUserId: string,
   body: string,
 ): Promise<string[]> {
@@ -229,6 +260,7 @@ export async function editHeldDraftBody(
     .where(
       and(
         eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
         eq(generatedContent.reviewStatus, "held"),
         eq(generatedContent.id, id),
       ),
@@ -239,11 +271,12 @@ export async function editHeldDraftBody(
 
 /**
  * Per-item Reject / Ignore (Agent Inbox): reject one held draft, recording an
- * optional note (Ignore passes a reason). Tenant + `held` scoped. Returns the
- * ids actually changed.
+ * optional note (Ignore passes a reason). Tenant + run + `held` scoped. Returns
+ * the ids actually changed.
  */
 export async function rejectHeldDraft(
   id: string,
+  agentRunId: string,
   clerkUserId: string,
   note?: string,
 ): Promise<string[]> {
@@ -259,6 +292,7 @@ export async function rejectHeldDraft(
     .where(
       and(
         eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
         eq(generatedContent.reviewStatus, "held"),
         eq(generatedContent.id, id),
       ),
@@ -271,10 +305,11 @@ export async function rejectHeldDraft(
  * Per-item Respond (Agent Inbox): replace a held draft's body with an agent
  * re-draft, record the reviewer's feedback as the note, and keep it `held` so
  * the revised draft gets a fresh look. Clears the prior decision stamp. Tenant +
- * `held` scoped. Returns the ids actually changed.
+ * run + `held` scoped. Returns the ids actually changed.
  */
 export async function respondHeldDraft(
   id: string,
+  agentRunId: string,
   clerkUserId: string,
   newBody: string,
   feedback: string,
@@ -290,6 +325,7 @@ export async function respondHeldDraft(
     .where(
       and(
         eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
         eq(generatedContent.reviewStatus, "held"),
         eq(generatedContent.id, id),
       ),
@@ -301,6 +337,7 @@ export async function respondHeldDraft(
 /** One held draft (id, platform, content) for the per-item Respond re-draft. */
 export async function getHeldDraft(
   id: string,
+  agentRunId: string,
   clerkUserId: string,
 ): Promise<
   { id: string; platform: Platform | null; content: string } | undefined
@@ -315,6 +352,7 @@ export async function getHeldDraft(
     .where(
       and(
         eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
         eq(generatedContent.reviewStatus, "held"),
         eq(generatedContent.id, id),
       ),
