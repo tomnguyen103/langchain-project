@@ -1,3 +1,5 @@
+import type { PolicyFinding } from "@/lib/compliance/policy-linter";
+
 import { AgentName, type AgentDefinition } from "../types";
 
 export type CastorInput = {
@@ -44,6 +46,13 @@ export type CastorDeps = {
     }>,
   ) => Promise<void>;
   markGeneratedContentAccepted: (ids: string[]) => Promise<void>;
+  /**
+   * Praxis policy lint (optional). Deterministic per-platform ToS/policy checks
+   * run alongside the brand-safety verdict: findings merge into a draft's
+   * violations and a `block`-level finding forces the draft to be held, even if
+   * brand-safety passed. Omitted ⇒ no policy lint (back-compatible).
+   */
+  lintPolicy?: (platform: string | null, text: string) => PolicyFinding[];
 };
 
 /**
@@ -82,10 +91,23 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
       const outcomes = contents.map((c) => {
         const r = resultById.get(c.id);
         const score = r?.score ?? 0;
-        const verdict = r?.verdict ?? "review";
-        const violations = r?.violations ?? [
+        const baseViolations = r?.violations ?? [
           { rule: "policy", detail: "no review result; held for manual review" },
         ];
+
+        // Praxis: merge deterministic policy-lint findings into the verdict. A
+        // blocking finding overrides a brand-safety `pass` to `block`, so the
+        // existing `verdict === "pass"` gate keeps it out of auto-publish.
+        const lint = deps.lintPolicy?.(c.platform, c.content) ?? [];
+        const blockingLint = lint.some((f) => f.level === "block");
+        const violations = [
+          ...baseViolations,
+          ...lint.map((f) => ({ rule: f.rule, detail: f.detail })),
+        ];
+        const verdict: ReviewVerdict = blockingLint
+          ? "block"
+          : (r?.verdict ?? "review");
+
         const canAuto =
           profile.autoPublishEnabled &&
           verdict === "pass" &&
