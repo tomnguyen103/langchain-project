@@ -2,6 +2,7 @@ import type { Job } from "bullmq";
 import { z } from "zod";
 
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import { decideRecovery } from "@/lib/agents/recovery";
 import { AgentName, type AgentContext } from "@/lib/agents/types";
 import { agentStepJobId } from "@/lib/queue/job-ids";
 import { QueueName } from "@/lib/queue/queues";
@@ -78,17 +79,41 @@ export async function agentStepProcessor(job: Job): Promise<void> {
     logger.info("agent-step: done", { runId, agent });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    // Run Doctor: classify the failure and decide retry vs. fail-fast instead of
+    // blindly retrying every error to the BullMQ cap — a dead token / fatal error
+    // never recovers, and each wasted retry costs another LLM run.
+    const decision = decideRecovery({
+      error,
+      attempt: job.attemptsMade + 1,
+      maxAttempts: job.opts.attempts ?? 1,
+    });
     await updateScheduleStatus(QueueName.AgentStep, jobId, {
       status: "failed",
       finishedAt: new Date(),
       lastError: message,
     });
-    // Only fail the run once retries are exhausted (the final attempt).
-    const isFinalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
-    if (isFinalAttempt) {
+
+    if (decision.action === "fail") {
+      // Unrecoverable (or exhausted): mark the run failed and stop. Do NOT
+      // re-throw, so BullMQ doesn't keep retrying a doomed step.
       await updateAgentRun(runId, { status: "failed", finishedAt: new Date() });
+      logger.error("agent-step: failed (no retry)", {
+        runId,
+        agent,
+        failureClass: decision.failureClass,
+        reason: decision.reason,
+        error: message,
+      });
+      return;
     }
-    logger.error("agent-step: error", { runId, agent, error: message });
+
+    // Transient with budget remaining — re-throw so BullMQ retries with backoff.
+    logger.warn("agent-step: transient failure, retrying", {
+      runId,
+      agent,
+      reason: decision.reason,
+      error: message,
+    });
     throw error;
   }
 }
