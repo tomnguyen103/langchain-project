@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { hasBlockingFinding, lintPolicy } from "./policy-linter";
+import {
+  hasBlockingFinding,
+  lintOrgRules,
+  lintPolicy,
+  type OrgPolicyRule,
+} from "./policy-linter";
 
 describe("lintPolicy", () => {
   it("passes a clean caption with no findings", () => {
@@ -58,5 +63,35 @@ describe("lintPolicy", () => {
   it("is case-insensitive", () => {
     const findings = lintPolicy("x", "GUARANTEED winner");
     assert.ok(findings.some((f) => f.rule === "absolute_claim"));
+  });
+});
+
+describe("lintOrgRules (Praxis Live)", () => {
+  const rules: OrgPolicyRule[] = [
+    { term: "flash sale", level: "block" },
+    { term: "sale", level: "warn" },
+  ];
+
+  it("matches on word boundaries — 'sale' fires on 'sale' but not 'wholesale'", () => {
+    assert.deepEqual(lintOrgRules("our wholesale program", rules), []);
+    assert.ok(
+      lintOrgRules("the sale starts now", rules).some(
+        (f) => f.rule === "org_policy",
+      ),
+    );
+  });
+
+  it("is case-insensitive and matches multi-word phrases", () => {
+    const findings = lintOrgRules("Our FLASH SALE ends today", rules);
+    assert.ok(findings.some((f) => f.level === "block"));
+  });
+
+  it("flows through lintPolicy alongside the curated pack", () => {
+    const findings = lintPolicy("x", "huge sale", [
+      { term: "sale", level: "block" },
+    ]);
+    assert.ok(
+      findings.some((f) => f.rule === "org_policy" && f.level === "block"),
+    );
   });
 });

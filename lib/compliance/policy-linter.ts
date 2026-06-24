@@ -72,27 +72,27 @@ const RULES: PolicyRule[] = [
   },
 ];
 
+/** Escape a literal so it embeds in a RegExp with no metacharacter meaning —
+ *  keeps tenant-supplied terms ReDoS-safe (no quantifiers survive escaping). */
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
- * Lint a draft against the policy pack for its platform. Each rule fires at most
- * once, but overlapping rules can each match (e.g. "guaranteed returns" hits both
- * absolute_claim and financial_claim). The caller decides how to surface findings
- * and whether `block`-level ones gate auto-publish. A null/unknown platform runs
- * only platform-agnostic rules.
- */
-/**
- * Lint a draft against a tenant's custom rules (Praxis Live) — case-insensitive
- * literal substring matches. The terms are literals (never compiled as a regex),
- * so an org-supplied rule carries no ReDoS / injection risk.
+ * Lint a draft against a tenant's custom rules (Praxis Live) — case-insensitive,
+ * WORD-BOUNDARY matches on the escaped literal, so a rule "sale" fires on "sale"
+ * but not "wholesale". Escaping strips all regex metacharacters from the term (no
+ * quantifiers to backtrack) → ReDoS-safe even on tenant-supplied input.
  */
 export function lintOrgRules(
   text: string,
   rules: OrgPolicyRule[],
 ): PolicyFinding[] {
-  const haystack = text.toLowerCase();
   const findings: PolicyFinding[] = [];
   for (const rule of rules) {
-    const term = rule.term.trim().toLowerCase();
-    if (term.length > 0 && haystack.includes(term)) {
+    const term = rule.term.trim();
+    if (term.length === 0) continue;
+    if (new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(text)) {
       findings.push({
         rule: "org_policy",
         detail: `Matches your custom policy rule: "${rule.term}".`,
@@ -103,6 +103,13 @@ export function lintOrgRules(
   return findings;
 }
 
+/**
+ * Lint a draft against the policy pack for its platform. Each rule fires at most
+ * once, but overlapping rules can each match (e.g. "guaranteed returns" hits both
+ * absolute_claim and financial_claim). The caller decides how to surface findings
+ * and whether `block`-level ones gate auto-publish. A null/unknown platform runs
+ * only platform-agnostic rules; a tenant's `orgRules` (Praxis Live) are appended.
+ */
 export function lintPolicy(
   platform: string | null,
   text: string,

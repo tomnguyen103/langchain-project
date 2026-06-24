@@ -207,9 +207,10 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         startedAt,
         finishedAt: new Date(),
       });
-      // Leave the run "running": the agent-step processor marks it failed only
-      // when BullMQ has exhausted retries, so a transient error doesn't flicker
-      // the run status mid-retry.
+      // Leave the run "running" and re-throw: the agent-step processor (Run
+      // Doctor) classifies the failure and marks the run failed only when it's
+      // unrecoverable or retries are exhausted — so a transient error doesn't
+      // flicker the run status mid-retry.
       throw error;
     }
 
