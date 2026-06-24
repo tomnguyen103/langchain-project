@@ -59,6 +59,7 @@ export type PendingReview = {
   brandSafetyScore: number | null;
   reviewVerdict: ReviewVerdict | null;
   reviewViolations: ReviewViolation[] | null;
+  reviewerNote: string | null;
   createdAt: Date;
 };
 
@@ -77,6 +78,7 @@ export async function listPendingReviews(
       brandSafetyScore: generatedContent.brandSafetyScore,
       reviewVerdict: generatedContent.reviewVerdict,
       reviewViolations: generatedContent.reviewViolations,
+      reviewerNote: generatedContent.reviewerNote,
       createdAt: generatedContent.createdAt,
     })
     .from(generatedContent)
@@ -209,4 +211,170 @@ export async function restoreHeldDrafts(
         eq(generatedContent.reviewStatus, "approved"),
       ),
     );
+}
+
+/**
+ * Per-item Accept (Agent Inbox): approve + accept one held draft. Scoped to the
+ * tenant + run + the `held` state so a mismatched id can't reach another run's
+ * drafts. Returns the ids actually changed.
+ */
+export async function acceptHeldDraft(
+  id: string,
+  agentRunId: string,
+  clerkUserId: string,
+): Promise<string[]> {
+  const updated = await db
+    .update(generatedContent)
+    .set({
+      reviewStatus: "approved",
+      accepted: true,
+      reviewedBy: clerkUserId,
+      reviewedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.reviewStatus, "held"),
+        eq(generatedContent.id, id),
+      ),
+    )
+    .returning({ id: generatedContent.id });
+  return updated.map((r) => r.id);
+}
+
+/**
+ * Per-item Edit (Agent Inbox): replace a held draft's body in place. Scoped to
+ * the tenant + run + the `held` state so it can't mutate an already-decided
+ * draft or one from another run. Returns the ids actually changed.
+ */
+export async function editHeldDraftBody(
+  id: string,
+  agentRunId: string,
+  clerkUserId: string,
+  body: string,
+): Promise<string[]> {
+  const updated = await db
+    .update(generatedContent)
+    .set({ content: body })
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.reviewStatus, "held"),
+        eq(generatedContent.id, id),
+      ),
+    )
+    .returning({ id: generatedContent.id });
+  return updated.map((r) => r.id);
+}
+
+/**
+ * Per-item Reject / Ignore (Agent Inbox): reject one held draft, recording an
+ * optional note (Ignore passes a reason). Tenant + run + `held` scoped. Returns
+ * the ids actually changed.
+ */
+export async function rejectHeldDraft(
+  id: string,
+  agentRunId: string,
+  clerkUserId: string,
+  note?: string,
+): Promise<string[]> {
+  const updated = await db
+    .update(generatedContent)
+    .set({
+      reviewStatus: "rejected",
+      accepted: false,
+      reviewedBy: clerkUserId,
+      reviewedAt: new Date(),
+      reviewerNote: note ?? null,
+    })
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.reviewStatus, "held"),
+        eq(generatedContent.id, id),
+      ),
+    )
+    .returning({ id: generatedContent.id });
+  return updated.map((r) => r.id);
+}
+
+/**
+ * Per-item Respond (Agent Inbox): replace a held draft's body with an agent
+ * re-draft, record the reviewer's feedback as the note, and keep it `held` so
+ * the revised draft gets a fresh look. Clears the prior decision stamp. Tenant +
+ * run + `held` scoped. Returns the ids actually changed.
+ */
+export async function respondHeldDraft(
+  id: string,
+  agentRunId: string,
+  clerkUserId: string,
+  newBody: string,
+  feedback: string,
+): Promise<string[]> {
+  const updated = await db
+    .update(generatedContent)
+    .set({
+      content: newBody,
+      reviewerNote: feedback,
+      reviewedAt: null,
+      reviewedBy: null,
+    })
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.reviewStatus, "held"),
+        eq(generatedContent.id, id),
+      ),
+    )
+    .returning({ id: generatedContent.id });
+  return updated.map((r) => r.id);
+}
+
+/** One held draft (id, platform, content) for the per-item Respond re-draft. */
+export async function getHeldDraft(
+  id: string,
+  agentRunId: string,
+  clerkUserId: string,
+): Promise<
+  { id: string; platform: Platform | null; content: string } | undefined
+> {
+  const [row] = await db
+    .select({
+      id: generatedContent.id,
+      platform: generatedContent.platform,
+      content: generatedContent.content,
+    })
+    .from(generatedContent)
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.reviewStatus, "held"),
+        eq(generatedContent.id, id),
+      ),
+    )
+    .limit(1);
+  return row;
+}
+
+/** How many drafts are still held for a run (tenant scoped) — drives resolution. */
+export async function countHeldForRun(
+  agentRunId: string,
+  clerkUserId: string,
+): Promise<number> {
+  const rows = await db
+    .select({ id: generatedContent.id })
+    .from(generatedContent)
+    .where(
+      and(
+        eq(generatedContent.clerkUserId, clerkUserId),
+        eq(generatedContent.agentRunId, agentRunId),
+        eq(generatedContent.reviewStatus, "held"),
+      ),
+    );
+  return rows.length;
 }
