@@ -108,7 +108,10 @@ export function formatDuration(ms: number | null): string {
   if (ms < 1000) return `${ms}ms`;
   const seconds = ms / 1000;
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds % 60);
+  // Round the total first, THEN split — otherwise rounding seconds independently
+  // can yield "1m 60s" (e.g. 119_999ms → 59.999s rounds to 60).
+  const rounded = Math.round(seconds);
+  const m = Math.floor(rounded / 60);
+  const s = rounded % 60;
   return `${m}m ${s}s`;
 }

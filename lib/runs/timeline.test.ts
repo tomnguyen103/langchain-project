@@ -146,6 +146,12 @@ describe("formatDuration", () => {
     assert.equal(formatDuration(123_000), "2m 3s");
   });
 
+  it("rolls a near-minute boundary over instead of rendering '1m 60s'", () => {
+    // 119_999ms is 59.999s past a minute; naive rounding would print "1m 60s".
+    assert.equal(formatDuration(119_999), "2m 0s");
+    assert.equal(formatDuration(120_000), "2m 0s");
+  });
+
   it("renders an em dash for unknown durations", () => {
     assert.equal(formatDuration(null), "—");
   });
