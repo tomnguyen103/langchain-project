@@ -41,7 +41,8 @@ export function PlatformPreview({
 }: {
   platform: Platform;
   body: string;
-  mediaCount?: number;
+  /** Attached media count, or `null` when unknown (suppresses media warnings). */
+  mediaCount?: number | null;
 }) {
   const a = analyzePreview(platform, body, mediaCount);
   const Icon = PLATFORM_ICONS[platform];
@@ -87,7 +88,7 @@ export function PlatformPreview({
           </p>
         )}
 
-        {mediaCount > 0 ? (
+        {mediaCount != null && mediaCount > 0 ? (
           <div className="text-muted-foreground bg-muted/40 flex aspect-video items-center justify-center gap-2 rounded-lg border border-dashed text-xs">
             <ImageIcon className="size-4" aria-hidden />
             {mediaCount} media attachment{mediaCount === 1 ? "" : "s"}

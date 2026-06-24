@@ -51,7 +51,13 @@ const PREVIEW_RULES: Partial<
 export function analyzePreview(
   platform: Platform,
   body: string,
-  mediaCount = 0,
+  /**
+   * Attached media count. `0` means "known to have none" (warns when the platform
+   * requires media); `null` means "media state unknown in this context" (e.g. the
+   * review queue, where a held draft has no media plumbed yet) and suppresses the
+   * required-media warning so it isn't shown as a false error.
+   */
+  mediaCount: number | null = 0,
 ): PreviewAnalysis {
   const meta = PLATFORM_META[platform];
   const rules = PREVIEW_RULES[platform] ?? {};

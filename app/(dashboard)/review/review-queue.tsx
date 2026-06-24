@@ -111,9 +111,12 @@ function DraftCard({ runId, draft }: { runId: string; draft: PendingReview }) {
 
       {draft.platform ? (
         <div className="mt-3">
+          {/* Held drafts have no media plumbed yet — pass null (unknown) so the
+              preview doesn't show a false "requires media" error during review. */}
           <PlatformPreview
             platform={draft.platform}
             body={mode === "edit" ? editValue : draft.content}
+            mediaCount={null}
           />
         </div>
       ) : null}

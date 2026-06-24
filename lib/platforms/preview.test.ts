@@ -52,6 +52,13 @@ describe("analyzePreview", () => {
     assert.ok(!a.warnings.some((w) => /requires at least one image/.test(w.message)));
   });
 
+  it("suppresses the media warning when media state is unknown (null)", () => {
+    // The review queue passes null — a held draft has no media plumbed yet, so
+    // asserting "requires media" there would be a false error.
+    const a = analyzePreview("instagram", "nice caption", null);
+    assert.ok(!a.warnings.some((w) => /requires at least one image/.test(w.message)));
+  });
+
   it("does not double-warn fold when already over the hard limit", () => {
     // Pinterest: max 500, fold 60. A 600-char body is over-limit; the fold hint
     // is suppressed so the user sees the actionable error, not both.
