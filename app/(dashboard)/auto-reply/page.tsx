@@ -32,6 +32,21 @@ const statusVariant: Record<
   failed: "destructive",
 };
 
+// Heuristic triage intent (Sirius+): escalate-worthy buckets stand out so a human
+// can spot leads/complaints/abuse in the feed at a glance.
+const intentVariant: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  abuse: "destructive",
+  complaint: "destructive",
+  lead: "default",
+  question: "secondary",
+  praise: "secondary",
+  spam: "outline",
+  other: "outline",
+};
+
 function Heading() {
   return (
     <div>
@@ -174,7 +189,14 @@ export default async function AutoReplyPage() {
                       {e.text || "No text"}
                     </div>
                   </div>
-                  <Badge variant={statusVariant[e.status]}>{e.status}</Badge>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {e.intent ? (
+                      <Badge variant={intentVariant[e.intent] ?? "outline"}>
+                        {e.intent}
+                      </Badge>
+                    ) : null}
+                    <Badge variant={statusVariant[e.status]}>{e.status}</Badge>
+                  </div>
                 </div>
               ))}
             </div>
