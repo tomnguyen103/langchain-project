@@ -9,6 +9,7 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,6 +24,7 @@ export const navItems: NavItem[] = [
   { href: "/auto-reply", label: "Auto-Reply", icon: MessageSquare },
   { href: "/review", label: "Review", icon: ShieldCheck },
   { href: "/compliance", label: "Compliance", icon: FileCheck },
+  { href: "/team", label: "Team", icon: Users },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

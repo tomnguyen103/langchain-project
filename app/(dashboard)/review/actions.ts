@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { refineDraftWithFeedback } from "@/lib/agent/refine-draft";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
 import { AgentName } from "@/lib/agents/types";
+import { requireRole } from "@/lib/auth/current-role";
 import { requireUserId } from "@/lib/clerk";
 import { getAgentRun } from "@/lib/repos/agent-runs";
 import {
@@ -23,14 +24,16 @@ import {
 import { resolveReviewDecision } from "@/lib/reviews/resolve";
 
 /**
- * Throw unless the run exists, belongs to the tenant, AND is still awaiting
- * approval — so a stale/duplicate request can't replay an approval or act on a
- * finished run.
+ * Throw unless the caller is an approver (Praetor), the run exists, belongs to
+ * the tenant, AND is still awaiting approval — so a stale/duplicate request
+ * can't replay an approval, a non-approver can't clear the queue, and a finished
+ * run can't be acted on.
  */
 async function requireApprovableRun(
   runId: string,
   userId: string,
 ): Promise<void> {
+  await requireRole("approver");
   const run = await getAgentRun(runId);
   if (!run || run.clerkUserId !== userId) {
     throw new Error("Run not found.");

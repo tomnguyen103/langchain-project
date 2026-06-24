@@ -1,0 +1,88 @@
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { getCurrentRole } from "@/lib/auth/current-role";
+import { canManageTeam } from "@/lib/auth/roles";
+import { getOrgId } from "@/lib/clerk";
+import { listMemberships } from "@/lib/repos/memberships";
+
+import { AddMemberForm, RoleSelect } from "./team-controls";
+
+export default async function TeamPage() {
+  const [role, orgId] = await Promise.all([getCurrentRole(), getOrgId()]);
+  const members = orgId ? await listMemberships(orgId) : [];
+  const manage = canManageTeam(role);
+
+  return (
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
+        <p className="text-muted-foreground text-sm">
+          Workspace roles gate sensitive actions — only an approver or above can
+          clear the review queue. Your role:{" "}
+          <Badge variant="secondary">{role}</Badge>
+        </p>
+      </header>
+
+      {!orgId ? (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="font-medium">No workspace yet</p>
+            <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
+              Create or switch to an organization to invite teammates and assign
+              roles. Solo accounts have full access by default.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {manage ? (
+            <Card>
+              <CardContent className="space-y-3 py-4">
+                <p className="text-sm font-medium">Add or update a member</p>
+                <AddMemberForm />
+                <p className="text-muted-foreground text-xs">
+                  Enter a teammate&apos;s Clerk user id and pick a role.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <Card>
+            <CardContent className="p-0">
+              {members.length === 0 ? (
+                <div className="py-10 text-center">
+                  <p className="font-medium">No members assigned</p>
+                  <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
+                    Members with no explicit role have full access until an admin
+                    assigns one.
+                  </p>
+                </div>
+              ) : (
+                <ul className="divide-y">
+                  {members.map((member) => (
+                    <li
+                      key={member.id}
+                      className="flex items-center justify-between gap-3 p-3 text-sm"
+                    >
+                      <span className="truncate font-mono text-xs">
+                        {member.clerkUserId}
+                      </span>
+                      {manage ? (
+                        <RoleSelect
+                          clerkUserId={member.clerkUserId}
+                          role={member.role}
+                        />
+                      ) : (
+                        <Badge variant="outline">{member.role}</Badge>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
