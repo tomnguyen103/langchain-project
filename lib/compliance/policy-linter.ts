@@ -63,15 +63,18 @@ const RULES: PolicyRule[] = [
     detail:
       "Move links to the first comment — outbound links in the post body reduce reach here.",
     test: /https?:\/\/\S+/i,
+    // Link-averse feeds only. Omitted on purpose: YouTube descriptions,
+    // Pinterest pins, and Discord all expect in-body links.
     platforms: ["linkedin", "x", "instagram", "tiktok"],
   },
 ];
 
 /**
- * Lint a draft against the policy pack for its platform. Returns every finding
- * (deduped by rule); the caller decides how to surface and whether `block`-level
- * findings gate auto-publish. A null/unknown platform runs only platform-agnostic
- * rules.
+ * Lint a draft against the policy pack for its platform. Each rule fires at most
+ * once, but overlapping rules can each match (e.g. "guaranteed returns" hits both
+ * absolute_claim and financial_claim). The caller decides how to surface findings
+ * and whether `block`-level ones gate auto-publish. A null/unknown platform runs
+ * only platform-agnostic rules.
  */
 export function lintPolicy(
   platform: string | null,
@@ -80,6 +83,7 @@ export function lintPolicy(
   const findings: PolicyFinding[] = [];
   for (const r of RULES) {
     if (r.platforms) {
+      // A null or non-enum platform simply skips platform-scoped rules (fail-safe).
       if (!platform || !r.platforms.includes(platform as Platform)) continue;
     }
     if (r.test.test(text)) {
