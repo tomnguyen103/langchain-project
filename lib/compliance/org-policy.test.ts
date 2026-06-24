@@ -56,6 +56,16 @@ describe("coerceOrgPolicyRules", () => {
     );
   });
 
+  it("normalizes newlines, trims, and dedupes for a stable round-trip", () => {
+    assert.deepEqual(
+      coerceOrgPolicyRules([
+        { term: "  flash\nsale  ", level: "block" },
+        { term: "flash sale", level: "block" }, // duplicate after normalization
+      ]),
+      [{ term: "flash sale", level: "block" }],
+    );
+  });
+
   it("returns [] for non-array values", () => {
     assert.deepEqual(coerceOrgPolicyRules(null), []);
     assert.deepEqual(coerceOrgPolicyRules({}), []);

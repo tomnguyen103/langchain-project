@@ -72,27 +72,24 @@ const RULES: PolicyRule[] = [
   },
 ];
 
-/** Escape a literal so it embeds in a RegExp with no metacharacter meaning —
- *  keeps tenant-supplied terms ReDoS-safe (no quantifiers survive escaping). */
-function escapeRegExp(literal: string): string {
-  return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 /**
- * Lint a draft against a tenant's custom rules (Praxis Live) — case-insensitive,
- * WORD-BOUNDARY matches on the escaped literal, so a rule "sale" fires on "sale"
- * but not "wholesale". Escaping strips all regex metacharacters from the term (no
- * quantifiers to backtrack) → ReDoS-safe even on tenant-supplied input.
+ * Lint a draft against a tenant's custom rules (Praxis Live) — case-insensitive
+ * LITERAL substring matches. Treating terms as literals (never compiled as a
+ * regex) keeps an org-supplied rule ReDoS/injection-free, and substring (not
+ * word-boundary) matching means a term like "#ad" or "C++" still matches. The
+ * trade-off is over-matching (a rule "sale" also hits "wholesale"); the settings
+ * UI advises using specific phrases. For a compliance gate, over-blocking is
+ * safer than silently missing a configured term.
  */
 export function lintOrgRules(
   text: string,
   rules: OrgPolicyRule[],
 ): PolicyFinding[] {
+  const haystack = text.toLowerCase();
   const findings: PolicyFinding[] = [];
   for (const rule of rules) {
-    const term = rule.term.trim();
-    if (term.length === 0) continue;
-    if (new RegExp(`\\b${escapeRegExp(term)}\\b`, "i").test(text)) {
+    const term = rule.term.trim().toLowerCase();
+    if (term.length > 0 && haystack.includes(term)) {
       findings.push({
         rule: "org_policy",
         detail: `Matches your custom policy rule: "${rule.term}".`,

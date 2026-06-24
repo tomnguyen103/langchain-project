@@ -88,8 +88,9 @@ export function BrandProfileForm({
         />
         <p className="text-muted-foreground text-xs">
           One rule per line. Prefix <code>block:</code> to hold a matching draft
-          for review, or <code>warn:</code> (default) to flag it. Checked at the
-          brand-safety gate alongside the built-in platform policies.
+          for review, or <code>warn:</code> (default) to flag it. Matched by
+          literal substring (case-insensitive), so prefer specific phrases.
+          Checked at the brand-safety gate alongside the built-in policies.
         </p>
       </div>
 

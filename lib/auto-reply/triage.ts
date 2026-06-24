@@ -68,13 +68,16 @@ function sentimentOf(text: string): CommentSentiment {
  * (escalate), not praise. URL flooding is counted separately to stay ReDoS-safe.
  */
 export function classifyComment(text: string): CommentTriage {
-  const scanned = (text ?? "").slice(0, MAX_SCAN);
+  const fullText = text ?? "";
+  const scanned = fullText.slice(0, MAX_SCAN);
   const urlCount = (scanned.match(/https?:\/\/\S+/g) ?? []).length;
 
-  if (ABUSE.test(scanned)) {
+  // Safety-critical buckets scan the FULL text (literal, linear regexes — still
+  // ReDoS-safe) so abuse/complaints can't be hidden past MAX_SCAN to dodge the gate.
+  if (ABUSE.test(fullText)) {
     return { intent: "abuse", sentiment: "negative", urgency: "high" };
   }
-  if (COMPLAINT.test(scanned)) {
+  if (COMPLAINT.test(fullText)) {
     return { intent: "complaint", sentiment: "negative", urgency: "high" };
   }
   if (LEAD.test(scanned)) {
