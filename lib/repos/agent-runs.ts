@@ -46,6 +46,41 @@ export async function getAgentRun(
   return row;
 }
 
+/**
+ * A user's runs, most recent first — the source for the run-inspector index
+ * (Lumen). Scoped by owner so the list never leaks another tenant's runs.
+ */
+export async function listAgentRunsForUser(
+  clerkUserId: string,
+  limit = 50,
+): Promise<AgentRun[]> {
+  return db
+    .select()
+    .from(agentRuns)
+    .where(eq(agentRuns.clerkUserId, clerkUserId))
+    .orderBy(desc(agentRuns.createdAt))
+    .limit(limit);
+}
+
+/**
+ * Look up a single run by correlation id, scoped to its owner. Returns undefined
+ * when the run doesn't exist OR belongs to another user, so the inspector page
+ * can `notFound()` either way without disclosing existence.
+ */
+export async function getAgentRunForUser(
+  runId: string,
+  clerkUserId: string,
+): Promise<AgentRun | undefined> {
+  const [row] = await db
+    .select()
+    .from(agentRuns)
+    .where(
+      and(eq(agentRuns.runId, runId), eq(agentRuns.clerkUserId, clerkUserId)),
+    )
+    .limit(1);
+  return row;
+}
+
 /** Patch the mutable fields of a run by correlation id (touches updatedAt). */
 export async function updateAgentRun(
   runId: string,
