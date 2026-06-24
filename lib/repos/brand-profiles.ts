@@ -7,6 +7,8 @@ import {
   type NewBrandProfile,
 } from "@/db/schema";
 import { DEFAULT_DISCLOSURE_POLICY } from "@/lib/compliance/disclosure";
+import { coerceOrgPolicyRules } from "@/lib/compliance/org-policy";
+import type { OrgPolicyRule } from "@/lib/compliance/policy-linter";
 
 /** A tenant's brand profile with defaults applied — never returns undefined. */
 export type ResolvedBrandProfile = {
@@ -15,6 +17,8 @@ export type ResolvedBrandProfile = {
   autoPublishEnabled: boolean;
   autoPublishThreshold: number;
   learnedMemory: Record<string, unknown> | null;
+  /** Custom Praxis policy rules (Praxis Live); empty when none configured. */
+  policyRules: OrgPolicyRule[];
 };
 
 /** Safe defaults for a tenant that hasn't configured a profile yet. */
@@ -24,6 +28,7 @@ export const DEFAULT_BRAND_PROFILE: ResolvedBrandProfile = {
   autoPublishEnabled: false,
   autoPublishThreshold: 0.8,
   learnedMemory: null,
+  policyRules: [],
 };
 
 /** Read a tenant's brand profile, falling back to safe defaults. */
@@ -37,13 +42,14 @@ export async function getBrandProfile(
     .limit(1);
   // Fresh copy, not the shared DEFAULT_BRAND_PROFILE reference, so a caller
   // mutating the result can't leak into future tenants' defaults.
-  if (!row) return { ...DEFAULT_BRAND_PROFILE, bannedTerms: [] };
+  if (!row) return { ...DEFAULT_BRAND_PROFILE, bannedTerms: [], policyRules: [] };
   return {
     voice: row.voice ?? "",
     bannedTerms: row.bannedTerms ?? [],
     autoPublishEnabled: row.autoPublishEnabled,
     autoPublishThreshold: row.autoPublishThreshold,
     learnedMemory: row.learnedMemory ?? null,
+    policyRules: coerceOrgPolicyRules(row.policyRules),
   };
 }
 
@@ -56,6 +62,7 @@ export async function upsertBrandProfile(
     bannedTerms?: string[];
     autoPublishEnabled?: boolean;
     autoPublishThreshold?: number;
+    policyRules?: OrgPolicyRule[];
   },
 ): Promise<void> {
   // Insert fills defaults for omitted fields; the conflict update only touches
@@ -68,6 +75,7 @@ export async function upsertBrandProfile(
     set.autoPublishEnabled = data.autoPublishEnabled;
   if (data.autoPublishThreshold !== undefined)
     set.autoPublishThreshold = data.autoPublishThreshold;
+  if (data.policyRules !== undefined) set.policyRules = data.policyRules;
 
   await db
     .insert(brandProfiles)
@@ -78,6 +86,7 @@ export async function upsertBrandProfile(
       bannedTerms: data.bannedTerms ?? [],
       autoPublishEnabled: data.autoPublishEnabled ?? false,
       autoPublishThreshold: data.autoPublishThreshold ?? 0.8,
+      policyRules: data.policyRules ?? [],
     })
     .onConflictDoUpdate({ target: brandProfiles.clerkUserId, set });
 }

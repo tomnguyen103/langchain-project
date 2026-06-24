@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requireUserId } from "@/lib/clerk";
+import { formatOrgPolicyRules } from "@/lib/compliance/org-policy";
 import {
   getBrandProfile,
   getDisclosurePolicy,
@@ -30,6 +31,7 @@ export default async function SettingsPage() {
           initial={{
             voice: profile.voice,
             bannedTerms: profile.bannedTerms.join(", "),
+            policyRules: formatOrgPolicyRules(profile.policyRules),
             autoPublishEnabled: profile.autoPublishEnabled,
             autoPublishThreshold: profile.autoPublishThreshold,
           }}

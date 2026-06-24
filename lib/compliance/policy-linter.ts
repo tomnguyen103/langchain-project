@@ -10,6 +10,9 @@ export type PolicyFinding = {
   level: PolicyLevel;
 };
 
+/** A tenant's custom policy rule (Praxis Live): a literal phrase + its level. */
+export type OrgPolicyRule = { term: string; level: PolicyLevel };
+
 type PolicyRule = {
   rule: string;
   level: PolicyLevel;
@@ -76,9 +79,34 @@ const RULES: PolicyRule[] = [
  * and whether `block`-level ones gate auto-publish. A null/unknown platform runs
  * only platform-agnostic rules.
  */
+/**
+ * Lint a draft against a tenant's custom rules (Praxis Live) — case-insensitive
+ * literal substring matches. The terms are literals (never compiled as a regex),
+ * so an org-supplied rule carries no ReDoS / injection risk.
+ */
+export function lintOrgRules(
+  text: string,
+  rules: OrgPolicyRule[],
+): PolicyFinding[] {
+  const haystack = text.toLowerCase();
+  const findings: PolicyFinding[] = [];
+  for (const rule of rules) {
+    const term = rule.term.trim().toLowerCase();
+    if (term.length > 0 && haystack.includes(term)) {
+      findings.push({
+        rule: "org_policy",
+        detail: `Matches your custom policy rule: "${rule.term}".`,
+        level: rule.level,
+      });
+    }
+  }
+  return findings;
+}
+
 export function lintPolicy(
   platform: string | null,
   text: string,
+  orgRules: OrgPolicyRule[] = [],
 ): PolicyFinding[] {
   const findings: PolicyFinding[] = [];
   for (const r of RULES) {
@@ -90,6 +118,8 @@ export function lintPolicy(
       findings.push({ rule: r.rule, detail: r.detail, level: r.level });
     }
   }
+  // Append the tenant's editable custom rules (Praxis Live).
+  findings.push(...lintOrgRules(text, orgRules));
   return findings;
 }
 

@@ -16,6 +16,7 @@ import {
 const BrandProfileInput = z.object({
   voice: z.string(),
   bannedTerms: z.string(),
+  policyRules: z.string(),
   autoPublishEnabled: z.boolean(),
   autoPublishThreshold: z.number(),
 });

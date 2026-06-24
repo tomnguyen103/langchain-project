@@ -19,6 +19,7 @@ export function BrandProfileForm({
 }) {
   const [voice, setVoice] = useState(initial.voice);
   const [bannedTerms, setBannedTerms] = useState(initial.bannedTerms);
+  const [policyRules, setPolicyRules] = useState(initial.policyRules);
   const [autoPublishEnabled, setAutoPublishEnabled] = useState(
     initial.autoPublishEnabled,
   );
@@ -32,6 +33,7 @@ export function BrandProfileForm({
         await saveBrandProfileAction({
           voice,
           bannedTerms,
+          policyRules,
           autoPublishEnabled,
           autoPublishThreshold: threshold,
         });
@@ -72,6 +74,22 @@ export function BrandProfileForm({
         <p className="text-muted-foreground text-xs">
           Comma- or newline-separated. A draft containing one is blocked outright
           and always held for review.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="policyRules">Custom policy rules</Label>
+        <Textarea
+          id="policyRules"
+          value={policyRules}
+          onChange={(event) => setPolicyRules(event.target.value)}
+          placeholder={"block: guaranteed results\nwarn: limited time offer"}
+          rows={3}
+        />
+        <p className="text-muted-foreground text-xs">
+          One rule per line. Prefix <code>block:</code> to hold a matching draft
+          for review, or <code>warn:</code> (default) to flag it. Checked at the
+          brand-safety gate alongside the built-in platform policies.
         </p>
       </div>
 

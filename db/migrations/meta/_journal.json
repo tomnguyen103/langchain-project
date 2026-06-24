@@ -183,6 +183,13 @@
       "when": 1782327511882,
       "tag": "0025_silky_oracle",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782328504263,
+      "tag": "0026_even_captain_flint",
+      "breakpoints": true
     }
   ]
 }
