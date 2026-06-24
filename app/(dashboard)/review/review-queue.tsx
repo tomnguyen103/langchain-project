@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { PlatformPreview } from "@/components/composer/platform-preview";
 import type { PendingReview } from "@/lib/repos/content-reviews";
 
 import {
@@ -107,6 +108,18 @@ function DraftCard({ runId, draft }: { runId: string; draft: PendingReview }) {
       ) : (
         <p className="text-sm whitespace-pre-wrap">{draft.content}</p>
       )}
+
+      {draft.platform ? (
+        <div className="mt-3">
+          {/* Held drafts have no media plumbed yet — pass null (unknown) so the
+              preview doesn't show a false "requires media" error during review. */}
+          <PlatformPreview
+            platform={draft.platform}
+            body={mode === "edit" ? editValue : draft.content}
+            mediaCount={null}
+          />
+        </div>
+      ) : null}
 
       {draft.reviewViolations && draft.reviewViolations.length > 0 ? (
         <ul className="text-muted-foreground mt-2 list-disc pl-5 text-xs">

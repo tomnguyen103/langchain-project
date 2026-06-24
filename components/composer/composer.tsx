@@ -123,6 +123,7 @@ export function Composer({
               value={bodyByPlatform}
               onChange={setVariant}
               onCopyToAll={copyToAll}
+              mediaCount={media.length}
             />
             <MediaUploader value={media} onChange={setMedia} />
           </CardContent>
