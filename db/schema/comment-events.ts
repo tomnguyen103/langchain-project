@@ -42,6 +42,12 @@ export const commentEvents = pgTable(
     replied: boolean("replied").notNull().default(false),
     replyExternalId: text("reply_external_id"),
     status: commentEventStatusEnum("status").notNull().default("pending"),
+    // Heuristic triage tags (Sirius+). Nullable — backfilled by the poll
+    // classifier; null = not yet classified. Allowed values + meaning live in
+    // lib/auto-reply/triage.ts (kept as text, not enums, to stay additive).
+    intent: text("intent"),
+    sentiment: text("sentiment"),
+    urgency: text("urgency"),
     ...timestamps,
   },
   (t) => [

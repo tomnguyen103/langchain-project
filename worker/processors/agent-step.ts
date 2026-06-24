@@ -1,7 +1,8 @@
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import { z } from "zod";
 
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import { decideRecovery } from "@/lib/agents/recovery";
 import { AgentName, type AgentContext } from "@/lib/agents/types";
 import { agentStepJobId } from "@/lib/queue/job-ids";
 import { QueueName } from "@/lib/queue/queues";
@@ -78,17 +79,46 @@ export async function agentStepProcessor(job: Job): Promise<void> {
     logger.info("agent-step: done", { runId, agent });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await updateScheduleStatus(QueueName.AgentStep, jobId, {
-      status: "failed",
-      finishedAt: new Date(),
-      lastError: message,
+    // Run Doctor: classify the failure and decide retry vs. fail-fast instead of
+    // blindly retrying every error to the BullMQ cap — a dead token / fatal error
+    // never recovers, and each wasted retry costs another LLM run.
+    const decision = decideRecovery({
+      error,
+      attempt: job.attemptsMade + 1,
+      maxAttempts: job.opts.attempts ?? 1,
     });
-    // Only fail the run once retries are exhausted (the final attempt).
-    const isFinalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
-    if (isFinalAttempt) {
+    if (decision.action === "fail") {
+      // Only persist terminal failure on the no-retry branch — writing it before
+      // the retry decision would leave stale error/finishedAt on the schedule row
+      // when a later attempt succeeds.
+      await updateScheduleStatus(QueueName.AgentStep, jobId, {
+        status: "failed",
+        finishedAt: new Date(),
+        lastError: message,
+      });
+      // Unrecoverable (bad token / fatal) or retries exhausted: mark the run
+      // failed and throw UnrecoverableError so BullMQ fails the job immediately
+      // (no further retries) AND records it in the failed set. A bare `return`
+      // would stop retries too, but BullMQ would log the attempt as a success —
+      // diverging the queue from the run/ledger status.
       await updateAgentRun(runId, { status: "failed", finishedAt: new Date() });
+      logger.error("agent-step: failed (no retry)", {
+        runId,
+        agent,
+        failureClass: decision.failureClass,
+        reason: decision.reason,
+        error: message,
+      });
+      throw new UnrecoverableError(message);
     }
-    logger.error("agent-step: error", { runId, agent, error: message });
+
+    // Transient with budget remaining — re-throw so BullMQ retries with backoff.
+    logger.warn("agent-step: transient failure, retrying", {
+      runId,
+      agent,
+      reason: decision.reason,
+      error: message,
+    });
     throw error;
   }
 }

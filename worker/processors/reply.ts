@@ -1,7 +1,9 @@
 import type { Job } from "bullmq";
 
 import { textOf } from "@/lib/agent/_util";
+import { buildReplyPrompt } from "@/lib/auto-reply/reply-prompt";
 import { renderTemplate } from "@/lib/auto-reply/template";
+import { classifyComment, isAutoReplySafe } from "@/lib/auto-reply/triage";
 import { getChatModel } from "@/lib/llm/factory";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import type { CommentReplyJobData } from "@/lib/queue/jobs";
@@ -39,6 +41,12 @@ export async function replyProcessor(job: Job): Promise<void> {
 
   const rule = await getRule(event.matchedRuleId);
   if (!rule || !rule.enabled) return skip("rule missing or disabled");
+
+  // Defense in depth: never auto-reply to abuse/complaints, regardless of how
+  // this comment reached "matched" (the ingest classifier is the primary gate).
+  if (!isAutoReplySafe(classifyComment(event.text))) {
+    return skip("triage escalates this comment — held for a human");
+  }
 
   const account = await getSocialAccount(event.socialAccountId);
   if (!account || account.status !== "active") return skip("account inactive");
@@ -122,16 +130,12 @@ async function composeAiReply(
   vars: { author: string; text: string },
 ): Promise<string> {
   const model = getChatModel({ temperature: 0.7 });
-  const prompt = [
-    "You are a friendly social media manager replying to a comment on a post.",
-    "Write a short, warm, on-brand reply of 1-2 sentences. No hashtags, no surrounding quotes.",
-    guidance ? `Voice / guidance to follow: ${guidance}` : "",
-    `Commenter: ${vars.author || "a follower"}`,
-    `Their comment: "${vars.text}"`,
-    "Reply:",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  // Untrusted author/text are length-bounded + fenced as data (injection guard).
+  const prompt = buildReplyPrompt({
+    guidance,
+    author: vars.author,
+    text: vars.text,
+  });
   const res = await model.invoke(prompt);
   return textOf(res.content).trim();
 }

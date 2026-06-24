@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { hasBlockingFinding, lintPolicy } from "./policy-linter";
+import { hasBlockingFinding, lintOrgRules, lintPolicy } from "./policy-linter";
 
 describe("lintPolicy", () => {
   it("passes a clean caption with no findings", () => {
@@ -58,5 +58,40 @@ describe("lintPolicy", () => {
   it("is case-insensitive", () => {
     const findings = lintPolicy("x", "GUARANTEED winner");
     assert.ok(findings.some((f) => f.rule === "absolute_claim"));
+  });
+});
+
+describe("lintOrgRules (Praxis Live)", () => {
+  it("matches literal substrings, including punctuation terms like '#ad'", () => {
+    // Word-boundary matching would MISS "#ad"; literal substring catches it.
+    const findings = lintOrgRules("Check our #ad disclosure", [
+      { term: "#ad", level: "warn" },
+    ]);
+    assert.ok(
+      findings.some((f) => f.rule === "org_policy" && f.level === "warn"),
+    );
+  });
+
+  it("is case-insensitive and matches multi-word phrases", () => {
+    const findings = lintOrgRules("Our FLASH SALE ends today", [
+      { term: "flash sale", level: "block" },
+    ]);
+    assert.ok(findings.some((f) => f.level === "block"));
+  });
+
+  it("over-matches substrings by design ('sale' also hits 'wholesale')", () => {
+    const findings = lintOrgRules("our wholesale program", [
+      { term: "sale", level: "warn" },
+    ]);
+    assert.ok(findings.some((f) => f.rule === "org_policy"));
+  });
+
+  it("flows through lintPolicy alongside the curated pack", () => {
+    const findings = lintPolicy("x", "huge sale", [
+      { term: "sale", level: "block" },
+    ]);
+    assert.ok(
+      findings.some((f) => f.rule === "org_policy" && f.level === "block"),
+    );
   });
 });

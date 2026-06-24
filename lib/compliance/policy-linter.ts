@@ -10,6 +10,9 @@ export type PolicyFinding = {
   level: PolicyLevel;
 };
 
+/** A tenant's custom policy rule (Praxis Live): a literal phrase + its level. */
+export type OrgPolicyRule = { term: string; level: PolicyLevel };
+
 type PolicyRule = {
   rule: string;
   level: PolicyLevel;
@@ -70,15 +73,44 @@ const RULES: PolicyRule[] = [
 ];
 
 /**
+ * Lint a draft against a tenant's custom rules (Praxis Live) — case-insensitive
+ * LITERAL substring matches. Treating terms as literals (never compiled as a
+ * regex) keeps an org-supplied rule ReDoS/injection-free, and substring (not
+ * word-boundary) matching means a term like "#ad" or "C++" still matches. The
+ * trade-off is over-matching (a rule "sale" also hits "wholesale"); the settings
+ * UI advises using specific phrases. For a compliance gate, over-blocking is
+ * safer than silently missing a configured term.
+ */
+export function lintOrgRules(
+  text: string,
+  rules: OrgPolicyRule[],
+): PolicyFinding[] {
+  const haystack = text.toLowerCase();
+  const findings: PolicyFinding[] = [];
+  for (const rule of rules) {
+    const term = rule.term.trim().toLowerCase();
+    if (term.length > 0 && haystack.includes(term)) {
+      findings.push({
+        rule: "org_policy",
+        detail: `Matches your custom policy rule: "${rule.term}".`,
+        level: rule.level,
+      });
+    }
+  }
+  return findings;
+}
+
+/**
  * Lint a draft against the policy pack for its platform. Each rule fires at most
  * once, but overlapping rules can each match (e.g. "guaranteed returns" hits both
  * absolute_claim and financial_claim). The caller decides how to surface findings
  * and whether `block`-level ones gate auto-publish. A null/unknown platform runs
- * only platform-agnostic rules.
+ * only platform-agnostic rules; a tenant's `orgRules` (Praxis Live) are appended.
  */
 export function lintPolicy(
   platform: string | null,
   text: string,
+  orgRules: OrgPolicyRule[] = [],
 ): PolicyFinding[] {
   const findings: PolicyFinding[] = [];
   for (const r of RULES) {
@@ -90,6 +122,8 @@ export function lintPolicy(
       findings.push({ rule: r.rule, detail: r.detail, level: r.level });
     }
   }
+  // Append the tenant's editable custom rules (Praxis Live).
+  findings.push(...lintOrgRules(text, orgRules));
   return findings;
 }
 

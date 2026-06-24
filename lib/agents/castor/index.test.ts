@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import type { PolicyFinding } from "@/lib/compliance/policy-linter";
+import {
+  lintPolicy,
+  type OrgPolicyRule,
+  type PolicyFinding,
+} from "@/lib/compliance/policy-linter";
 
 import { AgentName } from "../types";
 import { createCastor, type CastorDeps } from "./index";
@@ -22,6 +26,7 @@ function makeDeps(opts: {
     bannedTerms: string[];
     autoPublishEnabled: boolean;
     autoPublishThreshold: number;
+    policyRules?: OrgPolicyRule[];
   };
   results: Array<{
     contentId?: string;
@@ -31,11 +36,18 @@ function makeDeps(opts: {
   }>;
   recorded: Outcome[][];
   accepted: string[][];
-  lintPolicy?: (platform: string | null, text: string) => PolicyFinding[];
+  lintPolicy?: (
+    platform: string | null,
+    text: string,
+    orgRules?: OrgPolicyRule[],
+  ) => PolicyFinding[];
 }): CastorDeps {
   return {
     getGeneratedContentByIds: async () => opts.contents,
-    getBrandProfile: async () => opts.profile,
+    getBrandProfile: async () => ({
+      ...opts.profile,
+      policyRules: opts.profile.policyRules ?? [],
+    }),
     reviewDrafts: async () => opts.results,
     recordReviews: async (_runId, outcomes) => {
       opts.recorded.push(outcomes);
@@ -230,6 +242,37 @@ describe("castor agent", () => {
     assert.ok(
       recorded[0][0].violations.some((v) => v.rule === "outbound_link"),
     );
+  });
+
+  it("holds a draft that hits a tenant's custom block policy rule (Praxis Live)", async () => {
+    const recorded: Outcome[][] = [];
+    const accepted: string[][] = [];
+    const castor = createCastor(
+      makeDeps({
+        contents: [
+          { id: "c1", platform: "x", content: "Our flash sale ends today" },
+        ],
+        profile: {
+          voice: "",
+          bannedTerms: [],
+          autoPublishEnabled: true,
+          autoPublishThreshold: 0.5,
+          policyRules: [{ term: "flash sale", level: "block" }],
+        },
+        results: [
+          { contentId: "c1", score: 0.95, verdict: "pass", violations: [] },
+        ],
+        recorded,
+        accepted,
+        lintPolicy, // the REAL linter — verifies profile.policyRules flows through Castor
+      }),
+    );
+
+    const result = await castor.run({ generatedContentIds: ["c1"] }, ctx);
+
+    assert.equal(result.control?.pause, "awaiting_approval");
+    assert.deepEqual(accepted, []); // custom block rule kept it out of auto-publish
+    assert.ok(recorded[0][0].violations.some((v) => v.rule === "org_policy"));
   });
 
   it("terminates with reviewed 0 when there is nothing to review", async () => {
