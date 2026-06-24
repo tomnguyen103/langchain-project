@@ -43,6 +43,10 @@ export const brandProfiles = pgTable(
     learnedMemory: jsonb("learned_memory").$type<Record<string, unknown>>(),
     /** AI-content disclosure policy (Aletheia); null = disclosure off. */
     disclosurePolicy: jsonb("disclosure_policy").$type<DisclosurePolicy>(),
+    /** Per-org custom Praxis policy rules (literal warn/block phrases); null = none. */
+    policyRules: jsonb("policy_rules").$type<
+      Array<{ term: string; level: "warn" | "block" }>
+    >(),
     ...timestamps,
   },
   (t) => [

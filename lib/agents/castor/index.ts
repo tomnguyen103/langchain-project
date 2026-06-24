@@ -1,4 +1,7 @@
-import type { PolicyFinding } from "@/lib/compliance/policy-linter";
+import type {
+  OrgPolicyRule,
+  PolicyFinding,
+} from "@/lib/compliance/policy-linter";
 
 import { AgentName, type AgentDefinition } from "../types";
 
@@ -22,6 +25,8 @@ type BrandProfile = {
   bannedTerms: string[];
   autoPublishEnabled: boolean;
   autoPublishThreshold: number;
+  /** Custom Praxis policy rules (Praxis Live); empty when none configured. */
+  policyRules: OrgPolicyRule[];
 };
 
 /** Castor's side effects, injected for testability (no llm/db/env imports). */
@@ -52,7 +57,11 @@ export type CastorDeps = {
    * violations and a `block`-level finding forces the draft to be held, even if
    * brand-safety passed. Omitted ⇒ no policy lint (back-compatible).
    */
-  lintPolicy?: (platform: string | null, text: string) => PolicyFinding[];
+  lintPolicy?: (
+    platform: string | null,
+    text: string,
+    orgRules?: OrgPolicyRule[],
+  ) => PolicyFinding[];
 };
 
 /**
@@ -98,7 +107,8 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
         // Praxis: merge deterministic policy-lint findings into the verdict. A
         // blocking finding overrides a brand-safety `pass` to `block`, so the
         // existing `verdict === "pass"` gate keeps it out of auto-publish.
-        const lint = deps.lintPolicy?.(c.platform, c.content) ?? [];
+        const lint =
+          deps.lintPolicy?.(c.platform, c.content, profile.policyRules) ?? [];
         const blockingLint = lint.some((f) => f.level === "block");
         const violations = [
           ...baseViolations,

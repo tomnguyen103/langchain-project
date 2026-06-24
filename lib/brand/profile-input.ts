@@ -4,10 +4,15 @@
  * it unit-tests without a db or env (the server action calls it before upsert).
  */
 
+import { parseOrgPolicyRules } from "@/lib/compliance/org-policy";
+import type { OrgPolicyRule } from "@/lib/compliance/policy-linter";
+
 export type BrandProfileFormInput = {
   voice: string;
   /** Comma- or newline-separated banned terms. */
   bannedTerms: string;
+  /** One custom Praxis rule per line ("[block|warn]: phrase"). */
+  policyRules: string;
   autoPublishEnabled: boolean;
   autoPublishThreshold: number;
 };
@@ -15,6 +20,7 @@ export type BrandProfileFormInput = {
 export type NormalizedBrandProfile = {
   voice: string;
   bannedTerms: string[];
+  policyRules: OrgPolicyRule[];
   autoPublishEnabled: boolean;
   autoPublishThreshold: number;
 };
@@ -49,6 +55,7 @@ export function normalizeBrandProfileInput(
   return {
     voice,
     bannedTerms,
+    policyRules: parseOrgPolicyRules(input.policyRules),
     autoPublishEnabled: Boolean(input.autoPublishEnabled),
     autoPublishThreshold,
   };
