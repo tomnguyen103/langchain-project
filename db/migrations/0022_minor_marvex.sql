@@ -1,0 +1,1 @@
+ALTER TABLE "generated_content" ADD COLUMN "reviewer_note" text;

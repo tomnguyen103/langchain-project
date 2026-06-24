@@ -44,6 +44,9 @@ export const generatedContent = pgTable(
       jsonb("review_violations").$type<Array<{ rule: string; detail: string }>>(),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewedBy: text("reviewed_by"), // "auto" or a Clerk user id
+    // Free-text note from a per-item review action (Agent Inbox): the feedback a
+    // human gave on "Respond" (drove a re-draft) or the reason on "Ignore".
+    reviewerNote: text("reviewer_note"),
     // The Orion run that produced this draft (set by Castor) — lets the approve
     // API resume the right run after a human clears a held draft (T7).
     agentRunId: text("agent_run_id"),
