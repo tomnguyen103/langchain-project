@@ -119,7 +119,17 @@ export const reviewStatusEnum = pgEnum("review_status", [
   "rejected",
 ]);
 
+/** Workspace roles (Praetor) — keep in sync with ROLES in lib/auth/roles.ts. */
+export const workspaceRoleEnum = pgEnum("workspace_role", [
+  "owner",
+  "admin",
+  "approver",
+  "creator",
+  "viewer",
+]);
+
 export type Platform = (typeof platformEnum.enumValues)[number];
+export type WorkspaceRole = (typeof workspaceRoleEnum.enumValues)[number];
 export type AccountStatus = (typeof accountStatusEnum.enumValues)[number];
 export type PostStatus = (typeof postStatusEnum.enumValues)[number];
 export type TargetStatus = (typeof targetStatusEnum.enumValues)[number];

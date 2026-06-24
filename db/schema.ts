@@ -20,3 +20,4 @@ export * from "./schema/brand-profiles";
 export * from "./schema/reports";
 export * from "./schema/rate-limits";
 export * from "./schema/disclosure-ledger";
+export * from "./schema/memberships";

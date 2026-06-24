@@ -47,15 +47,22 @@ MVP = text disclosure injection + per-platform AI-label flag + disclosure ledger
 - **G2.5 — Tests.** Disclosure injection respects length limits; ledger written per published target.
 - **Acceptance:** publish path applies label/disclosure per brand policy and writes a complete ledger entry; gates green.
 
-## PR 3 — `feat/atrium-praetor-workspaces-roles`
+## PR 3 — `feat/praetor-roles-approvals`
 
-MVP = brands within an org + brand switcher + roles (owner/manager/creator/approver/viewer) + approver-only approve.
+Scoped to **Praetor** (roles + approver-gated review). Workspace roles
+(owner/admin/approver/creator/viewer) + approver-only review actions + a `/team`
+management page.
 
-- **G3.1 — Schema.** `brands` (orgId, name…), `memberships` (orgId, userId, role); add nullable `brandId` to posts/social_accounts/agent_runs/generated_content/reports/brand_profiles with a default-brand backfill. Migration.
-- **G3.2 — Repos + guard.** Brand-scope the relevant repo reads; `lib/clerk.ts` role guard (`requireRole`).
-- **G3.3 — UI.** Brand switcher in `components/shared/topbar.tsx`; `/team` page (members + roles); gate the approve action (PR-1) to `approver`/`manager`/`owner`.
-- **G3.4 — Tests.** Two brands never cross-leak in scoped reads; creator cannot approve, approver can.
-- **Acceptance:** brand isolation holds; role enforcement holds; gates green.
+> **Atrium deferred.** Full multi-brand data-scoping (a `brands` table + nullable
+> `brandId` backfilled across posts/accounts/runs/content/reports/profiles + the
+> brand switcher) is a large, invasive migration best verified against a live DB;
+> it is split out as its own follow-up rather than rushed into this PR.
+
+- **G3.1 — Schema.** `memberships` (orgId, userId, role) + `workspace_role` enum. Migration `0024`.
+- **G3.2 — Roles + guard.** Pure `lib/auth/roles.ts` (hierarchy + `canApprove`/`canManageTeam`/`canCreate`, unit-tested); `lib/repos/memberships.ts`; `lib/auth/current-role.ts` (`getCurrentRole` / `requireRole`). Solo users + members with no row fall back to `DEFAULT_ROLE` (owner), so existing flows keep full access.
+- **G3.3 — Gate + UI.** `requireRole("approver")` inside the review queue's `requireApprovableRun` (covers accept/edit/respond/ignore/reject + bulk); `/team` page (current role, member list, admin role assignment) + nav entry.
+- **G3.4 — Tests.** `roles.test.ts` — hierarchy + every capability boundary.
+- **Acceptance:** a non-approver can't clear the review queue; an approver can; gates green.
 
 ---
 
