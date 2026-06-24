@@ -1,7 +1,11 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { computeStepHash, verifyChain } from "@/lib/audit/run-audit";
+import {
+  computeStepHash,
+  stepToChainEntry,
+  verifyChain,
+} from "@/lib/audit/run-audit";
 import {
   agentRuns,
   agentSteps,
@@ -42,6 +46,41 @@ export async function getAgentRun(
     .select()
     .from(agentRuns)
     .where(eq(agentRuns.runId, runId))
+    .limit(1);
+  return row;
+}
+
+/**
+ * A user's runs, most recent first — the source for the run-inspector index
+ * (Lumen). Scoped by owner so the list never leaks another tenant's runs.
+ */
+export async function listAgentRunsForUser(
+  clerkUserId: string,
+  limit = 50,
+): Promise<AgentRun[]> {
+  return db
+    .select()
+    .from(agentRuns)
+    .where(eq(agentRuns.clerkUserId, clerkUserId))
+    .orderBy(desc(agentRuns.createdAt))
+    .limit(limit);
+}
+
+/**
+ * Look up a single run by correlation id, scoped to its owner. Returns undefined
+ * when the run doesn't exist OR belongs to another user, so the inspector page
+ * can `notFound()` either way without disclosing existence.
+ */
+export async function getAgentRunForUser(
+  runId: string,
+  clerkUserId: string,
+): Promise<AgentRun | undefined> {
+  const [row] = await db
+    .select()
+    .from(agentRuns)
+    .where(
+      and(eq(agentRuns.runId, runId), eq(agentRuns.clerkUserId, clerkUserId)),
+    )
     .limit(1);
   return row;
 }
@@ -104,22 +143,7 @@ export async function verifyRunAudit(
     .from(agentSteps)
     .where(eq(agentSteps.runId, runId))
     .orderBy(asc(agentSteps.createdAt));
-  const brokenAtIndex = verifyChain(
-    steps.map((s) => ({
-      step: {
-        runId: s.runId,
-        agent: s.agent,
-        status: s.status,
-        input: s.input,
-        summary: s.summary,
-        handoff: s.handoff,
-        control: s.control,
-        error: s.error,
-      },
-      prevHash: s.prevHash,
-      hash: s.hash ?? "",
-    })),
-  );
+  const brokenAtIndex = verifyChain(steps.map(stepToChainEntry));
   return { valid: brokenAtIndex === -1, brokenAtIndex };
 }
 

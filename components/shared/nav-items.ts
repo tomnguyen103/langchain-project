@@ -1,4 +1,5 @@
 import {
+  Activity,
   Calendar,
   CreditCard,
   FileCheck,
@@ -23,6 +24,7 @@ export const navItems: NavItem[] = [
   { href: "/research", label: "Research", icon: Search },
   { href: "/auto-reply", label: "Auto-Reply", icon: MessageSquare },
   { href: "/review", label: "Review", icon: ShieldCheck },
+  { href: "/runs", label: "Runs", icon: Activity },
   { href: "/compliance", label: "Compliance", icon: FileCheck },
   { href: "/team", label: "Team", icon: Users },
   { href: "/billing", label: "Billing", icon: CreditCard },
