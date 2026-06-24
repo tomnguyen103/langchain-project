@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Master Implementation Plan — Agent-Layer Upgrade (P0–P2)
 
 **Source:** [docs/research/ai-agent-trends-2026-06-22.md](research/ai-agent-trends-2026-06-22.md) (gap matrix). **Created:** 2026-06-22.

@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Agent Orchestration — Design Proposal
 
 > **Status:** Design only. No code in this document has been merged. It proposes

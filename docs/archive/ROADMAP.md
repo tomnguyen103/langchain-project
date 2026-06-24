@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Roadmap & Goal Prompts — AI Social Content Automation SaaS
 
 Companion to the full plan in [PLAN.md](PLAN.md).

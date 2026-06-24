@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Implementation Plan: AI Social Content Automation SaaS
 
 ## Context

@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Review Fix Plan (from the 2026-06-22 multi-axis review)
 
 Prioritized remediation of the code-quality / security / performance / design findings. Batched into PRs of ≥3 fixes; each batch: local gates green → non-draft PR → CodeRabbit → fix → merge.

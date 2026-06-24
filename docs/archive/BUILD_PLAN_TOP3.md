@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Build Plan — Recommended Top 3 (Triage · Aletheia · Atrium+Praetor)
 
 > Execution plan for the three "Recommended Top 3" features from

@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Orchestration Build — Goal Prompts
 
 Runnable `/goal` prompts that implement the agent-orchestration layer designed in

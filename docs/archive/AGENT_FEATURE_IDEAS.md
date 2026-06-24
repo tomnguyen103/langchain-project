@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # 20 AI-Agent Feature Ideas — SocialFlow
 
 > Generated from the repo's apparent product direction. **Not a commitment or a plan** — a

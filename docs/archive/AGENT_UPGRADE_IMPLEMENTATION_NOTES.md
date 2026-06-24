@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Agent-Layer Upgrade — Implementation Notes
 
 Running log of decisions made that **weren't in the spec**, things changed, and tradeoffs. Companion to [docs/AGENT_UPGRADE_PLAN.md](AGENT_UPGRADE_PLAN.md). Newest entries at the bottom of each PR section.

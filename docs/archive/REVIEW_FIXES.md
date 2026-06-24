@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # Review Remediation Plan
 
 Prioritized fixes from the full code-quality + frontend/a11y review (2026-06-22).

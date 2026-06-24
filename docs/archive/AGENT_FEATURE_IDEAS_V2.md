@@ -1,3 +1,5 @@
+> Archived 2026-06-24. Superseded by docs/MASTER_PLAN_v2.md.
+
 # SocialFlow — 23 New AI-Agent Feature Ideas (additive to the existing 20)
 
 > **Not a commitment or plan** — a grounded, repo-specific ideation menu. Companion to
