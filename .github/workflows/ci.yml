@@ -61,6 +61,14 @@ jobs:
       - name: Test
         run: npm run test
 
+      - name: Brand-safety gate
+        # Deterministic, key-free regression gate (Vigil): banned-term/PII examples
+        # must stay held even under a maximally-permissive judge, so a guardrail
+        # regression can't let an unsafe draft auto-publish. The live-judge
+        # threshold calibration (npm run eval:brand-safety) needs an LLM key and
+        # runs separately/nightly, not on every PR.
+        run: npm run eval:gate
+
       - name: Build
         run: npm run build
 
