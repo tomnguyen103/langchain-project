@@ -25,3 +25,7 @@ export const agentStepJobId = (runId: string, agent: string) =>
 /** One repeatable seeding scheduler per account (idempotent upsert by id). */
 export const seedingSchedulerId = (socialAccountId: string) =>
   `seeding_${socialAccountId}`;
+
+/** One repeatable metrics-poll scheduler per account (idempotent upsert by id). */
+export const metricsPollSchedulerId = (socialAccountId: string) =>
+  `metrics-poll_${socialAccountId}`;

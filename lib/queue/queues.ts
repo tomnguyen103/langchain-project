@@ -19,6 +19,8 @@ export enum QueueName {
   Seeding = "seeding",
   // Periodic ledger-reconciliation sweep (orphaned record()→enqueue() gaps).
   Reconcile = "reconcile",
+  // Per-account engagement-metrics poll (Pulse) — mirrors comment-poll.
+  Metrics = "metrics",
 }
 
 const queueCache = new Map<QueueName, Queue>();

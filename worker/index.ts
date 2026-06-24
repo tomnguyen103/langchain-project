@@ -13,6 +13,7 @@ import {
 import { QueueName } from "@/lib/queue/queues";
 import { agentStepProcessor } from "./processors/agent-step";
 import { commentPollProcessor } from "./processors/comment-poll";
+import { metricsPollProcessor } from "./processors/metrics-poll";
 import { publishProcessor } from "./processors/publish";
 import { reconcileProcessor } from "./processors/reconcile";
 import { replyProcessor } from "./processors/reply";
@@ -77,6 +78,7 @@ startWorker(QueueName.Report, reportProcessor, 1);
 startWorker(QueueName.Seeding, seedingProcessor, 2);
 startWorker(QueueName.TokenRefresh, tokenRefreshProcessor, 1);
 startWorker(QueueName.Reconcile, reconcileProcessor, 1);
+startWorker(QueueName.Metrics, metricsPollProcessor, 5);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });
 

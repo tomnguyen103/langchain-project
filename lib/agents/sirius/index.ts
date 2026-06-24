@@ -10,15 +10,15 @@ export type SiriusInput = {
 /** Sirius's side effects, injected for testability (no runtime db/env imports). */
 export type SiriusDeps = {
   registerCommentPoll: (socialAccountId: string) => Promise<void>;
+  registerMetricsPoll: (socialAccountId: string) => Promise<void>;
   getAccountIdsForTargets: (targetIds: string[]) => Promise<string[]>;
 };
 
 /**
  * Sirius — engagement / auto-reply. A thin relabel of the existing comment
- * machinery: it ensures each relevant account has an active comment poll
- * (registerCommentPoll is idempotent), so freshly-published posts get watched
- * and the existing reply pipeline handles matches unchanged. Terminal — no
- * handoff.
+ * machinery: it ensures each relevant account has active comment + metrics polls
+ * (both idempotent), so freshly-published posts get watched for engagement and
+ * the existing reply pipeline handles matches unchanged. Terminal — no handoff.
  */
 export function createSirius(deps: SiriusDeps): AgentDefinition<SiriusInput> {
   return {
@@ -35,6 +35,7 @@ export function createSirius(deps: SiriusDeps): AgentDefinition<SiriusInput> {
 
       for (const accountId of accountIds) {
         await deps.registerCommentPoll(accountId);
+        await deps.registerMetricsPoll(accountId);
       }
 
       return { summary: { polling: accountIds.size } };

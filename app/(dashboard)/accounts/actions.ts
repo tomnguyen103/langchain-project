@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
-import { unregisterCommentPoll } from "@/lib/queue/jobs";
+import { unregisterCommentPoll, unregisterMetricsPoll } from "@/lib/queue/jobs";
 import {
   deleteSocialAccount,
   getUserSocialAccount,
@@ -33,6 +33,7 @@ export async function disconnectAccount(formData: FormData) {
   // it's best-effort (the next poll no-ops on the missing account).
   await deleteSocialAccount(id, userId);
   await unregisterCommentPoll(id).catch(() => {});
+  await unregisterMetricsPoll(id).catch(() => {});
   revalidatePath("/accounts");
 }
 

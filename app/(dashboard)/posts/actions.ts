@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { consumeQuota, releaseQuotaForPeriod } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
+import { toMetricsRecord } from "@/lib/metrics/poll";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { hasLiveTarget } from "@/lib/posts/status";
 import { cancelPublish, enqueuePublish } from "@/lib/queue/jobs";
@@ -150,13 +151,8 @@ export async function refreshPostMetrics(postId: string): Promise<void> {
     if (!account) continue;
     try {
       const m = await connector.fetchMetrics(account, target.externalPostId);
-      const metrics: Record<string, number> = {};
-      if (m.likes != null) metrics.likes = m.likes;
-      if (m.comments != null) metrics.comments = m.comments;
-      if (m.shares != null) metrics.shares = m.shares;
-      if (m.views != null) metrics.views = m.views;
       await updatePostTarget(target.id, {
-        metrics,
+        metrics: toMetricsRecord(m),
         metricsUpdatedAt: new Date(),
       });
     } catch (error) {

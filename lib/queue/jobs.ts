@@ -6,6 +6,7 @@ import {
   agentStepJobId,
   commentPollSchedulerId,
   commentReplyJobId,
+  metricsPollSchedulerId,
   publishJobId,
   researchJobId,
   seedingSchedulerId,
@@ -223,6 +224,42 @@ export async function unregisterSeeding(
 ): Promise<void> {
   await getQueue(QueueName.Seeding).removeJobScheduler(
     seedingSchedulerId(socialAccountId),
+  );
+}
+
+export type MetricsPollJobData = { socialAccountId: string };
+
+const METRICS_POLL_EVERY_MS = 30 * 60_000; // re-check an account's post metrics every 30 min
+
+/**
+ * Register (or refresh) a repeating engagement-metrics poll for an account
+ * (Pulse). Idempotent upsert keyed by the account id, mirroring
+ * registerCommentPoll. The processor applies a maturity curve, so this fixed
+ * cadence only bounds how often we *check* — not the per-post fetch rate.
+ */
+export async function registerMetricsPoll(
+  socialAccountId: string,
+): Promise<void> {
+  await getQueue(QueueName.Metrics).upsertJobScheduler(
+    metricsPollSchedulerId(socialAccountId),
+    { every: METRICS_POLL_EVERY_MS },
+    {
+      name: "metrics-poll",
+      data: { socialAccountId } satisfies MetricsPollJobData,
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+/** Stop polling an account's post metrics (e.g. on disconnect). */
+export async function unregisterMetricsPoll(
+  socialAccountId: string,
+): Promise<void> {
+  await getQueue(QueueName.Metrics).removeJobScheduler(
+    metricsPollSchedulerId(socialAccountId),
   );
 }
 

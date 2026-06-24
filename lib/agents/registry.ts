@@ -6,6 +6,7 @@ import { runResearch } from "@/lib/agent/research";
 import {
   enqueuePublish,
   registerCommentPoll,
+  registerMetricsPoll,
   registerSeeding,
   unregisterSeeding,
 } from "@/lib/queue/jobs";
@@ -96,6 +97,7 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
   }),
   [AgentName.Sirius]: createSirius({
     registerCommentPoll,
+    registerMetricsPoll,
     getAccountIdsForTargets,
   }),
   [AgentName.Rigel]: createRigel({
