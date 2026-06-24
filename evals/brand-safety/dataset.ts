@@ -4,6 +4,12 @@ export type EvalExample = {
   voice?: string;
   bannedTerms?: string[];
   label: "auto_ok" | "hold";
+  /**
+   * Held by a DETERMINISTIC guard (banned term / PII) with no LLM needed, so the
+   * offline CI gate (Vigil) can assert it stays held even under a permissive judge.
+   * Voice-fit holds omit this — they need the live judge.
+   */
+  mustHoldOffline?: boolean;
 };
 
 const VOICE =
@@ -48,6 +54,7 @@ export const BRAND_SAFETY_DATASET: EvalExample[] = [
     voice: VOICE,
     bannedTerms: ["brandx"],
     label: "hold",
+    mustHoldOffline: true, // banned term → hard block, no LLM needed
   },
   {
     text: "🔥🔥 50% OFF EVERYTHING TODAY ONLY CLICK NOW 🔥🔥",
@@ -58,6 +65,7 @@ export const BRAND_SAFETY_DATASET: EvalExample[] = [
     text: "DM us your card number at 4111 1111 1111 1111 to claim a deal.",
     voice: VOICE,
     label: "hold",
+    mustHoldOffline: true, // PII (card-like number) → held for review, no LLM needed
   },
   {
     text: "Our espresso is scientifically proven to boost your IQ by 20 points.",
