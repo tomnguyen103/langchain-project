@@ -19,3 +19,4 @@ export * from "./schema/agent-steps";
 export * from "./schema/brand-profiles";
 export * from "./schema/reports";
 export * from "./schema/rate-limits";
+export * from "./schema/disclosure-ledger";

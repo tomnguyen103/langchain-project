@@ -12,6 +12,18 @@ import {
 import { timestamps } from "./_helpers";
 
 /**
+ * Per-tenant AI-content disclosure policy (Aletheia). When `labelAiContent` is
+ * on, the agent's autopublish path appends `disclosureText` (within each
+ * platform's limit) and records a disclosure_ledger row. `jurisdiction` is a
+ * free-text audit tag (e.g. "EU", "US-CA").
+ */
+export type DisclosurePolicy = {
+  labelAiContent: boolean;
+  disclosureText: string | null;
+  jurisdiction: string | null;
+};
+
+/**
  * brand_profiles — one row per tenant (keyed by clerkUserId). Holds the
  * brand-safety SETTINGS the Castor gate reads (voice, banned terms, the
  * auto-publish toggle + threshold) plus a `learnedMemory` blob that Rigel writes
@@ -29,6 +41,8 @@ export const brandProfiles = pgTable(
     autoPublishEnabled: boolean("auto_publish_enabled").notNull().default(false),
     autoPublishThreshold: real("auto_publish_threshold").notNull().default(0.8),
     learnedMemory: jsonb("learned_memory").$type<Record<string, unknown>>(),
+    /** AI-content disclosure policy (Aletheia); null = disclosure off. */
+    disclosurePolicy: jsonb("disclosure_policy").$type<DisclosurePolicy>(),
     ...timestamps,
   },
   (t) => [

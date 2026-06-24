@@ -9,8 +9,13 @@ import {
   unregisterSeeding,
 } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
-import { getBrandProfile, setLearnedMemory } from "@/lib/repos/brand-profiles";
+import {
+  getBrandProfile,
+  getDisclosurePolicy,
+  setLearnedMemory,
+} from "@/lib/repos/brand-profiles";
 import { recordReviews } from "@/lib/repos/content-reviews";
+import { recordDisclosures } from "@/lib/repos/disclosure-ledger";
 import {
   getGeneratedContentByIds,
   markGeneratedContentAccepted,
@@ -84,6 +89,8 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
     enqueuePublish,
     updatePostTarget,
     recomputePostStatus,
+    getDisclosurePolicy,
+    recordDisclosures,
   }),
   [AgentName.Sirius]: createSirius({
     registerCommentPoll,

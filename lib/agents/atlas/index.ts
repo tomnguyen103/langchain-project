@@ -1,9 +1,17 @@
 import type {
   AccountStatus,
+  DisclosurePolicy,
+  NewDisclosureLedgerEntry,
   NewPost,
   NewPostTarget,
   Platform,
 } from "@/db/schema";
+import {
+  applyDisclosure,
+  DISCLOSURE_POLICY_VERSION,
+  type DisclosureOutcome,
+} from "@/lib/compliance/disclosure";
+import { PLATFORM_META } from "@/lib/platforms/constants";
 
 import { AgentName, type AgentDefinition, type AgentResult } from "../types";
 
@@ -41,6 +49,13 @@ export type AtlasDeps = {
   }) => Promise<string>;
   updatePostTarget: (id: string, data: Partial<NewPostTarget>) => Promise<void>;
   recomputePostStatus: (postId: string) => Promise<unknown>;
+  /**
+   * AI-content disclosure policy for the tenant (Aletheia). Optional — when
+   * absent or disabled, Atlas applies no disclosure (pre-Aletheia behavior).
+   */
+  getDisclosurePolicy?: (clerkUserId: string) => Promise<DisclosurePolicy>;
+  /** Persist disclosure audit rows for the published targets (Aletheia). */
+  recordDisclosures?: (entries: NewDisclosureLedgerEntry[]) => Promise<void>;
 };
 
 /**
@@ -152,22 +167,52 @@ export function createAtlas(deps: AtlasDeps): AgentDefinition<AtlasInput> {
         }
       }
 
+      // Aletheia: a tenant's AI-content disclosure policy (optional dep). When
+      // enabled, each target body gets the disclosure appended (within the
+      // platform limit) and an audit row is written once the targets exist.
+      const policy = deps.getDisclosurePolicy
+        ? await deps.getDisclosurePolicy(ctx.clerkUserId)
+        : null;
+      const discloseEnabled = Boolean(policy?.labelAiContent);
+
       // One target per active account (the unique (post, account) constraint
       // means a platform can't appear twice in the same post).
       const usedAccountIds = new Set<string>();
       const targets: Array<Omit<NewPostTarget, "postId">> = [];
+      // Per-target disclosure outcome, index-aligned with `targets` (and with the
+      // created targets, returned in the same order) so the ledger can zip them.
+      const disclosures: Array<
+        { platform: Platform; outcome: DisclosureOutcome } | null
+      > = [];
       for (const content of contents) {
         if (!content.platform) continue;
         const account = accountByPlatform.get(content.platform);
         if (!account || usedAccountIds.has(account.id)) continue;
         usedAccountIds.add(account.id);
+
+        let body = content.content;
+        let disclosure:
+          | { platform: Platform; outcome: DisclosureOutcome }
+          | null = null;
+        if (discloseEnabled && policy) {
+          const outcome = applyDisclosure({
+            body,
+            maxBodyLength: PLATFORM_META[content.platform].maxBodyLength,
+            platform: content.platform,
+            policy,
+          });
+          body = outcome.body;
+          disclosure = { platform: content.platform, outcome };
+        }
+
         targets.push({
           socialAccountId: account.id,
           platform: content.platform,
-          body: content.content,
+          body,
           status: "queued",
           scheduledAt: runAt,
         });
+        disclosures.push(disclosure);
       }
       if (targets.length === 0) return { summary: { scheduled: 0 } };
 
@@ -182,6 +227,25 @@ export function createAtlas(deps: AtlasDeps): AgentDefinition<AtlasInput> {
         },
         targets,
       });
+
+      // Write the disclosure audit — one row per target the engine acted on.
+      if (discloseEnabled && policy && deps.recordDisclosures) {
+        const entries: NewDisclosureLedgerEntry[] = [];
+        post.targets.forEach((target, i) => {
+          const disclosure = disclosures[i];
+          if (!disclosure) return;
+          entries.push({
+            clerkUserId: ctx.clerkUserId,
+            postTargetId: target.id,
+            platform: disclosure.platform,
+            platformLabelApplied: disclosure.outcome.platformLabelApplied,
+            disclosureText: disclosure.outcome.disclosureText,
+            jurisdiction: policy.jurisdiction,
+            policyVersion: DISCLOSURE_POLICY_VERSION,
+          });
+        });
+        await deps.recordDisclosures(entries);
+      }
 
       const scheduled = await scheduleTargets(
         deps,

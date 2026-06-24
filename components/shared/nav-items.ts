@@ -1,6 +1,7 @@
 import {
   Calendar,
   CreditCard,
+  FileCheck,
   LayoutDashboard,
   MessageSquare,
   PenSquare,
@@ -21,6 +22,7 @@ export const navItems: NavItem[] = [
   { href: "/research", label: "Research", icon: Search },
   { href: "/auto-reply", label: "Auto-Reply", icon: MessageSquare },
   { href: "/review", label: "Review", icon: ShieldCheck },
+  { href: "/compliance", label: "Compliance", icon: FileCheck },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
