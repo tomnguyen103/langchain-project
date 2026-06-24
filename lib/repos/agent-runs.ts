@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -178,4 +178,29 @@ export async function listStepsForRun(runId: string): Promise<AgentStep[]> {
     .from(agentSteps)
     .where(eq(agentSteps.runId, runId))
     .orderBy(asc(agentSteps.createdAt));
+}
+
+/**
+ * Estimated total LLM cost (USD) across a user's runs since `since` — sums the
+ * per-step `costUsd` Quaestor records in agent_steps.summary, joined to the owning
+ * run for tenant scoping. Coalesced to 0 so a user with no priced steps reads as
+ * $0, not null. An estimate (see lib/billing/cost-model.ts), not a billed amount.
+ */
+export async function sumRunCostUsd(
+  clerkUserId: string,
+  since: Date,
+): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<string>`coalesce(sum((${agentSteps.summary} ->> 'costUsd')::numeric), 0)`,
+    })
+    .from(agentSteps)
+    .innerJoin(agentRuns, eq(agentSteps.runId, agentRuns.runId))
+    .where(
+      and(
+        eq(agentRuns.clerkUserId, clerkUserId),
+        gte(agentSteps.createdAt, since),
+      ),
+    );
+  return Number(row?.total ?? 0);
 }

@@ -1,4 +1,5 @@
 import type { Platform } from "@/db/schema";
+import type { TokenUsage } from "@/lib/billing/cost-model";
 import { formatLearnedNotes } from "@/lib/brand/learned-notes";
 
 import { AgentName, type AgentDefinition } from "../types";
@@ -21,7 +22,12 @@ export type LyraDeps = {
     platforms: Platform[];
     userId: string;
     brand?: { voice?: string; bannedTerms?: string[]; learnedNotes?: string };
-  }) => Promise<{ drafts: Record<string, string>; savedContentIds: string[] }>;
+  }) => Promise<{
+    drafts: Record<string, string>;
+    savedContentIds: string[];
+    usage: TokenUsage;
+    costUsd: number;
+  }>;
   getBrandProfile: (clerkUserId: string) => Promise<{
     voice: string;
     bannedTerms: string[];
@@ -40,19 +46,25 @@ export function createLyra(deps: LyraDeps): AgentDefinition<LyraInput> {
     name: AgentName.Lyra,
     async run(input, ctx) {
       const profile = await deps.getBrandProfile(ctx.clerkUserId);
-      const { drafts, savedContentIds } = await deps.runContentAgent({
-        topic: input.topic,
-        platforms: input.platforms,
-        userId: ctx.clerkUserId,
-        brand: {
-          voice: profile.voice,
-          bannedTerms: profile.bannedTerms,
-          learnedNotes: formatLearnedNotes(profile.learnedMemory),
-        },
-      });
+      const { drafts, savedContentIds, usage, costUsd } =
+        await deps.runContentAgent({
+          topic: input.topic,
+          platforms: input.platforms,
+          userId: ctx.clerkUserId,
+          brand: {
+            voice: profile.voice,
+            bannedTerms: profile.bannedTerms,
+            learnedNotes: formatLearnedNotes(profile.learnedMemory),
+          },
+        });
 
       return {
-        summary: { drafts: Object.keys(drafts).length },
+        summary: {
+          drafts: Object.keys(drafts).length,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          costUsd,
+        },
         handoff: {
           to: AgentName.Castor,
           payload: { generatedContentIds: savedContentIds },

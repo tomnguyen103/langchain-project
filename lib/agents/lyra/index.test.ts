@@ -21,6 +21,8 @@ describe("lyra agent", () => {
         return {
           drafts: { instagram: "a", x: "b" },
           savedContentIds: ["c1", "c2"],
+          usage: { inputTokens: 100, outputTokens: 40, totalTokens: 140 },
+          costUsd: 0.0012,
         };
       },
     });
@@ -53,7 +55,12 @@ describe("lyra agent", () => {
         bannedTerms: [],
         learnedMemory: null,
       }),
-      runContentAgent: async () => ({ drafts: {}, savedContentIds: [] }),
+      runContentAgent: async () => ({
+        drafts: {},
+        savedContentIds: [],
+        usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+        costUsd: 0,
+      }),
     });
 
     const result = await lyra.run(
@@ -61,7 +68,12 @@ describe("lyra agent", () => {
       { clerkUserId: "u", runId: "r" },
     );
 
-    assert.deepEqual(result.summary, { drafts: 0 });
+    assert.deepEqual(result.summary, {
+      drafts: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      costUsd: 0,
+    });
     assert.deepEqual(result.handoff?.payload, { generatedContentIds: [] });
   });
 

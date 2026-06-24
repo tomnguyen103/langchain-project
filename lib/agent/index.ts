@@ -1,4 +1,11 @@
 import type { Platform } from "@/db/schema";
+import {
+  estimateCostUsd,
+  modelForProvider,
+  type TokenUsage,
+} from "@/lib/billing/cost-model";
+import { env } from "@/lib/env";
+import { createUsageCollector } from "@/lib/llm/usage";
 import { setGeneratedContentRunId } from "@/lib/repos/generated-content";
 
 import { contentGraph } from "./graph";
@@ -7,6 +14,10 @@ export type GenerateResult = {
   drafts: Record<string, string>;
   /** ids of the generated_content rows finalize persisted (for downstream agents). */
   savedContentIds: string[];
+  /** Token usage across every LLM call in this run (Quaestor cost telemetry). */
+  usage: TokenUsage;
+  /** Estimated USD cost of this run at the model's list price (not a charge). */
+  costUsd: number;
 };
 
 /** Run the content-generation agent for a topic across the given platforms. */
@@ -19,6 +30,8 @@ export async function runContentAgent(input: {
 }): Promise<GenerateResult> {
   // Capture the root LangSmith run id so generated rows can deep-link to the trace.
   let langsmithRunId: string | undefined;
+  // Accumulate token usage across every LLM call in the graph for cost telemetry.
+  const usageCollector = createUsageCollector();
   const result = await contentGraph.invoke(
     {
       topic: input.topic,
@@ -34,6 +47,7 @@ export async function runContentAgent(input: {
           handleChainStart: (_chain, _inputs, runId) => {
             langsmithRunId ??= runId;
           },
+          handleLLMEnd: (output) => usageCollector.collect(output),
         },
       ],
     },
@@ -57,5 +71,7 @@ export async function runContentAgent(input: {
       "content agent produced drafts but persisted no generated_content rows",
     );
   }
-  return { drafts: result.drafts, savedContentIds };
+  const usage = usageCollector.usage();
+  const costUsd = estimateCostUsd(usage, modelForProvider(env.LLM_PROVIDER));
+  return { drafts: result.drafts, savedContentIds, usage, costUsd };
 }
