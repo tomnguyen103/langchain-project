@@ -3,6 +3,7 @@ import type { Job } from "bullmq";
 import { textOf } from "@/lib/agent/_util";
 import { buildReplyPrompt } from "@/lib/auto-reply/reply-prompt";
 import { renderTemplate } from "@/lib/auto-reply/template";
+import { classifyComment, isAutoReplySafe } from "@/lib/auto-reply/triage";
 import { getChatModel } from "@/lib/llm/factory";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import type { CommentReplyJobData } from "@/lib/queue/jobs";
@@ -40,6 +41,12 @@ export async function replyProcessor(job: Job): Promise<void> {
 
   const rule = await getRule(event.matchedRuleId);
   if (!rule || !rule.enabled) return skip("rule missing or disabled");
+
+  // Defense in depth: never auto-reply to abuse/complaints, regardless of how
+  // this comment reached "matched" (the ingest classifier is the primary gate).
+  if (!isAutoReplySafe(classifyComment(event.text))) {
+    return skip("triage escalates this comment — held for a human");
+  }
 
   const account = await getSocialAccount(event.socialAccountId);
   if (!account || account.status !== "active") return skip("account inactive");

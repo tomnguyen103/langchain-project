@@ -21,8 +21,16 @@ export function buildReplyPrompt(input: {
   /** Untrusted commenter text. */
   text: string;
 }): string {
-  const author = (input.author || "a follower").slice(0, MAX_AUTHOR_CHARS);
-  const comment = (input.text ?? "").slice(0, MAX_COMMENT_CHARS);
+  // Collapse newlines/tabs so the untrusted handle can't inject a new prompt line.
+  const author = (input.author || "a follower")
+    .replace(/[\r\n\t]+/g, " ")
+    .slice(0, MAX_AUTHOR_CHARS);
+  // Strip the fence delimiters from the untrusted text so a comment containing a
+  // literal </comment> can't close the fence early and inject trailing
+  // instructions outside the data region.
+  const comment = (input.text ?? "")
+    .replace(/<\/?comment>/gi, "")
+    .slice(0, MAX_COMMENT_CHARS);
   return [
     "You are a friendly social media manager replying to a comment on a post.",
     "Write a short, warm, on-brand reply of 1-2 sentences. No hashtags, no surrounding quotes.",

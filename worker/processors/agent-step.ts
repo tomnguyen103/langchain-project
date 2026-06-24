@@ -1,4 +1,4 @@
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import { z } from "zod";
 
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
@@ -94,8 +94,11 @@ export async function agentStepProcessor(job: Job): Promise<void> {
     });
 
     if (decision.action === "fail") {
-      // Unrecoverable (or exhausted): mark the run failed and stop. Do NOT
-      // re-throw, so BullMQ doesn't keep retrying a doomed step.
+      // Unrecoverable (bad token / fatal) or retries exhausted: mark the run
+      // failed and throw UnrecoverableError so BullMQ fails the job immediately
+      // (no further retries) AND records it in the failed set. A bare `return`
+      // would stop retries too, but BullMQ would log the attempt as a success —
+      // diverging the queue from the run/ledger status.
       await updateAgentRun(runId, { status: "failed", finishedAt: new Date() });
       logger.error("agent-step: failed (no retry)", {
         runId,
@@ -104,7 +107,7 @@ export async function agentStepProcessor(job: Job): Promise<void> {
         reason: decision.reason,
         error: message,
       });
-      return;
+      throw new UnrecoverableError(message);
     }
 
     // Transient with budget remaining — re-throw so BullMQ retries with backoff.

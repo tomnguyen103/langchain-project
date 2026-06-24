@@ -50,15 +50,17 @@ export function coerceOrgPolicyRules(value: unknown): OrgPolicyRule[] {
   const rules: OrgPolicyRule[] = [];
   for (const item of value) {
     if (!item || typeof item !== "object") continue;
-    const term = (item as { term?: unknown }).term;
+    const rawTerm = (item as { term?: unknown }).term;
     const level = (item as { level?: unknown }).level;
-    if (
-      typeof term === "string" &&
-      term.trim().length > 0 &&
-      (level === "warn" || level === "block")
-    ) {
-      rules.push({ term, level });
+    if (typeof rawTerm !== "string" || (level !== "warn" && level !== "block")) {
+      continue;
     }
+    // Mirror the parse-path caps so a hand-edited / legacy jsonb row can't smuggle
+    // an oversized term or unbounded rule count into the publish gate.
+    const term = rawTerm.trim().slice(0, MAX_TERM_LENGTH);
+    if (term.length === 0) continue;
+    rules.push({ term, level });
+    if (rules.length >= MAX_RULES) break;
   }
   return rules;
 }
