@@ -87,13 +87,15 @@ export async function agentStepProcessor(job: Job): Promise<void> {
       attempt: job.attemptsMade + 1,
       maxAttempts: job.opts.attempts ?? 1,
     });
-    await updateScheduleStatus(QueueName.AgentStep, jobId, {
-      status: "failed",
-      finishedAt: new Date(),
-      lastError: message,
-    });
-
     if (decision.action === "fail") {
+      // Only persist terminal failure on the no-retry branch — writing it before
+      // the retry decision would leave stale error/finishedAt on the schedule row
+      // when a later attempt succeeds.
+      await updateScheduleStatus(QueueName.AgentStep, jobId, {
+        status: "failed",
+        finishedAt: new Date(),
+        lastError: message,
+      });
       // Unrecoverable (bad token / fatal) or retries exhausted: mark the run
       // failed and throw UnrecoverableError so BullMQ fails the job immediately
       // (no further retries) AND records it in the failed set. A bare `return`

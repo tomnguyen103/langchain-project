@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {
-  hasBlockingFinding,
-  lintOrgRules,
-  lintPolicy,
-  type OrgPolicyRule,
-} from "./policy-linter";
+import { hasBlockingFinding, lintOrgRules, lintPolicy } from "./policy-linter";
 
 describe("lintPolicy", () => {
   it("passes a clean caption with no findings", () => {
@@ -67,23 +62,28 @@ describe("lintPolicy", () => {
 });
 
 describe("lintOrgRules (Praxis Live)", () => {
-  const rules: OrgPolicyRule[] = [
-    { term: "flash sale", level: "block" },
-    { term: "sale", level: "warn" },
-  ];
-
-  it("matches on word boundaries — 'sale' fires on 'sale' but not 'wholesale'", () => {
-    assert.deepEqual(lintOrgRules("our wholesale program", rules), []);
+  it("matches literal substrings, including punctuation terms like '#ad'", () => {
+    // Word-boundary matching would MISS "#ad"; literal substring catches it.
+    const findings = lintOrgRules("Check our #ad disclosure", [
+      { term: "#ad", level: "warn" },
+    ]);
     assert.ok(
-      lintOrgRules("the sale starts now", rules).some(
-        (f) => f.rule === "org_policy",
-      ),
+      findings.some((f) => f.rule === "org_policy" && f.level === "warn"),
     );
   });
 
   it("is case-insensitive and matches multi-word phrases", () => {
-    const findings = lintOrgRules("Our FLASH SALE ends today", rules);
+    const findings = lintOrgRules("Our FLASH SALE ends today", [
+      { term: "flash sale", level: "block" },
+    ]);
     assert.ok(findings.some((f) => f.level === "block"));
+  });
+
+  it("over-matches substrings by design ('sale' also hits 'wholesale')", () => {
+    const findings = lintOrgRules("our wholesale program", [
+      { term: "sale", level: "warn" },
+    ]);
+    assert.ok(findings.some((f) => f.rule === "org_policy"));
   });
 
   it("flows through lintPolicy alongside the curated pack", () => {

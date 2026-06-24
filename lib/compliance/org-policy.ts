@@ -22,7 +22,7 @@ export function parseOrgPolicyRules(text: string): OrgPolicyRule[] {
   for (const raw of (text ?? "").split(/\r?\n/)) {
     const line = raw.trim();
     if (line.length === 0) continue;
-    const match = /^(block|warn)\s*:\s*(.+)$/i.exec(line);
+    const match = /^(block|warn)\s*:\s*(.*)$/i.exec(line);
     const level = match ? (match[1].toLowerCase() as "block" | "warn") : "warn";
     const term = (match ? match[2] : line).trim().slice(0, MAX_TERM_LENGTH);
     if (term.length === 0) continue;
@@ -47,6 +47,7 @@ export function formatOrgPolicyRules(rules: OrgPolicyRule[]): string {
  */
 export function coerceOrgPolicyRules(value: unknown): OrgPolicyRule[] {
   if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
   const rules: OrgPolicyRule[] = [];
   for (const item of value) {
     if (!item || typeof item !== "object") continue;
@@ -55,10 +56,18 @@ export function coerceOrgPolicyRules(value: unknown): OrgPolicyRule[] {
     if (typeof rawTerm !== "string" || (level !== "warn" && level !== "block")) {
       continue;
     }
-    // Mirror the parse-path caps so a hand-edited / legacy jsonb row can't smuggle
-    // an oversized term or unbounded rule count into the publish gate.
-    const term = rawTerm.trim().slice(0, MAX_TERM_LENGTH);
+    // Mirror the parse-path normalization (collapse newlines, trim, cap length,
+    // dedupe, cap count) so a hand-edited / legacy jsonb row can't smuggle a
+    // multi-line, oversized, or duplicate rule into the gate — and a Settings
+    // round-trip through the textarea stays stable.
+    const term = rawTerm
+      .replace(/[\r\n]+/g, " ")
+      .trim()
+      .slice(0, MAX_TERM_LENGTH);
     if (term.length === 0) continue;
+    const key = `${level}:${term.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     rules.push({ term, level });
     if (rules.length >= MAX_RULES) break;
   }

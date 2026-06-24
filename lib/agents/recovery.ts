@@ -20,7 +20,7 @@ export type FailureClass = "transient" | "account" | "fatal";
 
 // Token/permission problems: a retry of a dead/revoked credential never succeeds.
 const ACCOUNT_RE =
-  /\b(401|403|unauthorized|forbidden|invalid[_\s-]?token|token (?:expired|revoked|invalid)|auth(?:entication|orization)?\s*(?:failed|error|denied)|account (?:inactive|expired|revoked|not active)|reconnect|re-?authenticate)\b/i;
+  /\b(401|403|unauthorized|forbidden|invalid[_\s-]?token|token (?:expired|revoked|invalid)|auth(?:entication|orization)?\s*(?:failed|error|denied)|account (?:inactive|expired|revoked|not active))\b/i;
 
 // Infrastructure / rate-limit blips that a backoff retry can plausibly clear.
 const TRANSIENT_RE =
