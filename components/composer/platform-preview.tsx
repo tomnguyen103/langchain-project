@@ -97,9 +97,9 @@ export function PlatformPreview({
 
       {a.warnings.length > 0 ? (
         <ul className="space-y-1 border-t p-3 text-xs">
-          {a.warnings.map((w, i) => (
+          {a.warnings.map((w) => (
             <li
-              key={i}
+              key={`${w.level}-${w.message}`}
               className={cn(
                 "flex items-start gap-1.5",
                 w.level === "error" ? "text-destructive" : "text-muted-foreground",

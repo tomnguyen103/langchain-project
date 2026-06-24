@@ -17,11 +17,14 @@ export function VariantEditor({
   value,
   onChange,
   onCopyToAll,
+  mediaCount = 0,
 }: {
   platforms: Platform[];
   value: Record<string, string>;
   onChange: (platform: Platform, body: string) => void;
   onCopyToAll: (platform: Platform) => void;
+  /** Attached media count, so each preview reflects required-media accurately. */
+  mediaCount?: number;
 }) {
   const [active, setActive] = useState<string>(platforms[0] ?? "");
   // Derive a valid active tab, then snap stored state back to it during render
@@ -49,6 +52,7 @@ export function VariantEditor({
         platform={platform}
         value={value[platform] ?? ""}
         onChange={(v) => onChange(platform, v)}
+        mediaCount={mediaCount}
       />
     );
   }
@@ -68,6 +72,7 @@ export function VariantEditor({
             platform={p}
             value={value[p] ?? ""}
             onChange={(v) => onChange(p, v)}
+            mediaCount={mediaCount}
           />
           <Button
             type="button"
@@ -87,10 +92,12 @@ function Field({
   platform,
   value,
   onChange,
+  mediaCount,
 }: {
   platform: Platform;
   value: string;
   onChange: (value: string) => void;
+  mediaCount: number;
 }) {
   const max = PLATFORM_META[platform].maxBodyLength;
   const over = value.length > max;
@@ -114,7 +121,7 @@ function Field({
         {value.length} / {max}
         {over ? " (over limit)" : ""}
       </div>
-      <PlatformPreview platform={platform} body={value} />
+      <PlatformPreview platform={platform} body={value} mediaCount={mediaCount} />
     </div>
   );
 }

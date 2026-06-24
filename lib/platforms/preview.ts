@@ -43,8 +43,10 @@ const PREVIEW_RULES: Partial<
 
 /**
  * Analyze a draft against one platform's limits. `charCount` uses `String.length`
- * (UTF-16 units) to match exactly how every connector truncates with
- * `body.slice(0, maxBodyLength)` — so the preview never disagrees with publish.
+ * (UTF-16 units), the same budget connectors enforce: most truncate with
+ * `body.slice(0, maxBodyLength)`, while the Meta APIs (FB/IG) reject or truncate
+ * an over-limit body server-side. Either way, over-limit text won't publish as
+ * written — so `overBy` is the count that must be trimmed.
  */
 export function analyzePreview(
   platform: Platform,
@@ -65,7 +67,7 @@ export function analyzePreview(
   if (overBy > 0) {
     warnings.push({
       level: "error",
-      message: `${overBy} character${overBy === 1 ? "" : "s"} over the ${maxLength.toLocaleString()} limit — will be truncated when published.`,
+      message: `${overBy} character${overBy === 1 ? "" : "s"} over the ${maxLength.toLocaleString()} limit — trim it or the platform will truncate or reject the post.`,
     });
   }
   if (meta.requiresMedia && mediaCount === 0) {

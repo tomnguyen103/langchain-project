@@ -72,4 +72,16 @@ describe("analyzePreview", () => {
     assert.ok(err);
     assert.match(err.message, /1 character over/);
   });
+
+  it("treats a body exactly at the hard limit as in-bounds (no off-by-one)", () => {
+    const a = analyzePreview("x", "a".repeat(280));
+    assert.equal(a.overBy, 0);
+    assert.ok(!a.warnings.some((w) => w.level === "error"));
+  });
+
+  it("treats a body exactly at the fold as un-folded (no off-by-one)", () => {
+    const a = analyzePreview("instagram", "x".repeat(125), 1);
+    assert.equal(a.hiddenByFold, 0);
+    assert.ok(!a.warnings.some((w) => /hidden behind/.test(w.message)));
+  });
 });
