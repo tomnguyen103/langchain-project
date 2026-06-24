@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import type { PolicyFinding } from "@/lib/compliance/policy-linter";
+
 import { AgentName } from "../types";
 import { createCastor, type CastorDeps } from "./index";
 
@@ -29,6 +31,7 @@ function makeDeps(opts: {
   }>;
   recorded: Outcome[][];
   accepted: string[][];
+  lintPolicy?: (platform: string | null, text: string) => PolicyFinding[];
 }): CastorDeps {
   return {
     getGeneratedContentByIds: async () => opts.contents,
@@ -40,6 +43,7 @@ function makeDeps(opts: {
     markGeneratedContentAccepted: async (ids) => {
       opts.accepted.push(ids);
     },
+    lintPolicy: opts.lintPolicy,
   };
 }
 
@@ -161,6 +165,70 @@ describe("castor agent", () => {
     assert.deepEqual(
       recorded[0].map((o) => o.status),
       ["approved", "held"],
+    );
+  });
+
+  it("holds a brand-safety pass when a blocking policy lint fires (Praxis)", async () => {
+    const recorded: Outcome[][] = [];
+    const accepted: string[][] = [];
+    const castor = createCastor(
+      makeDeps({
+        contents: [{ id: "c1", platform: "x", content: "Returns guaranteed!" }],
+        profile: {
+          voice: "",
+          bannedTerms: [],
+          autoPublishEnabled: true,
+          autoPublishThreshold: 0.5,
+        },
+        // Brand-safety would have PASSED with a high score…
+        results: [{ contentId: "c1", score: 0.95, verdict: "pass", violations: [] }],
+        recorded,
+        accepted,
+        // …but a blocking policy finding overrides it.
+        lintPolicy: () => [
+          { rule: "absolute_claim", detail: "no guarantees", level: "block" },
+        ],
+      }),
+    );
+
+    const result = await castor.run({ generatedContentIds: ["c1"] }, ctx);
+
+    assert.equal(result.control?.pause, "awaiting_approval");
+    assert.deepEqual(accepted, []); // policy block kept it out of auto-publish
+    assert.equal(recorded[0][0].status, "held");
+    assert.equal(recorded[0][0].verdict, "block");
+    assert.ok(
+      recorded[0][0].violations.some((v) => v.rule === "absolute_claim"),
+    );
+  });
+
+  it("still auto-publishes when only a warn-level policy lint fires (Praxis)", async () => {
+    const recorded: Outcome[][] = [];
+    const accepted: string[][] = [];
+    const castor = createCastor(
+      makeDeps({
+        contents: [{ id: "c1", platform: "linkedin", content: "see https://x.io" }],
+        profile: {
+          voice: "",
+          bannedTerms: [],
+          autoPublishEnabled: true,
+          autoPublishThreshold: 0.8,
+        },
+        results: [{ contentId: "c1", score: 0.95, verdict: "pass", violations: [] }],
+        recorded,
+        accepted,
+        lintPolicy: () => [
+          { rule: "outbound_link", detail: "move to first comment", level: "warn" },
+        ],
+      }),
+    );
+
+    const result = await castor.run({ generatedContentIds: ["c1"] }, ctx);
+
+    assert.equal(result.handoff?.to, AgentName.Atlas);
+    assert.deepEqual(accepted, [["c1"]]); // warning didn't block auto-publish
+    assert.ok(
+      recorded[0][0].violations.some((v) => v.rule === "outbound_link"),
     );
   });
 

@@ -1,5 +1,6 @@
 import { runContentAgent } from "@/lib/agent";
 import { runBrandSafety } from "@/lib/agent/guardrails/brand-safety";
+import { lintPolicy } from "@/lib/compliance/policy-linter";
 import { makeModelJudge } from "@/lib/agent/guardrails/model-judge";
 import { runResearch } from "@/lib/agent/research";
 import {
@@ -80,6 +81,7 @@ const REGISTRY: Partial<Record<AgentName, AgentDefinition>> = {
       }),
     recordReviews,
     markGeneratedContentAccepted,
+    lintPolicy,
   }),
   [AgentName.Atlas]: createAtlas({
     getGeneratedContentByIds,
