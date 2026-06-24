@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
+import { PlatformPreview } from "./platform-preview";
+
 export function VariantEditor({
   platforms,
   value,
@@ -112,6 +114,7 @@ function Field({
         {value.length} / {max}
         {over ? " (over limit)" : ""}
       </div>
+      <PlatformPreview platform={platform} body={value} />
     </div>
   );
 }
