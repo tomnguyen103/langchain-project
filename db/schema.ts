@@ -23,3 +23,5 @@ export * from "./schema/disclosure-ledger";
 export * from "./schema/memberships";
 
 export * from "./schema/posting-windows";
+
+export * from "./schema/content-plans";

@@ -22,6 +22,7 @@ export enum AgentName {
   Polaris = "polaris", // group seeding
   Rigel = "rigel", // reporting / insights
   Castor = "castor", // brand-safety review / approval gate (Lyra → Castor → Atlas)
+  Mensa = "mensa", // cadence architect — multi-slot content plan generator
 }
 
 /** Least-privilege capability tags for governance/audit (see capabilities.ts). */
@@ -33,7 +34,8 @@ export type AgentCapability =
   | "publish"
   | "engage"
   | "report"
-  | "seed";
+  | "seed"
+  | "plan";
 
 /** Ambient context threaded through every step of one pipeline run. */
 export interface AgentContext {
