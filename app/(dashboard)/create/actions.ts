@@ -22,6 +22,8 @@ import {
   recomputePostStatus,
   updatePostTarget,
 } from "@/lib/repos/posts";
+import { getPostingWindows } from "@/lib/repos/posting-windows";
+import { nextBestPublishTime, isHighConfidence, type WindowScore } from "@/lib/scheduling/best-time";
 import { assertFutureDate } from "@/lib/utils/schedule";
 
 export type SavedMedia = {
@@ -275,4 +277,27 @@ export async function createPost(
 
   revalidatePath("/calendar");
   return { postId: created.id };
+}
+
+/**
+ * Chronos: return a suggested `datetime-local` string for the first platform
+ * with learned posting windows, or null when there's no recommendation.
+ */
+export async function getRecommendedScheduleTime(
+  platform: Platform,
+): Promise<{ iso: string; highConfidence: boolean } | null> {
+  const userId = await requireUserId();
+  const rows = await getPostingWindows(userId, platform);
+  if (rows.length === 0) return null;
+  const windows: WindowScore[] = rows.map((w) => ({
+    dayOfWeek: w.dayOfWeek,
+    hourOfDay: w.hourOfDay,
+    score: w.score,
+    postCount: w.postCount,
+  }));
+  const recommended = nextBestPublishTime(windows, new Date());
+  return {
+    iso: recommended.toISOString(),
+    highConfidence: isHighConfidence(windows),
+  };
 }

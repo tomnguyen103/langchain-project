@@ -166,7 +166,11 @@ export function Composer({
               </div>
             </fieldset>
 
-            <SchedulePicker value={scheduledAt} onChange={setScheduledAt} />
+            <SchedulePicker
+              value={scheduledAt}
+              onChange={setScheduledAt}
+              platforms={selectedPlatforms}
+            />
 
             <Button
               onClick={submit}

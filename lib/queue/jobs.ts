@@ -355,3 +355,40 @@ export async function enqueueCommentReplies(
     })),
   );
 }
+
+// ---------------------------------------------------------------------------
+// Chronos — posting-window score refresh
+// ---------------------------------------------------------------------------
+
+export type PostingWindowsRefreshJobData = { clerkUserId: string };
+
+const POSTING_WINDOWS_REFRESH_MS = 24 * 60 * 60_000; // daily
+
+/**
+ * Schedule a daily posting-window refresh for a tenant. Idempotent — keyed by
+ * clerkUserId so connecting a new account re-registers without creating duplicates.
+ */
+export async function registerPostingWindowsRefresh(
+  clerkUserId: string,
+): Promise<void> {
+  await getQueue(QueueName.PostingWindowsRefresh).upsertJobScheduler(
+    `posting-windows:${clerkUserId}`,
+    { every: POSTING_WINDOWS_REFRESH_MS },
+    {
+      name: "posting-windows-refresh",
+      data: { clerkUserId } satisfies PostingWindowsRefreshJobData,
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+export async function unregisterPostingWindowsRefresh(
+  clerkUserId: string,
+): Promise<void> {
+  await getQueue(QueueName.PostingWindowsRefresh).removeJobScheduler(
+    `posting-windows:${clerkUserId}`,
+  );
+}

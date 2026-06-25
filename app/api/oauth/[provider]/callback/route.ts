@@ -5,7 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { getProvider } from "@/lib/oauth/registry";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
-import { registerCommentPoll } from "@/lib/queue/jobs";
+import { registerCommentPoll, registerPostingWindowsRefresh } from "@/lib/queue/jobs";
 import { listSocialAccounts, upsertSocialAccount } from "@/lib/repos/accounts";
 import { reportError } from "@/lib/observability/report-error";
 import { encrypt, encryptNullable } from "@/lib/utils/crypto";
@@ -121,6 +121,17 @@ export async function GET(
         platform: acct.platform,
       });
     }
+  }
+
+  // Refresh posting-window scores for this user now that they have a new/updated
+  // account. Keyed by userId so it's a single idempotent upsert regardless of
+  // how many accounts were saved. Best-effort: a Redis blip must not fail the connect.
+  if (saved > 0) {
+    await registerPostingWindowsRefresh(userId).catch((error) => {
+      reportError("Failed to register posting-windows refresh", error, {
+        userId,
+      });
+    });
   }
 
   if (saved === 0) {

@@ -335,3 +335,23 @@ export async function getEngagementSummary(clerkUserId: string): Promise<{
     postsWithMetrics: rows.length,
   };
 }
+
+/** Published targets for a user+platform with their engagement metrics — used
+ *  by the Chronos posting-window scorer. */
+export async function listPublishedTargetsWithMetrics(
+  clerkUserId: string,
+  platform: PostTarget["platform"],
+): Promise<Array<{ publishedAt: Date | null; metrics: Record<string, number> | null }>> {
+  return db
+    .select({ publishedAt: postTargets.publishedAt, metrics: postTargets.metrics })
+    .from(postTargets)
+    .innerJoin(posts, eq(postTargets.postId, posts.id))
+    .where(
+      and(
+        eq(posts.clerkUserId, clerkUserId),
+        eq(postTargets.platform, platform),
+        eq(postTargets.status, "published"),
+        isNotNull(postTargets.publishedAt),
+      ),
+    );
+}
