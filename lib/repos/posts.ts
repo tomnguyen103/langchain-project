@@ -293,3 +293,45 @@ export async function recomputePostStatus(
     .where(eq(posts.id, postId));
   return status;
 }
+
+/** Aggregate engagement metrics across all published targets for a user. */
+export async function getEngagementSummary(clerkUserId: string): Promise<{
+  totalLikes: number;
+  totalComments: number;
+  totalViews: number;
+  totalShares: number;
+  postsWithMetrics: number;
+}> {
+  const rows = await db
+    .select({ metrics: postTargets.metrics })
+    .from(postTargets)
+    .innerJoin(posts, eq(postTargets.postId, posts.id))
+    .where(
+      and(
+        eq(posts.clerkUserId, clerkUserId),
+        eq(postTargets.status, "published"),
+        isNotNull(postTargets.metrics),
+      ),
+    );
+
+  let totalLikes = 0;
+  let totalComments = 0;
+  let totalViews = 0;
+  let totalShares = 0;
+
+  for (const row of rows) {
+    if (!row.metrics) continue;
+    totalLikes += (row.metrics.likes ?? 0);
+    totalComments += (row.metrics.comments ?? 0);
+    totalViews += (row.metrics.views ?? 0);
+    totalShares += (row.metrics.shares ?? 0);
+  }
+
+  return {
+    totalLikes,
+    totalComments,
+    totalViews,
+    totalShares,
+    postsWithMetrics: rows.length,
+  };
+}
