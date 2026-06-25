@@ -51,7 +51,7 @@ export function AccountCard({ account }: { account: AccountView }) {
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {account.status !== "active" && account.platform !== "discord" && (
+        {["expired", "revoked"].includes(account.status) && account.platform !== "discord" && (
           <Button asChild size="sm" variant="outline">
             <a href={`/api/oauth/${account.platform}/start`}>Reconnect</a>
           </Button>
