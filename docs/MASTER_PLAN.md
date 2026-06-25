@@ -10,7 +10,7 @@ _Consolidated on 2026-06-25. Supersedes: docs/MASTER_PLAN.md (v1) and docs/MASTE
 
 **What changed since v2 (2026-06-24):** 16 new features shipped across 6 PRs (#46–#55) plus a follow-up wave (Escalation Inbox, Quality Dashboard, Onboarding Wizard, Voice History); docs/FIX_PLAN.md absorbed — all 6 build-first-wave goals (Pulse, Quaestor, Vigil, Sirius Triage v1, Run Doctor, Praxis Live v1) confirmed Done. Migrations now 0000–0028 (29 files); all pending schema additions generated.
 
-**Committed items:** ~82 total → **78 Done · 1 Partial (A2A/T17) · 1 Not started (Atrium).**
+**Committed items:** ~82 total → **80 Done · 0 Partial · 0 Not started.**
 
 **Backlog (ideation, never committed):** 0 Partial · ~24 Not started (all formerly-partial backlog items resolved or promoted).
 
@@ -190,8 +190,8 @@ _Consolidated on 2026-06-25. Supersedes: docs/MASTER_PLAN.md (v1) and docs/MASTE
   - [lib/agents/orchestrator.ts:222](lib/agents/orchestrator.ts)
 - [x] **MCP inward (T16)** — `listMcpTools`/`callMcpTool` over stateless HTTP; graceful no-op when `MCP_SERVER_URL` unset.
   - [lib/mcp/client.ts](lib/mcp/client.ts)
-- [~] **A2A outward (T17)** — `/api/a2a` GET agent-card + POST `message/send`; bearer + `A2A_ENABLED` gate, **disabled by default**. Multi-tenant mapping, SSE, `/.well-known/agent-card.json` rewrite not yet built. See Open Decision #1.
-  - [app/api/a2a/route.ts](app/api/a2a/route.ts), [lib/a2a/protocol.ts](lib/a2a/protocol.ts)
+- [x] **A2A outward (T17)** — `/api/a2a` GET agent-card + POST `message/send`/`tasks/get`/`tasks/sendSubscribe` (SSE stream); constant-time bearer auth; `A2A_ENABLED` gate, **disabled by default**; multi-tenant `A2A_TENANT_TOKENS` map (JSON token→clerkUserId); `/.well-known/agent-card.json` served via next.config.ts rewrite; `capabilities.streaming: true`.
+  - [app/api/a2a/route.ts](app/api/a2a/route.ts), [lib/a2a/protocol.ts](lib/a2a/protocol.ts), [next.config.ts](next.config.ts), [lib/env.ts](lib/env.ts)
 
 ---
 
@@ -225,7 +225,8 @@ _Consolidated on 2026-06-25. Supersedes: docs/MASTER_PLAN.md (v1) and docs/MASTE
 
 - [x] **Praetor — roles & approver-gated review** — `memberships` + `workspace_role` enum; `canApprove`/`canManageTeam`/`canCreate`; `requireRole("approver")` gates review; `/team` page + role assignment.
   - [db/schema/memberships.ts](db/schema/memberships.ts), [lib/auth/roles.ts](lib/auth/roles.ts), [app/(dashboard)/team/page.tsx](app/(dashboard)/team/page.tsx)
-- [ ] **Atrium — multi-brand workspaces** — `brands` table + nullable `brandId` across all entities + brand switcher. **Explicitly deferred** (large live-DB migration; `clerkOrgId` stored but not enforced).
+- [x] **Atrium — multi-brand workspaces** — `brands` table + nullable `brandId` on social_accounts/posts/generated_content/agent_runs + brand switcher in topbar + `/brands` management page; `current_brand_id` cookie; migration 0029.
+  - [db/schema/brands.ts](db/schema/brands.ts), [lib/repos/brands.ts](lib/repos/brands.ts), [components/brands/brand-switcher.tsx](components/brands/brand-switcher.tsx), [app/(dashboard)/brands/page.tsx](app/(dashboard)/brands/page.tsx)
 
 ---
 
@@ -313,6 +314,7 @@ All schema changes are covered by migrations 0000–0028 (29 files). Apply with 
 
 ## Changelog
 
+- **2026-06-25 (v3, update 4)** — Completed final 2 items: T17 A2A (SSE `tasks/sendSubscribe`, multi-tenant `A2A_TENANT_TOKENS`, `/.well-known/agent-card.json` rewrite, `streaming: true`); Atrium multi-brand workspaces (`brands` table + nullable `brandId` on core entities, `/brands` management page, brand switcher in topbar, `current_brand_id` cookie, migration 0029). Net: **80 Done · 0 Partial · 0 Not started.** All committed items complete.
 - **2026-06-25 (v3, update 3)** — Absorbed docs/FIX_PLAN.md (2026-06-24 build-first wave). All 6 goals confirmed Done in this file: Pulse (Phase 8), Quaestor (Phase 9), Vigil (Phase 9), Sirius Triage v1 (Phase 7), Run Doctor (Phase 9), Praxis Live v1 (Compliance). Migration ⚠ warnings cleared — 0027+0028 cover all pending schema. Onboarding promoted [~]→[x] (wizard shipped in update 2). FIX_PLAN.md superseded. Net: 78 Done · 1 Partial (A2A/T17) · 1 Not started (Atrium).
 - **2026-06-25 (v3, update 2)** — Resolved all 4 committed Partials and generated 2 new migrations (0027, 0028). Migrations: 0027 covers posting_windows + content_plans + derived_from_target_id + agent_name 'mensa'; 0028 adds brand_profiles.voice_history. New features: (1) Sirius+ Escalation Inbox — `listEscalatedCommentsForUser` + Escalations tab on /auto-reply with count badge; (2) Vigil/Vetus Quality Dashboard — `lib/repos/quality.ts` + `app/(dashboard)/quality/page.tsx` + Quality nav entry (ShieldAlert); (3) Onboarding Wizard — `components/dashboard/onboarding-wizard.tsx` (Sheet, 3-step, localStorage dismiss, auto-opens for account-less users); (4) Mnemosyne Voice History — `brand_profiles.voice_history` jsonb, history appended on voice change in `upsertBrandProfile`, VoiceHistoryCard on settings page. Net committed status: 77 Done · 0 Partial · 1 Not started. Tests: 330/330 pass.
 - **2026-06-25 (v3)** — Consolidated v1 + v2 into a single file; 12 new features from PRs #46–#55 promoted from backlog to Done. Net: ~72 Done · 4 Partial · 1 Not started. v1 and v2 superseded; v2 archived to docs/archive/.

@@ -4,6 +4,7 @@
  * research_topics (Goal 5), usage (Goal 6), auto_reply_rules + comment_events (Goal 7).
  */
 export * from "./schema/enums";
+export * from "./schema/brands";
 export * from "./schema/social-accounts";
 export * from "./schema/posts";
 export * from "./schema/post-targets";

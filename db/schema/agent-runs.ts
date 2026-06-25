@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { agentNameEnum, agentRunStatusEnum } from "./enums";
+import { brands } from "./brands";
 import { timestamps } from "./_helpers";
 
 /** One step in a run's plan: which agent to invoke with what payload. */
@@ -43,6 +44,8 @@ export const agentRuns = pgTable(
     langsmithRunId: text("langsmith_run_id"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
+    // Atrium: optional brand workspace this run belongs to. Null = personal.
+    brandId: uuid("brand_id").references(() => brands.id, { onDelete: "set null" }),
     ...timestamps,
   },
   (t) => [

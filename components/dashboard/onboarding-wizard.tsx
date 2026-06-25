@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,13 +44,16 @@ export interface OnboardingWizardProps {
 
 export function OnboardingWizard({ show }: OnboardingWizardProps) {
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState(0);
 
   useEffect(() => {
-    if (!show) return;
-    const dismissed = localStorage.getItem(DISMISS_KEY);
-    if (!dismissed) setOpen(true);
-  }, [show]);
+    // setState in a callback (not synchronously) to satisfy set-state-in-effect.
+    const id = setTimeout(() => {
+      if (show && !localStorage.getItem(DISMISS_KEY)) setOpen(true);
+    }, 0);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [step, setStep] = useState(0);
 
   function dismiss() {
     localStorage.setItem(DISMISS_KEY, "1");

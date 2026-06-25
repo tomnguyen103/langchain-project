@@ -32,6 +32,7 @@ type A2aId = string | number | null;
 export type ParsedA2a =
   | { method: "message/send"; id: A2aId; text: string; platforms: string[] }
   | { method: "tasks/get"; id: A2aId; taskId: string }
+  | { method: "tasks/sendSubscribe"; id: A2aId; taskId: string }
   | { method: "unsupported"; id: A2aId };
 
 /** Parse an A2A JSON-RPC 2.0 request into a typed, validated shape (pure). */
@@ -70,6 +71,10 @@ export function parseA2aRequest(body: unknown): ParsedA2a {
   if (method === "tasks/get") {
     const taskId = typeof params.id === "string" ? params.id : "";
     return { method: "tasks/get", id, taskId };
+  }
+  if (method === "tasks/sendSubscribe") {
+    const taskId = typeof params.id === "string" ? params.id : "";
+    return { method: "tasks/sendSubscribe", id, taskId };
   }
   return { method: "unsupported", id };
 }

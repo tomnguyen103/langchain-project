@@ -6,6 +6,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  async rewrites() {
+    return [
+      // A2A discovery: /.well-known/agent-card.json → /api/a2a (GET)
+      {
+        source: "/.well-known/agent-card.json",
+        destination: "/api/a2a",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

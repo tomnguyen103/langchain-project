@@ -1,4 +1,8 @@
+import { cookies } from "next/headers";
+
 import { getCurrentPlan } from "@/lib/billing/entitlements";
+import { requireUserId } from "@/lib/clerk";
+import { listBrandsForUser } from "@/lib/repos/brands";
 import { Sidebar } from "@/components/shared/sidebar";
 import { Topbar } from "@/components/shared/topbar";
 
@@ -7,7 +11,10 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const plan = await getCurrentPlan();
+  const [plan, userId] = await Promise.all([getCurrentPlan(), requireUserId()]);
+  const brands = await listBrandsForUser(userId);
+  const rawBrandId = (await cookies()).get("current_brand_id")?.value ?? null;
+  const currentBrandId = brands.some((b) => b.id === rawBrandId) ? rawBrandId : null;
 
   return (
     <div className="flex min-h-dvh">
@@ -19,7 +26,7 @@ export default async function DashboardLayout({
       </a>
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar plan={plan} />
+        <Topbar plan={plan} brands={brands} currentBrandId={currentBrandId} />
         <main
           id="main-content"
           tabIndex={-1}

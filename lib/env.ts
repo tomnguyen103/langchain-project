@@ -103,6 +103,10 @@ const EnvSchema = z.object({
   // The single tenant (Clerk user id) the A2A token acts as. Required for A2A to
   // be enabled — the endpoint NEVER derives the tenant from the request body.
   A2A_TENANT_ID: z.string().optional(),
+  // Multi-tenant token map: JSON object {"<bearer-token>": "<clerk-user-id>"}.
+  // When set, each token maps to its own tenant and A2A_TOKEN/A2A_TENANT_ID are
+  // ignored. Callers use the token from this map to identify their tenant slot.
+  A2A_TENANT_TOKENS: z.string().optional(),
 
   // Public
   NEXT_PUBLIC_APP_URL: z.string().optional(),

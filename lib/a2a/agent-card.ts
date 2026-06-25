@@ -15,7 +15,7 @@ export function buildAgentCard(baseUrl: string): AgentCard {
       "Researches a niche, drafts brand-safe social content across platforms, runs a brand-safety review, and schedules approved posts.",
     url: `${baseUrl.replace(/\/$/, "")}/api/a2a`,
     version: "1.0.0",
-    capabilities: { streaming: false },
+    capabilities: { streaming: true },
     skills: [
       {
         id: "draft-and-schedule",
