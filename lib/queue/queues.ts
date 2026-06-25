@@ -21,6 +21,8 @@ export enum QueueName {
   Reconcile = "reconcile",
   // Per-account engagement-metrics poll (Pulse) — mirrors comment-poll.
   Metrics = "metrics",
+  // Chronos: per-user posting-window score refresh (daily).
+  PostingWindowsRefresh = "posting-windows-refresh",
 }
 
 const queueCache = new Map<QueueName, Queue>();

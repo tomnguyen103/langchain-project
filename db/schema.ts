@@ -21,3 +21,5 @@ export * from "./schema/reports";
 export * from "./schema/rate-limits";
 export * from "./schema/disclosure-ledger";
 export * from "./schema/memberships";
+
+export * from "./schema/posting-windows";
