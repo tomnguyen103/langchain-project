@@ -75,7 +75,7 @@ export function narrateReport(data: ReportData): ReportInsight[] {
 
   // 3. Run success rate.
   const successPct = Math.round(data.runSuccessRate * 100);
-  if (data.runSuccessRate < 0.8 && data.runSuccessRate > 0) {
+  if (data.runSuccessRate < 0.8) {
     insights.push({
       type: "success_rate",
       headline: `Only ${successPct}% of agent runs completed`,
