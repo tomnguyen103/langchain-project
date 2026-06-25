@@ -50,12 +50,19 @@ export function AccountCard({ account }: { account: AccountView }) {
           </div>
         </div>
       </div>
-      <form action={disconnectAccount}>
-        <input type="hidden" name="id" value={account.id} />
-        <Button type="submit" variant="ghost" size="sm">
-          Disconnect
-        </Button>
-      </form>
+      <div className="flex shrink-0 items-center gap-2">
+        {account.status !== "active" && account.platform !== "discord" && (
+          <Button asChild size="sm" variant="outline">
+            <a href={`/api/oauth/${account.platform}/start`}>Reconnect</a>
+          </Button>
+        )}
+        <form action={disconnectAccount}>
+          <input type="hidden" name="id" value={account.id} />
+          <Button type="submit" variant="ghost" size="sm">
+            Disconnect
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
