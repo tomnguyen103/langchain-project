@@ -1,14 +1,56 @@
 import Link from "next/link";
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUserId } from "@/lib/clerk";
 import { formatOrgPolicyRules } from "@/lib/compliance/org-policy";
 import {
   getBrandProfile,
   getDisclosurePolicy,
 } from "@/lib/repos/brand-profiles";
+import type { VoiceHistoryEntry } from "@/db/schema";
 
 import { BrandProfileForm } from "./brand-profile-form";
 import { DisclosurePolicyForm } from "./disclosure-policy-form";
+
+function VoiceHistoryCard({ entries }: { entries: VoiceHistoryEntry[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-semibold">Voice history</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {entries.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No history yet — save the brand voice to start tracking changes.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {entries.map((entry, i) => {
+              const date = new Date(entry.savedAt);
+              const label = date.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              });
+              const truncated =
+                entry.voice.length > 120
+                  ? entry.voice.slice(0, 120) + "…"
+                  : entry.voice;
+              return (
+                <li key={i} className="space-y-0.5">
+                  <p className="text-sm">{truncated}</p>
+                  <p className="text-muted-foreground text-xs">
+                    Saved · {label}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default async function SettingsPage() {
   const userId = await requireUserId();
@@ -36,6 +78,7 @@ export default async function SettingsPage() {
             autoPublishThreshold: profile.autoPublishThreshold,
           }}
         />
+        <VoiceHistoryCard entries={profile.voiceHistory} />
       </section>
 
       <section className="space-y-6">

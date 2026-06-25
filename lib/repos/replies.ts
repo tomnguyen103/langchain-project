@@ -359,6 +359,32 @@ export async function listRecentCommentEventsForUser(
     .limit(limit);
 }
 
+/**
+ * Escalated comments — intents that need a human decision: abuse/complaint (safety
+ * risk) and lead (sales opportunity). Newest first, capped to keep the inbox
+ * actionable.
+ */
+export async function listEscalatedCommentsForUser(
+  clerkUserId: string,
+  limit = 50,
+): Promise<CommentEvent[]> {
+  return db
+    .select(getTableColumns(commentEvents))
+    .from(commentEvents)
+    .innerJoin(
+      socialAccounts,
+      eq(commentEvents.socialAccountId, socialAccounts.id),
+    )
+    .where(
+      and(
+        eq(socialAccounts.clerkUserId, clerkUserId),
+        inArray(commentEvents.intent, ["abuse", "complaint", "lead"]),
+      ),
+    )
+    .orderBy(desc(commentEvents.createdAt))
+    .limit(limit);
+}
+
 // ---------------------------------------------------------------------------
 // Rate-limit slots (atomic cooldown + daily-cap enforcement)
 // ---------------------------------------------------------------------------

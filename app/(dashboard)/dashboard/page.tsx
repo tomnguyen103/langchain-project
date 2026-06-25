@@ -28,6 +28,7 @@ import { listRules } from "@/lib/repos/replies";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
 import { repurposePost } from "./actions";
 
 export default async function OverviewPage() {
@@ -87,6 +88,7 @@ export default async function OverviewPage() {
 
   return (
     <div className="space-y-6">
+      <OnboardingWizard show={accounts.length === 0 && !onboardingComplete} />
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
           Welcome back, {name}

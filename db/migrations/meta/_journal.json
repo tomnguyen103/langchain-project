@@ -190,6 +190,20 @@
       "when": 1782328504263,
       "tag": "0026_even_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1782418296999,
+      "tag": "0027_chronos_mensa_evergreen",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1782418426038,
+      "tag": "0028_mnemosyne_voice_history",
+      "breakpoints": true
     }
   ]
 }

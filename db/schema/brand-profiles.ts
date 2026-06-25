@@ -23,6 +23,12 @@ export type DisclosurePolicy = {
   jurisdiction: string | null;
 };
 
+/** A snapshot entry in the voice history — saved each time voice is updated. */
+export type VoiceHistoryEntry = {
+  voice: string;
+  savedAt: string; // ISO timestamp
+};
+
 /**
  * brand_profiles — one row per tenant (keyed by clerkUserId). Holds the
  * brand-safety SETTINGS the Castor gate reads (voice, banned terms, the
@@ -47,6 +53,8 @@ export const brandProfiles = pgTable(
     policyRules: jsonb("policy_rules").$type<
       Array<{ term: string; level: "warn" | "block" }>
     >(),
+    /** Mnemosyne voice history — previous voice snapshots, newest first, capped at 10. */
+    voiceHistory: jsonb("voice_history").$type<VoiceHistoryEntry[]>(),
     ...timestamps,
   },
   (t) => [

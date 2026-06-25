@@ -5,6 +5,7 @@ import {
   brandProfiles,
   type DisclosurePolicy,
   type NewBrandProfile,
+  type VoiceHistoryEntry,
 } from "@/db/schema";
 import { DEFAULT_DISCLOSURE_POLICY } from "@/lib/compliance/disclosure";
 import { coerceOrgPolicyRules } from "@/lib/compliance/org-policy";
@@ -19,6 +20,8 @@ export type ResolvedBrandProfile = {
   learnedMemory: Record<string, unknown> | null;
   /** Custom Praxis policy rules (Praxis Live); empty when none configured. */
   policyRules: OrgPolicyRule[];
+  /** Mnemosyne voice history — previous voice snapshots, newest first. */
+  voiceHistory: VoiceHistoryEntry[];
 };
 
 /** Safe defaults for a tenant that hasn't configured a profile yet. */
@@ -29,6 +32,7 @@ export const DEFAULT_BRAND_PROFILE: ResolvedBrandProfile = {
   autoPublishThreshold: 0.8,
   learnedMemory: null,
   policyRules: [],
+  voiceHistory: [],
 };
 
 /** Read a tenant's brand profile, falling back to safe defaults. */
@@ -50,6 +54,7 @@ export async function getBrandProfile(
     autoPublishThreshold: row.autoPublishThreshold,
     learnedMemory: row.learnedMemory ?? null,
     policyRules: coerceOrgPolicyRules(row.policyRules),
+    voiceHistory: row.voiceHistory ?? [],
   };
 }
 
@@ -65,6 +70,23 @@ export async function upsertBrandProfile(
     policyRules?: OrgPolicyRule[];
   },
 ): Promise<void> {
+  // If voice is being updated, fetch current voice to build Mnemosyne history.
+  let voiceHistory: VoiceHistoryEntry[] | undefined;
+  if (data.voice !== undefined) {
+    const [current] = await db
+      .select({ voice: brandProfiles.voice, voiceHistory: brandProfiles.voiceHistory })
+      .from(brandProfiles)
+      .where(eq(brandProfiles.clerkUserId, clerkUserId))
+      .limit(1);
+    if (current?.voice && current.voice !== data.voice) {
+      const prev = current.voiceHistory ?? [];
+      voiceHistory = [
+        { voice: current.voice, savedAt: new Date().toISOString() },
+        ...prev,
+      ].slice(0, 10);
+    }
+  }
+
   // Insert fills defaults for omitted fields; the conflict update only touches
   // fields actually provided, so a partial save can't wipe existing settings.
   const set: Partial<NewBrandProfile> = { updatedAt: new Date() };
@@ -76,6 +98,7 @@ export async function upsertBrandProfile(
   if (data.autoPublishThreshold !== undefined)
     set.autoPublishThreshold = data.autoPublishThreshold;
   if (data.policyRules !== undefined) set.policyRules = data.policyRules;
+  if (voiceHistory !== undefined) set.voiceHistory = voiceHistory;
 
   await db
     .insert(brandProfiles)

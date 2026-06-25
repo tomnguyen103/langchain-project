@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-import type { CommentEventStatus, SocialAccount } from "@/db/schema";
+import type { CommentEvent, CommentEventStatus, SocialAccount } from "@/db/schema";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
+  listEscalatedCommentsForUser,
   listRecentCommentEventsForUser,
   listRules,
 } from "@/lib/repos/replies";
@@ -152,7 +153,10 @@ export default async function AutoReplyPage() {
     maxPerDay: r.maxPerDay,
   }));
 
-  const events = await listRecentCommentEventsForUser(userId);
+  const [events, escalations] = await Promise.all([
+    listRecentCommentEventsForUser(userId),
+    listEscalatedCommentsForUser(userId),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -161,6 +165,14 @@ export default async function AutoReplyPage() {
         <TabsList>
           <TabsTrigger value="rules">Rules</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="escalations">
+            Escalations
+            {escalations.length > 0 && (
+              <span className="bg-destructive text-destructive-foreground ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium">
+                {escalations.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="rules" className="space-y-4">
@@ -177,32 +189,67 @@ export default async function AutoReplyPage() {
           ) : (
             <div className="space-y-2">
               {events.map((e) => (
-                <div
-                  key={e.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border p-3"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">
-                      {e.author || "Someone"}
-                    </div>
-                    <div className="text-muted-foreground truncate text-sm">
-                      {e.text || "No text"}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {e.intent ? (
-                      <Badge variant={intentVariant[e.intent] ?? "outline"}>
-                        {e.intent}
-                      </Badge>
-                    ) : null}
-                    <Badge variant={statusVariant[e.status]}>{e.status}</Badge>
-                  </div>
-                </div>
+                <CommentRow key={e.id} event={e} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="escalations">
+          <div className="mb-3">
+            <p className="text-muted-foreground text-sm">
+              Comments classified as <strong>abuse</strong>,{" "}
+              <strong>complaint</strong>, or <strong>lead</strong> that need a
+              human decision. Auto-reply is blocked for abuse and complaint —
+              reply manually from the originating platform.
+            </p>
+          </div>
+          {escalations.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No escalated comments yet. When the triage classifier detects
+              abuse, complaints, or leads they appear here.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {escalations.map((e) => (
+                <CommentRow key={e.id} event={e} showUrgency />
               ))}
             </div>
           )}
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function CommentRow({
+  event: e,
+  showUrgency = false,
+}: {
+  event: CommentEvent;
+  showUrgency?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{e.author || "Someone"}</div>
+        <div className="text-muted-foreground truncate text-sm">
+          {e.text || "No text"}
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        {e.intent ? (
+          <Badge variant={intentVariant[e.intent] ?? "outline"}>
+            {e.intent}
+          </Badge>
+        ) : null}
+        {showUrgency && e.urgency && e.urgency !== "low" ? (
+          <Badge variant={e.urgency === "high" ? "destructive" : "secondary"}>
+            {e.urgency}
+          </Badge>
+        ) : null}
+        <Badge variant={statusVariant[e.status]}>{e.status}</Badge>
+      </div>
     </div>
   );
 }
