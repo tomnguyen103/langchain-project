@@ -30,7 +30,12 @@ const TENANT_TOKEN_MAP: Record<string, string> | null = (() => {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      return parsed as Record<string, string>;
+      // Null-prototype object avoids prototype-chain collisions (e.g. "toString").
+      const map = Object.create(null) as Record<string, string>;
+      for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof v === "string") map[k] = v;
+      }
+      return map;
     }
   } catch {
     // Malformed JSON — fall through
@@ -55,7 +60,9 @@ function resolveTenant(req: NextRequest): string | null {
 
   // Multi-tenant mode
   if (TENANT_TOKEN_MAP) {
-    return bearer ? (TENANT_TOKEN_MAP[bearer] ?? null) : null;
+    return bearer && Object.hasOwn(TENANT_TOKEN_MAP, bearer)
+      ? TENANT_TOKEN_MAP[bearer]
+      : null;
   }
 
   // Single-tenant mode (backward-compat)
@@ -111,6 +118,12 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // ── tasks/get: poll run status (single snapshot) ─────────────────────────
   if (parsed.method === "tasks/get") {
+    if (!parsed.taskId) {
+      return NextResponse.json(
+        jsonRpcError(parsed.id, -32602, "params.id is required"),
+        { status: 400 },
+      );
+    }
     const run = await getAgentRun(parsed.taskId);
     if (!run || run.clerkUserId !== tenant) {
       return NextResponse.json(
@@ -129,6 +142,13 @@ export async function POST(req: NextRequest): Promise<Response> {
   // ── tasks/sendSubscribe: SSE stream of status updates ────────────────────
   if (parsed.method === "tasks/sendSubscribe") {
     const taskId = parsed.taskId;
+
+    if (!taskId) {
+      return NextResponse.json(
+        jsonRpcError(parsed.id, -32602, "params.id is required"),
+        { status: 400 },
+      );
+    }
 
     // Verify task exists and is owned by this tenant before opening the stream.
     const initial = await getAgentRun(taskId);
@@ -169,6 +189,8 @@ export async function POST(req: NextRequest): Promise<Response> {
             return;
           }
 
+          if (cancelled) return;
+
           if (!run || run.clerkUserId !== tenant) {
             emit(jsonRpcError(parsed.id, -32001, "task not found"));
             controller.close();
@@ -190,6 +212,9 @@ export async function POST(req: NextRequest): Promise<Response> {
               controller.close();
               return;
             }
+          } else {
+            // No state change — emit SSE comment to keep intermediaries from closing the socket.
+            controller.enqueue(encoder.encode(": keepalive\n\n"));
           }
 
           if (!cancelled) setTimeout(tick, SSE_POLL_MS);

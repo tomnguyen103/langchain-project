@@ -13,7 +13,8 @@ export default async function DashboardLayout({
 }) {
   const [plan, userId] = await Promise.all([getCurrentPlan(), requireUserId()]);
   const brands = await listBrandsForUser(userId);
-  const currentBrandId = (await cookies()).get("current_brand_id")?.value ?? null;
+  const rawBrandId = (await cookies()).get("current_brand_id")?.value ?? null;
+  const currentBrandId = brands.some((b) => b.id === rawBrandId) ? rawBrandId : null;
 
   return (
     <div className="flex min-h-dvh">
