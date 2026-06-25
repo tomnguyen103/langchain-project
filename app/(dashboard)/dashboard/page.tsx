@@ -6,6 +6,8 @@ import {
   CalendarClock,
   CheckCircle2,
   Circle,
+  Heart,
+  MessageCircle,
   Plug,
   Sparkles,
   type LucideIcon,
@@ -16,6 +18,7 @@ import { PLATFORM_META } from "@/lib/platforms/constants";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
   countPostsForUser,
+  getEngagementSummary,
   listFailedTargetsForUser,
   listPostsWithTargets,
 } from "@/lib/repos/posts";
@@ -28,7 +31,7 @@ export default async function OverviewPage() {
   const userId = await requireUserId();
   const now = new Date();
   const horizon = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-  const [user, accounts, failedTargets, upcoming, rules, postCount, latestReport] =
+  const [user, accounts, failedTargets, upcoming, rules, postCount, engagement, latestReport] =
     await Promise.all([
       currentUser(),
       listSocialAccounts(userId),
@@ -36,6 +39,7 @@ export default async function OverviewPage() {
       listPostsWithTargets(userId, { from: now, to: horizon }),
       listRules(userId),
       countPostsForUser(userId),
+      getEngagementSummary(userId),
       getLatestReport(userId),
     ]);
 
@@ -73,6 +77,9 @@ export default async function OverviewPage() {
           : undefined,
     },
   ];
+
+  const totalEngagement =
+    engagement.totalLikes + engagement.totalComments + engagement.totalViews + engagement.totalShares;
 
   return (
     <div className="space-y-6">
@@ -132,6 +139,37 @@ export default async function OverviewPage() {
           </Card>
         ))}
       </div>
+
+      {engagement.postsWithMetrics > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Engagement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Likes", value: engagement.totalLikes, icon: Heart },
+                { label: "Comments", value: engagement.totalComments, icon: MessageCircle },
+                { label: "Views", value: engagement.totalViews, icon: Plug },
+                { label: "Shares", value: engagement.totalShares, icon: CalendarClock },
+              ].map(({ label, value, icon: Icon }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <Icon aria-hidden className="text-muted-foreground size-4" />
+                  <div>
+                    <div className="font-semibold">{value.toLocaleString()}</div>
+                    <div className="text-muted-foreground text-xs">{label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-muted-foreground mt-3 text-xs">
+              Across {engagement.postsWithMetrics} published post
+              {engagement.postsWithMetrics === 1 ? "" : "s"} ·{" "}
+              {totalEngagement.toLocaleString()} total interactions
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {latestReport?.data.insights && latestReport.data.insights.length > 0 && (
         <Card>
