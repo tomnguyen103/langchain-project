@@ -8,6 +8,13 @@ export type ReportTopic = {
   engagement: number;
 };
 
+export type ReportInsight = {
+  type: string;
+  headline: string;
+  detail: string;
+  action?: { label: string; href: string };
+};
+
 /** The structured insight Rigel compiles for a user over a period. */
 export type ReportData = {
   period: string;
@@ -15,6 +22,8 @@ export type ReportData = {
   topTopics: ReportTopic[];
   runSuccessRate: number;
   failedPublishCount: number;
+  /** AI-generated narrative insights — added by Rigel Narratives. Optional for back-compat with older rows. */
+  insights?: ReportInsight[];
 };
 
 /**

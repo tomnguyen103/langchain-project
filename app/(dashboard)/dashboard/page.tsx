@@ -2,10 +2,12 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import {
   AlertTriangle,
+  ArrowRight,
   CalendarClock,
   CheckCircle2,
   Circle,
   Plug,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,6 +19,7 @@ import {
   listFailedTargetsForUser,
   listPostsWithTargets,
 } from "@/lib/repos/posts";
+import { getLatestReport } from "@/lib/repos/reports";
 import { listRules } from "@/lib/repos/replies";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +28,7 @@ export default async function OverviewPage() {
   const userId = await requireUserId();
   const now = new Date();
   const horizon = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-  const [user, accounts, failedTargets, upcoming, rules, postCount] =
+  const [user, accounts, failedTargets, upcoming, rules, postCount, latestReport] =
     await Promise.all([
       currentUser(),
       listSocialAccounts(userId),
@@ -33,6 +36,7 @@ export default async function OverviewPage() {
       listPostsWithTargets(userId, { from: now, to: horizon }),
       listRules(userId),
       countPostsForUser(userId),
+      getLatestReport(userId),
     ]);
 
   const name = user?.firstName ?? "there";
@@ -61,7 +65,6 @@ export default async function OverviewPage() {
       label: "Need attention",
       value: attention,
       icon: AlertTriangle,
-      // Headline merges two sources — show the split so it matches the list below.
       hint:
         attention > 0
           ? `${failedTargets.length} failed · ${unhealthy.length} account${
@@ -129,6 +132,36 @@ export default async function OverviewPage() {
           </Card>
         ))}
       </div>
+
+      {latestReport?.data.insights && latestReport.data.insights.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center gap-2">
+            <Sparkles aria-hidden className="text-primary size-4" />
+            <CardTitle className="text-base">
+              This week&apos;s insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {latestReport.data.insights.map((insight, i) => (
+              <div key={i} className="rounded-lg border p-3">
+                <p className="text-sm font-medium">{insight.headline}</p>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  {insight.detail}
+                </p>
+                {insight.action && (
+                  <Link
+                    href={insight.action.href}
+                    className="text-primary mt-2 inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                  >
+                    {insight.action.label}
+                    <ArrowRight aria-hidden className="size-3" />
+                  </Link>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
