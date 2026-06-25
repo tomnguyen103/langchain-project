@@ -21,10 +21,10 @@ const SSE_POLL_MS = 2_000;
 const SSE_TIMEOUT_MS = 5 * 60 * 1_000; // 5 min hard cap
 
 /**
- * Parse A2A_TENANT_TOKENS (JSON object) once and return token→tenantId map.
- * Returns null when the env var is absent or unparseable.
+ * Token→tenantId map parsed once at module load from A2A_TENANT_TOKENS JSON.
+ * Null when the env var is absent or not a plain object.
  */
-function parseTenantTokens(): Record<string, string> | null {
+const TENANT_TOKEN_MAP: Record<string, string> | null = (() => {
   const raw = env.A2A_TENANT_TOKENS;
   if (!raw) return null;
   try {
@@ -36,7 +36,7 @@ function parseTenantTokens(): Record<string, string> | null {
     // Malformed JSON — fall through
   }
   return null;
-}
+})();
 
 /**
  * Resolve the tenant (Clerk user id) for the incoming request.
@@ -54,10 +54,8 @@ function resolveTenant(req: NextRequest): string | null {
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
   // Multi-tenant mode
-  const tokenMap = parseTenantTokens();
-  if (tokenMap) {
-    const tenantId = bearer ? (tokenMap[bearer] ?? null) : null;
-    return tenantId ?? null;
+  if (TENANT_TOKEN_MAP) {
+    return bearer ? (TENANT_TOKEN_MAP[bearer] ?? null) : null;
   }
 
   // Single-tenant mode (backward-compat)
@@ -143,6 +141,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
     const encoder = new TextEncoder();
     const deadline = Date.now() + SSE_TIMEOUT_MS;
+    let cancelled = false;
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -153,6 +152,8 @@ export async function POST(req: NextRequest): Promise<Response> {
         };
 
         const tick = async () => {
+          if (cancelled) return;
+
           if (Date.now() > deadline) {
             emit(jsonRpcError(parsed.id, -32000, "stream timeout"));
             controller.close();
@@ -164,7 +165,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             run = await getAgentRun(taskId);
           } catch {
             // Transient DB error — skip this tick and retry
-            setTimeout(tick, SSE_POLL_MS);
+            if (!cancelled) setTimeout(tick, SSE_POLL_MS);
             return;
           }
 
@@ -191,10 +192,14 @@ export async function POST(req: NextRequest): Promise<Response> {
             }
           }
 
-          setTimeout(tick, SSE_POLL_MS);
+          if (!cancelled) setTimeout(tick, SSE_POLL_MS);
         };
 
         await tick();
+      },
+      cancel() {
+        // Client disconnected — stop polling on the next tick.
+        cancelled = true;
       },
     });
 

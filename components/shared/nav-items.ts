@@ -1,5 +1,6 @@
 import {
   Activity,
+  Briefcase,
   Calendar,
   CreditCard,
   FileCheck,
@@ -28,6 +29,7 @@ export const navItems: NavItem[] = [
   { href: "/quality", label: "Quality", icon: ShieldAlert },
   { href: "/runs", label: "Runs", icon: Activity },
   { href: "/compliance", label: "Compliance", icon: FileCheck },
+  { href: "/brands", label: "Brands", icon: Briefcase },
   { href: "/team", label: "Team", icon: Users },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },

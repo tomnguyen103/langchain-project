@@ -31,6 +31,8 @@ export const posts = pgTable(
     // and back to true if the post is re-scheduled — keeping refunds idempotent.
     scheduleQuotaPeriod: text("schedule_quota_period"),
     scheduleQuotaHeld: boolean("schedule_quota_held").notNull().default(false),
+    // Atrium: optional brand workspace this post belongs to. Null = personal.
+    brandId: uuid("brand_id"),
     ...timestamps,
   },
   (t) => [

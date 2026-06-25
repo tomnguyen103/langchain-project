@@ -53,6 +53,8 @@ export const generatedContent = pgTable(
     // Provenance for recycled drafts — the post_target this was re-angled from.
     // Null for original drafts; set by the Evergreen Recycler repurpose action.
     derivedFromTargetId: uuid("derived_from_target_id"),
+    // Atrium: optional brand workspace this draft belongs to. Null = personal.
+    brandId: uuid("brand_id"),
     ...timestamps,
   },
   (t) => [

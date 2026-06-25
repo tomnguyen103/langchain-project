@@ -31,6 +31,8 @@ export const socialAccounts = pgTable(
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     status: accountStatusEnum("status").notNull().default("active"),
     lastValidatedAt: timestamp("last_validated_at", { withTimezone: true }),
+    // Atrium: optional brand workspace this account belongs to. Null = personal.
+    brandId: uuid("brand_id"),
     ...timestamps,
   },
   (t) => [

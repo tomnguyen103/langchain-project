@@ -5,7 +5,9 @@ import Link from "next/link";
 import { Menu, Sparkles } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
+import type { Brand } from "@/db/schema";
 import type { PlanId } from "@/lib/billing/plans";
+import { BrandSwitcher } from "@/components/brands/brand-switcher";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -19,7 +21,15 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { DashboardNav } from "./dashboard-nav";
 import { QuotaBadge } from "./quota-badge";
 
-export function Topbar({ plan }: { plan: PlanId }) {
+export function Topbar({
+  plan,
+  brands = [],
+  currentBrandId = null,
+}: {
+  plan: PlanId;
+  brands?: Array<Pick<Brand, "id" | "name">>;
+  currentBrandId?: string | null;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -62,6 +72,7 @@ export function Topbar({ plan }: { plan: PlanId }) {
       </Link>
 
       <div className="flex-1" />
+      <BrandSwitcher brands={brands} currentBrandId={currentBrandId} />
       <QuotaBadge plan={plan} />
       <ThemeToggle />
       <UserButton />

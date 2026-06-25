@@ -43,6 +43,8 @@ export const agentRuns = pgTable(
     langsmithRunId: text("langsmith_run_id"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
+    // Atrium: optional brand workspace this run belongs to. Null = personal.
+    brandId: uuid("brand_id"),
     ...timestamps,
   },
   (t) => [
