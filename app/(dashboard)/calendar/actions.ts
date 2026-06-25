@@ -10,7 +10,6 @@ import { getBrandProfile } from "@/lib/repos/brand-profiles";
 import { getLatestReport } from "@/lib/repos/reports";
 import { createContentPlan } from "@/lib/repos/content-plans";
 
-const FREE_SLOT_CAP = 7;
 const PRO_SLOT_CAP = 14;
 
 export async function generatePlan(): Promise<void> {
@@ -35,7 +34,7 @@ export async function generatePlan(): Promise<void> {
     },
   });
 
-  const maxSlots = limits.research ? PRO_SLOT_CAP : FREE_SLOT_CAP;
+  const maxSlots = PRO_SLOT_CAP;
   const output = await mensa.generatePlan(userId, { platforms, maxSlots });
 
   const plan = await createContentPlan({

@@ -21,7 +21,7 @@ export type MensaOutput = {
   slots: PlanSlot[];
   periodStart: string;
   periodEnd: string;
-  topicsSource: "report" | "fallback";
+  topicsSource: "report" | "memory" | "fallback";
 };
 
 const FALLBACK_TOPICS = [
@@ -90,8 +90,10 @@ export function createMensa(deps: MensaDeps) {
           : FALLBACK_TOPICS;
 
       const topicsSource: MensaOutput["topicsSource"] =
-        reportTopics.length >= 2 || learnedTopics.length >= 2
+        reportTopics.length >= 2
           ? "report"
+          : learnedTopics.length >= 2
+          ? "memory"
           : "fallback";
 
       // Distribute slots: iterate days, assign a platform + topic round-robin.
