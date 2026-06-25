@@ -63,6 +63,19 @@ describe("narrateReport", () => {
     assert.ok(insights.some((i) => i.type === "success_rate"));
   });
 
+  it("surfaces success_rate warning when runSuccessRate is 0 (total pipeline failure)", () => {
+    const insights = narrateReport({
+      ...base,
+      totalPublished: 0,
+      runSuccessRate: 0,
+      failedPublishCount: 3,
+    });
+    assert.ok(
+      insights.some((i) => i.type === "success_rate"),
+      "expected a success_rate insight for total pipeline failure",
+    );
+  });
+
   it("always returns at least one insight even for empty data", () => {
     const insights = narrateReport(base);
     assert.ok(insights.length > 0);
