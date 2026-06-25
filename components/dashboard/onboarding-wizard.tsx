@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,14 +43,11 @@ export interface OnboardingWizardProps {
 }
 
 export function OnboardingWizard({ show }: OnboardingWizardProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => {
+    if (!show || typeof window === "undefined") return false;
+    return !localStorage.getItem(DISMISS_KEY);
+  });
   const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    if (!show) return;
-    const dismissed = localStorage.getItem(DISMISS_KEY);
-    if (!dismissed) setOpen(true);
-  }, [show]);
 
   function dismiss() {
     localStorage.setItem(DISMISS_KEY, "1");
