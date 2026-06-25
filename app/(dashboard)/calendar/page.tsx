@@ -2,8 +2,12 @@ import Link from "next/link";
 
 import { requireUserId } from "@/lib/clerk";
 import { listDraftPosts, listPostsWithTargets } from "@/lib/repos/posts";
+import { listContentPlans } from "@/lib/repos/content-plans";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { CalendarPost } from "@/components/calendar/types";
+import { generatePlan } from "./actions";
 
 export default async function CalendarPage() {
   const userId = await requireUserId();
@@ -11,9 +15,10 @@ export default async function CalendarPage() {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() - 12, 1);
   const to = new Date(now.getFullYear(), now.getMonth() + 13, 0, 23, 59, 59);
-  const [posts, drafts] = await Promise.all([
+  const [posts, drafts, plans] = await Promise.all([
     listPostsWithTargets(userId, { from, to }),
     listDraftPosts(userId),
+    listContentPlans(userId, 3),
   ]);
 
   const calendarPosts: CalendarPost[] = posts.map((p) => ({
@@ -28,12 +33,42 @@ export default async function CalendarPage() {
     })),
   }));
 
+  const draftPlans = plans.filter((p) => p.status === "draft");
+
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
-      <p className="text-muted-foreground mt-1">
-        Everything you&apos;ve scheduled and published.
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
+          <p className="text-muted-foreground mt-1">
+            Everything you&apos;ve scheduled and published.
+          </p>
+        </div>
+        <form action={generatePlan}>
+          <Button type="submit" variant="outline" size="sm">
+            Plan 2 weeks
+          </Button>
+        </form>
+      </div>
+
+      {draftPlans.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {draftPlans.map((p) => (
+            <Link
+              key={p.id}
+              href={`/plans/${p.id}`}
+              className="hover:bg-accent flex items-center justify-between rounded-lg border p-3"
+            >
+              <span className="text-sm">
+                Draft plan · {(p.slots as unknown[]).length} slots ·{" "}
+                {new Date(p.periodStart).toLocaleDateString()}
+              </span>
+              <Badge variant="secondary">Review →</Badge>
+            </Link>
+          ))}
+        </div>
+      )}
+
       <div className="mt-6">
         <CalendarGrid posts={calendarPosts} />
       </div>

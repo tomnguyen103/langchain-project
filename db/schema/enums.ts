@@ -85,7 +85,8 @@ export const agentNameEnum = pgEnum("agent_name", [
   "sirius",
   "polaris",
   "rigel",
-  "castor", // brand-safety reviewer / approval gate (appended; keep last for additive migration)
+  "castor", // brand-safety reviewer / approval gate
+  "mensa",  // cadence architect — plan generator (appended; keep last for additive migration)
 ]);
 
 /** Lifecycle of a whole pipeline run (agent_runs). */

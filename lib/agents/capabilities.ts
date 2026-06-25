@@ -19,6 +19,7 @@ export const AGENT_CAPABILITIES: Record<AgentName, readonly AgentCapability[]> =
     [AgentName.Sirius]: ["engage"],
     [AgentName.Rigel]: ["report"],
     [AgentName.Polaris]: ["seed"],
+    [AgentName.Mensa]: ["plan"],
   };
 
 /** Whether an agent is permitted a capability per the matrix. */
