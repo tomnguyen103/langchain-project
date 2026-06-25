@@ -355,3 +355,62 @@ export async function listPublishedTargetsWithMetrics(
       ),
     );
 }
+
+const RECYCLE_GAP_MS = 30 * 24 * 60 * 60_000; // 30-day freshness window
+
+/** Top-engagement published targets older than 30 days — Evergreen Recycler feed. */
+export async function listRecyclableWinners(
+  clerkUserId: string,
+  limit = 5,
+): Promise<
+  Array<{
+    targetId: string;
+    postId: string;
+    platform: PostTarget["platform"];
+    body: string;
+    publishedAt: Date;
+    engagementSum: number;
+  }>
+> {
+  const cutoff = new Date(Date.now() - RECYCLE_GAP_MS);
+  const rows = await db
+    .select({
+      targetId: postTargets.id,
+      postId: postTargets.postId,
+      platform: postTargets.platform,
+      body: postTargets.body,
+      publishedAt: postTargets.publishedAt,
+      metrics: postTargets.metrics,
+    })
+    .from(postTargets)
+    .innerJoin(posts, eq(postTargets.postId, posts.id))
+    .where(
+      and(
+        eq(posts.clerkUserId, clerkUserId),
+        eq(postTargets.status, "published"),
+        isNotNull(postTargets.metrics),
+        isNotNull(postTargets.publishedAt),
+        lte(postTargets.publishedAt, cutoff),
+      ),
+    );
+
+  return rows
+    .map((r) => {
+      const m = r.metrics ?? {};
+      const engagementSum = Object.values(m).reduce(
+        (acc, v) => acc + (typeof v === "number" && isFinite(v) ? v : 0),
+        0,
+      );
+      return {
+        targetId: r.targetId,
+        postId: r.postId,
+        platform: r.platform,
+        body: r.body,
+        publishedAt: r.publishedAt as Date,
+        engagementSum,
+      };
+    })
+    .filter((r) => r.engagementSum > 0)
+    .sort((a, b) => b.engagementSum - a.engagementSum)
+    .slice(0, limit);
+}

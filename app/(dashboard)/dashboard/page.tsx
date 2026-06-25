@@ -21,17 +21,20 @@ import {
   getEngagementSummary,
   listFailedTargetsForUser,
   listPostsWithTargets,
+  listRecyclableWinners,
 } from "@/lib/repos/posts";
 import { getLatestReport } from "@/lib/repos/reports";
 import { listRules } from "@/lib/repos/replies";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { repurposePost } from "./actions";
 
 export default async function OverviewPage() {
   const userId = await requireUserId();
   const now = new Date();
   const horizon = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-  const [user, accounts, failedTargets, upcoming, rules, postCount, engagement, latestReport] =
+  const [user, accounts, failedTargets, upcoming, rules, postCount, engagement, latestReport, recyclableWinners] =
     await Promise.all([
       currentUser(),
       listSocialAccounts(userId),
@@ -41,6 +44,7 @@ export default async function OverviewPage() {
       countPostsForUser(userId),
       getEngagementSummary(userId),
       getLatestReport(userId),
+      listRecyclableWinners(userId),
     ]);
 
   const name = user?.firstName ?? "there";
@@ -197,6 +201,44 @@ export default async function OverviewPage() {
                 )}
               </div>
             ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {recyclableWinners.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Recyclable winners</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recyclableWinners.map((w) => (
+              <div
+                key={w.targetId}
+                className="flex items-center justify-between gap-3 rounded-lg border p-3"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="shrink-0">
+                      {PLATFORM_META[w.platform].label}
+                    </Badge>
+                    <span className="text-muted-foreground text-xs">
+                      {w.engagementSum.toLocaleString()} interactions
+                    </span>
+                  </div>
+                  <p className="mt-1 line-clamp-1 text-sm">{w.body}</p>
+                </div>
+                <form action={repurposePost}>
+                  <input type="hidden" name="targetId" value={w.targetId} />
+                  <Button type="submit" size="sm" variant="outline">
+                    Repurpose
+                  </Button>
+                </form>
+              </div>
+            ))}
+            <p className="text-muted-foreground pt-1 text-xs">
+              Posts published &gt;30 days ago sorted by engagement. Repurposing
+              creates a fresh draft in your review queue.
+            </p>
           </CardContent>
         </Card>
       )}

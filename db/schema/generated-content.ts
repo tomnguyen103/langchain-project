@@ -50,6 +50,9 @@ export const generatedContent = pgTable(
     // The Orion run that produced this draft (set by Castor) — lets the approve
     // API resume the right run after a human clears a held draft (T7).
     agentRunId: text("agent_run_id"),
+    // Provenance for recycled drafts — the post_target this was re-angled from.
+    // Null for original drafts; set by the Evergreen Recycler repurpose action.
+    derivedFromTargetId: uuid("derived_from_target_id"),
     ...timestamps,
   },
   (t) => [
