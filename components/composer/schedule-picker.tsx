@@ -28,17 +28,21 @@ export function SchedulePicker({
     const platform = platforms?.[0];
     if (!platform) return;
     startSuggestion(async () => {
-      const result = await getRecommendedScheduleTime(platform);
-      if (!result) {
-        setConfidenceLabel("No data yet — publish more posts to learn your best times.");
-        return;
+      try {
+        const result = await getRecommendedScheduleTime(platform);
+        if (!result) {
+          setConfidenceLabel("No data yet — publish more posts to learn your best times.");
+          return;
+        }
+        onChange(toDatetimeLocalValue(new Date(result.iso)));
+        setConfidenceLabel(
+          result.highConfidence
+            ? "Suggested from your top-performing posts."
+            : "Based on platform defaults — publish more to personalise.",
+        );
+      } catch {
+        setConfidenceLabel(null);
       }
-      onChange(result.datetimeLocal);
-      setConfidenceLabel(
-        result.highConfidence
-          ? "Suggested from your top-performing posts."
-          : "Based on platform defaults — publish more to personalise.",
-      );
     });
   }
 
@@ -46,7 +50,7 @@ export function SchedulePicker({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <Label htmlFor="schedule">Schedule for</Label>
-        {platforms && platforms.length > 0 && (
+        {platforms && platforms.length === 1 && (
           <Button
             type="button"
             variant="ghost"

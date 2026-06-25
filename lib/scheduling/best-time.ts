@@ -106,5 +106,6 @@ export function nextBestPublishTime(windows: WindowScore[], from: Date): Date {
  * When false the caller should show a "based on platform defaults" label.
  */
 export function isHighConfidence(windows: WindowScore[]): boolean {
-  return windows.some((w) => w.postCount >= MIN_SAMPLE_SIZE);
+  const total = windows.reduce((sum, w) => sum + w.postCount, 0);
+  return total >= MIN_SAMPLE_SIZE;
 }

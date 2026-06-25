@@ -21,20 +21,19 @@ export async function postingWindowsRefreshProcessor(job: Job): Promise<void> {
   const platforms = [...new Set(accounts.map((a) => a.platform))] as Platform[];
 
   let totalSlotsRefreshed = 0;
+  let failed = false;
 
   for (const platform of platforms) {
     try {
       const targets = await listPublishedTargetsWithMetrics(clerkUserId, platform);
 
       const samples: PostSample[] = targets
-        .filter((t) => t.publishedAt !== null)
+        .filter((t) => t.publishedAt !== null && t.metrics !== null)
         .map((t) => {
-          const engagementSum = t.metrics
-            ? Object.values(t.metrics).reduce(
-                (acc, v) => acc + (typeof v === "number" && isFinite(v) ? v : 0),
-                0,
-              )
-            : 0;
+          const engagementSum = Object.values(t.metrics!).reduce(
+            (acc, v) => acc + (typeof v === "number" && isFinite(v) ? v : 0),
+            0,
+          );
           return { publishedAt: t.publishedAt as Date, engagement: engagementSum };
         });
 
@@ -47,8 +46,11 @@ export async function postingWindowsRefreshProcessor(job: Job): Promise<void> {
         platform,
         error: error instanceof Error ? error.message : String(error),
       });
+      failed = true;
     }
   }
+
+  if (failed) throw new Error("One or more platforms failed to refresh posting windows");
 
   logger.info("posting-windows: refresh complete", {
     clerkUserId,

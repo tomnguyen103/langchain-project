@@ -24,7 +24,7 @@ import {
 } from "@/lib/repos/posts";
 import { getPostingWindows } from "@/lib/repos/posting-windows";
 import { nextBestPublishTime, isHighConfidence, type WindowScore } from "@/lib/scheduling/best-time";
-import { assertFutureDate, toDatetimeLocalValue } from "@/lib/utils/schedule";
+import { assertFutureDate } from "@/lib/utils/schedule";
 
 export type SavedMedia = {
   id: string;
@@ -285,7 +285,7 @@ export async function createPost(
  */
 export async function getRecommendedScheduleTime(
   platform: Platform,
-): Promise<{ datetimeLocal: string; highConfidence: boolean } | null> {
+): Promise<{ iso: string; highConfidence: boolean } | null> {
   const userId = await requireUserId();
   const rows = await getPostingWindows(userId, platform);
   if (rows.length === 0) return null;
@@ -297,7 +297,7 @@ export async function getRecommendedScheduleTime(
   }));
   const recommended = nextBestPublishTime(windows, new Date());
   return {
-    datetimeLocal: toDatetimeLocalValue(recommended),
+    iso: recommended.toISOString(),
     highConfidence: isHighConfidence(windows),
   };
 }
