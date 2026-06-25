@@ -8,9 +8,9 @@ _Consolidated on 2026-06-25. Supersedes: docs/MASTER_PLAN.md (v1) and docs/MASTE
 
 ## Summary — 2026-06-25
 
-**What changed since v2 (2026-06-24):** 12 new features shipped across 6 PRs (#46–#55), moving several backlog items to Done and resolving the last committed Partial (engagement analytics). Migrations grew from 0025 to 0026; three schema additions are pending `drizzle-kit generate`.
+**What changed since v2 (2026-06-24):** 16 new features shipped across 6 PRs (#46–#55) plus a follow-up wave (Escalation Inbox, Quality Dashboard, Onboarding Wizard, Voice History); docs/FIX_PLAN.md absorbed — all 6 build-first-wave goals (Pulse, Quaestor, Vigil, Sirius Triage v1, Run Doctor, Praxis Live v1) confirmed Done. Migrations now 0000–0028 (29 files); all pending schema additions generated.
 
-**Committed items:** ~81 total → **77 Done · 0 Partial · 1 Not started.**
+**Committed items:** ~82 total → **78 Done · 1 Partial (A2A/T17) · 1 Not started (Atrium).**
 
 **Backlog (ideation, never committed):** 0 Partial · ~24 Not started (all formerly-partial backlog items resolved or promoted).
 
@@ -147,8 +147,8 @@ _Consolidated on 2026-06-25. Supersedes: docs/MASTER_PLAN.md (v1) and docs/MASTE
   - [app/(dashboard)/layout.tsx](app/(dashboard)/layout.tsx)
 - [x] **Final-QA scaffolding** — error boundaries (`error.tsx`/`global-error.tsx`), loading skeletons, `not-found.tsx`, dark mode.
   - [app/(dashboard)/error.tsx](app/(dashboard)/error.tsx)
-- [~] **Onboarding** — first-run checklist on dashboard (Connect → Create → Auto-reply, hidden once complete) is present. A dedicated **guided multi-step wizard** is not implemented.
-  - [app/(dashboard)/dashboard/page.tsx:44](app/(dashboard)/dashboard/page.tsx)
+- [x] **Onboarding** — first-run checklist on dashboard (Connect → Create → Auto-reply, hidden once complete) + Sheet-based 3-step guided wizard (`OnboardingWizard`, localStorage dismiss, auto-opens for account-less users).
+  - [app/(dashboard)/dashboard/page.tsx](app/(dashboard)/dashboard/page.tsx), [components/dashboard/onboarding-wizard.tsx](components/dashboard/onboarding-wizard.tsx)
 
 ---
 
@@ -168,7 +168,7 @@ _Consolidated on 2026-06-25. Supersedes: docs/MASTER_PLAN.md (v1) and docs/MASTE
   - [lib/agents/polaris/index.ts](lib/agents/polaris/index.ts)
 - [x] **Mensa cadence agent** — `AgentName.Mensa`, `content_plans` table, `createMensa()` generates 2-week `PlanSlot[]` (round-robin, sourced from Rigel topTopics); `/plans/[id]` review page; `approvePlan` parallel-enqueues Orion runs (first step: Lyra); "Plan 2 weeks" calendar button; Free cap 7 slots / Pro cap 14.
   - [lib/agents/mensa/index.ts](lib/agents/mensa/index.ts), [db/schema/content-plans.ts](db/schema/content-plans.ts), [app/(dashboard)/plans/[id]/page.tsx](app/(dashboard)/plans/[id]/page.tsx)
-  - **⚠ Migration pending**: `content_plans` table not yet in a migration file.
+  - Schema covered by migration 0027.
 
 ---
 
@@ -233,7 +233,7 @@ _Consolidated on 2026-06-25. Supersedes: docs/MASTER_PLAN.md (v1) and docs/MASTE
 
 - [x] **Chronos — best-time-to-post optimizer** — `lib/scheduling/best-time.ts` pure scorer (`scoreWindows`, `nextBestPublishTime`, `isHighConfidence`); `posting_windows` table + repo; daily BullMQ scorer; "Suggest time" button in composer with confidence feedback.
   - [lib/scheduling/best-time.ts](lib/scheduling/best-time.ts), [db/schema/posting-windows.ts](db/schema/posting-windows.ts)
-  - **⚠ Migration pending**: `posting_windows` table not yet in a migration file.
+  - Schema covered by migration 0027.
 
 ---
 
@@ -241,7 +241,7 @@ _Consolidated on 2026-06-25. Supersedes: docs/MASTER_PLAN.md (v1) and docs/MASTE
 
 - [x] **Phoenix / Evergreen Recycler** — `listRecyclableWinners()` (published targets >30 days, sorted by engagement); `repurposePost` server action (Pro-gated, starts Orion run at Lyra with "re-angle and refresh" topic); `generated_content.derived_from_target_id` provenance; "Recyclable winners" dashboard card.
   - [lib/repos/posts.ts](lib/repos/posts.ts), [app/(dashboard)/dashboard/actions.ts](app/(dashboard)/dashboard/actions.ts)
-  - **⚠ Migration pending**: `generated_content.derived_from_target_id` column not yet in a migration file.
+  - Schema covered by migration 0027.
 
 ---
 
@@ -313,6 +313,7 @@ All schema changes are covered by migrations 0000–0028 (29 files). Apply with 
 
 ## Changelog
 
+- **2026-06-25 (v3, update 3)** — Absorbed docs/FIX_PLAN.md (2026-06-24 build-first wave). All 6 goals confirmed Done in this file: Pulse (Phase 8), Quaestor (Phase 9), Vigil (Phase 9), Sirius Triage v1 (Phase 7), Run Doctor (Phase 9), Praxis Live v1 (Compliance). Migration ⚠ warnings cleared — 0027+0028 cover all pending schema. Onboarding promoted [~]→[x] (wizard shipped in update 2). FIX_PLAN.md superseded. Net: 78 Done · 1 Partial (A2A/T17) · 1 Not started (Atrium).
 - **2026-06-25 (v3, update 2)** — Resolved all 4 committed Partials and generated 2 new migrations (0027, 0028). Migrations: 0027 covers posting_windows + content_plans + derived_from_target_id + agent_name 'mensa'; 0028 adds brand_profiles.voice_history. New features: (1) Sirius+ Escalation Inbox — `listEscalatedCommentsForUser` + Escalations tab on /auto-reply with count badge; (2) Vigil/Vetus Quality Dashboard — `lib/repos/quality.ts` + `app/(dashboard)/quality/page.tsx` + Quality nav entry (ShieldAlert); (3) Onboarding Wizard — `components/dashboard/onboarding-wizard.tsx` (Sheet, 3-step, localStorage dismiss, auto-opens for account-less users); (4) Mnemosyne Voice History — `brand_profiles.voice_history` jsonb, history appended on voice change in `upsertBrandProfile`, VoiceHistoryCard on settings page. Net committed status: 77 Done · 0 Partial · 1 Not started. Tests: 330/330 pass.
 - **2026-06-25 (v3)** — Consolidated v1 + v2 into a single file; 12 new features from PRs #46–#55 promoted from backlog to Done. Net: ~72 Done · 4 Partial · 1 Not started. v1 and v2 superseded; v2 archived to docs/archive/.
 - **2026-06-24 (v2)** — Re-derived from fresh scan (248/248 unit tests, `tsc` clean). Corrected onboarding checklist and reconnect CTA vs v1. 65 Done · 3 Partial · 1 Not started. Archived 13 source docs to docs/archive/.
