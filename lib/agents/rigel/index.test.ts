@@ -44,12 +44,12 @@ describe("rigel agent", () => {
       topTopics: [{ topic: "coffee", engagement: 3 }],
       period: "30d",
     });
-    assert.deepEqual(result.summary, {
-      totalPublished: 2,
-      runSuccessRate: 0.5,
-      failedPublishCount: 1,
-      topTopics: 1,
-    });
+    assert.ok(result.summary, "summary should be defined");
+    assert.equal(result.summary.totalPublished, 2);
+    assert.equal(result.summary.runSuccessRate, 0.5);
+    assert.equal(result.summary.failedPublishCount, 1);
+    assert.equal(result.summary.topTopics, 1);
+    assert.ok(typeof result.summary.insightsGenerated === "number");
     assert.equal(result.handoff, undefined);
   });
 

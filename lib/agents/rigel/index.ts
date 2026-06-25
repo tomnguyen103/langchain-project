@@ -6,6 +6,7 @@ import {
   type PublishedTargetRow,
   type RunRow,
 } from "./aggregate";
+import { narrateReport } from "./narrate";
 
 export type RigelInput = { period?: string };
 
@@ -40,14 +41,14 @@ function periodDays(period: string): number {
  * Rigel — reporting / insights. Compiles a structured report (top topics by
  * published count + engagement, run success rate, failed-publish count) from the
  * existing tables and persists it for the dashboard + Orion's feed-forward.
+ * Attaches narrative insights grounded strictly on the compiled numbers.
  * Read-only over the source tables; terminal (no handoff).
  */
 export function createRigel(deps: RigelDeps): AgentDefinition<RigelInput> {
   return {
     name: AgentName.Rigel,
     async run(input, ctx) {
-      // Normalize the period to its parsed window so the persisted metadata
-      // always matches the range actually used (a malformed value → 7 days).
+      // Normalize the period so the persisted metadata always matches the range used.
       const days = periodDays(input.period ?? "7d");
       const period = `${days}d`;
       const since = new Date(Date.now() - days * DAY_MS);
@@ -58,12 +59,20 @@ export function createRigel(deps: RigelDeps): AgentDefinition<RigelInput> {
         deps.countFailedPublishes(ctx.clerkUserId, since),
       ]);
 
-      const report = buildReport({
+      const baseReport = buildReport({
         period,
         publishedTargets,
         runs,
         failedPublishCount,
       });
+
+      // Attach narrative insights grounded on the compiled numbers (no LLM,
+      // no hallucinated stats — every insight cites only figures in baseReport).
+      const report: ReportData = {
+        ...baseReport,
+        insights: narrateReport(baseReport),
+      };
+
       await deps.saveReport(ctx.clerkUserId, period, report);
 
       // Feed-forward into drafting: persist the best-performing topics so Lyra
@@ -82,6 +91,7 @@ export function createRigel(deps: RigelDeps): AgentDefinition<RigelInput> {
           runSuccessRate: report.runSuccessRate,
           failedPublishCount: report.failedPublishCount,
           topTopics: report.topTopics.length,
+          insightsGenerated: report.insights?.length ?? 0,
         },
       };
     },
