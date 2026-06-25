@@ -16,53 +16,85 @@ import { getAgentRun } from "@/lib/repos/agent-runs";
 // Touches Orion (BullMQ/Redis + LangGraph), so Node.js runtime (not edge).
 export const runtime = "nodejs";
 
+const TERMINAL_STATES = new Set(["completed", "failed", "canceled"]);
+const SSE_POLL_MS = 2_000;
+const SSE_TIMEOUT_MS = 5 * 60 * 1_000; // 5 min hard cap
+
 /**
- * A2A is enabled only when explicitly turned on AND both the bearer token and
- * the bound tenant are configured. The endpoint acts as exactly ONE tenant
- * (A2A_TENANT_ID) — it never reads the tenant from the request, which removes
- * the impersonation vector entirely. Per-tenant credentials are future work.
+ * Parse A2A_TENANT_TOKENS (JSON object) once and return token→tenantId map.
+ * Returns null when the env var is absent or unparseable.
  */
-function a2aTenant(): string | null {
+function parseTenantTokens(): Record<string, string> | null {
+  const raw = env.A2A_TENANT_TOKENS;
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>;
+    }
+  } catch {
+    // Malformed JSON — fall through
+  }
+  return null;
+}
+
+/**
+ * Resolve the tenant (Clerk user id) for the incoming request.
+ *
+ * Multi-tenant mode (A2A_TENANT_TOKENS set): each bearer token maps to its own
+ * tenant. Single-tenant mode (A2A_TOKEN + A2A_TENANT_ID): the endpoint acts as
+ * exactly one tenant. Disabled when neither is configured.
+ *
+ * Returns null when A2A is disabled or the bearer token is unrecognised.
+ */
+function resolveTenant(req: NextRequest): string | null {
   if (env.A2A_ENABLED !== "true") return null;
+
+  const authHeader = req.headers.get("authorization") ?? "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+  // Multi-tenant mode
+  const tokenMap = parseTenantTokens();
+  if (tokenMap) {
+    const tenantId = bearer ? (tokenMap[bearer] ?? null) : null;
+    return tenantId ?? null;
+  }
+
+  // Single-tenant mode (backward-compat)
   if (!env.A2A_TOKEN || !env.A2A_TENANT_ID) return null;
-  return env.A2A_TENANT_ID;
+  const provided = Buffer.from(authHeader);
+  const expected = Buffer.from(`Bearer ${env.A2A_TOKEN}`);
+  const valid =
+    provided.length === expected.length &&
+    timingSafeEqual(provided, expected);
+  return valid ? env.A2A_TENANT_ID : null;
 }
 
 function baseUrl(req: NextRequest): string {
   return env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
 }
 
-/** Constant-time bearer-token check (length compare first, then timingSafeEqual). */
-function authorized(req: NextRequest): boolean {
-  if (!env.A2A_TOKEN) return false;
-  const provided = Buffer.from(req.headers.get("authorization") ?? "");
-  const expected = Buffer.from(`Bearer ${env.A2A_TOKEN}`);
-  return (
-    provided.length === expected.length && timingSafeEqual(provided, expected)
-  );
-}
-
 /** A2A Agent Card discovery. */
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  if (!a2aTenant()) {
+  if (env.A2A_ENABLED !== "true") {
     return NextResponse.json({ error: "A2A is disabled" }, { status: 404 });
   }
   return NextResponse.json(buildAgentCard(baseUrl(req)));
 }
 
-/** A2A JSON-RPC: message/send (start a run) + tasks/get (run status). */
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  const tenant = a2aTenant();
+/** A2A JSON-RPC: message/send · tasks/get · tasks/sendSubscribe (SSE). */
+export async function POST(req: NextRequest): Promise<Response> {
+  const tenant = resolveTenant(req);
   if (!tenant) {
-    return NextResponse.json({ error: "A2A is disabled" }, { status: 404 });
-  }
-  if (!authorized(req)) {
+    // A2A disabled OR unknown bearer token → treat as 401 so callers know they
+    // must authenticate rather than thinking the endpoint does not exist.
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const body: unknown = await req.json().catch(() => null);
   const parsed = parseA2aRequest(body);
 
+  // ── message/send: start a new pipeline run ────────────────────────────────
   if (parsed.method === "message/send") {
     if (!parsed.text) {
       return NextResponse.json(
@@ -70,7 +102,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400 },
       );
     }
-    // The tenant is the configured A2A_TENANT_ID — never the request body.
     const { runId } = await orchestrator.startRun({
       clerkUserId: tenant,
       plan: { niche: parsed.text, platforms: parsed.platforms },
@@ -80,9 +111,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // ── tasks/get: poll run status (single snapshot) ─────────────────────────
   if (parsed.method === "tasks/get") {
     const run = await getAgentRun(parsed.taskId);
-    // Scope to the bound tenant so a token holder can't read other tenants' runs.
     if (!run || run.clerkUserId !== tenant) {
       return NextResponse.json(
         jsonRpcError(parsed.id, -32001, "task not found"),
@@ -95,6 +126,86 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         status: { state: mapRunStatusToTaskState(run.status) },
       }),
     );
+  }
+
+  // ── tasks/sendSubscribe: SSE stream of status updates ────────────────────
+  if (parsed.method === "tasks/sendSubscribe") {
+    const taskId = parsed.taskId;
+
+    // Verify task exists and is owned by this tenant before opening the stream.
+    const initial = await getAgentRun(taskId);
+    if (!initial || initial.clerkUserId !== tenant) {
+      return NextResponse.json(
+        jsonRpcError(parsed.id, -32001, "task not found"),
+        { status: 404 },
+      );
+    }
+
+    const encoder = new TextEncoder();
+    const deadline = Date.now() + SSE_TIMEOUT_MS;
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        let lastState = "";
+
+        const emit = (data: unknown) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+        };
+
+        const tick = async () => {
+          if (Date.now() > deadline) {
+            emit(jsonRpcError(parsed.id, -32000, "stream timeout"));
+            controller.close();
+            return;
+          }
+
+          let run;
+          try {
+            run = await getAgentRun(taskId);
+          } catch {
+            // Transient DB error — skip this tick and retry
+            setTimeout(tick, SSE_POLL_MS);
+            return;
+          }
+
+          if (!run || run.clerkUserId !== tenant) {
+            emit(jsonRpcError(parsed.id, -32001, "task not found"));
+            controller.close();
+            return;
+          }
+
+          const state = mapRunStatusToTaskState(run.status);
+          if (state !== lastState) {
+            lastState = state;
+            const isTerminal = TERMINAL_STATES.has(state);
+            emit(
+              jsonRpcResult(parsed.id, {
+                id: run.runId,
+                status: { state },
+                final: isTerminal,
+              }),
+            );
+            if (isTerminal) {
+              controller.close();
+              return;
+            }
+          }
+
+          setTimeout(tick, SSE_POLL_MS);
+        };
+
+        await tick();
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
   }
 
   return NextResponse.json(
