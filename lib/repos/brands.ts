@@ -5,6 +5,13 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { brands, type Brand, type NewBrand } from "@/db/schema";
 
+export class BrandSlugConflictError extends Error {
+  constructor() {
+    super("A brand with this name already exists.");
+    this.name = "BrandSlugConflictError";
+  }
+}
+
 function toSlug(name: string): string {
   return name
     .toLowerCase()
@@ -17,11 +24,23 @@ export type CreateBrandInput = Pick<NewBrand, "clerkUserId" | "clerkOrgId" | "na
 
 export async function createBrand(input: CreateBrandInput): Promise<Brand> {
   const slug = (input.slug ?? toSlug(input.name)) || randomUUID();
-  const [row] = await db
-    .insert(brands)
-    .values({ ...input, slug })
-    .returning();
-  return row;
+  try {
+    const [row] = await db
+      .insert(brands)
+      .values({ ...input, slug })
+      .returning();
+    return row;
+  } catch (err) {
+    if (
+      err != null &&
+      typeof err === "object" &&
+      "code" in err &&
+      (err as { code: unknown }).code === "23505"
+    ) {
+      throw new BrandSlugConflictError();
+    }
+    throw err;
+  }
 }
 
 export async function listBrandsForUser(clerkUserId: string): Promise<Brand[]> {
@@ -54,8 +73,10 @@ export async function updateBrand(
   return row;
 }
 
-export async function deleteBrand(id: string, clerkUserId: string): Promise<void> {
-  await db
+export async function deleteBrand(id: string, clerkUserId: string): Promise<boolean> {
+  const [deleted] = await db
     .delete(brands)
-    .where(and(eq(brands.id, id), eq(brands.clerkUserId, clerkUserId)));
+    .where(and(eq(brands.id, id), eq(brands.clerkUserId, clerkUserId)))
+    .returning({ id: brands.id });
+  return deleted != null;
 }

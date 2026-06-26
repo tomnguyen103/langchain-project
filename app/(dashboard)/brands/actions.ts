@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { requireUserId } from "@/lib/clerk";
-import { createBrand, deleteBrand, getBrand, updateBrand } from "@/lib/repos/brands";
+import { BrandSlugConflictError, createBrand, deleteBrand, getBrand, updateBrand } from "@/lib/repos/brands";
 
 /** Set the active brand for the current session (stored in cookie). */
 export async function switchBrandAction(brandId: string | null): Promise<void> {
@@ -28,12 +28,20 @@ export async function createBrandAction(data: {
   name: string;
   description?: string;
   logoUrl?: string;
-}): Promise<void> {
+}): Promise<{ error?: string }> {
   const userId = await requireUserId();
   const name = data.name.trim();
-  if (!name) return;
-  await createBrand({ clerkUserId: userId, ...data, name });
+  if (!name) return {};
+  try {
+    await createBrand({ clerkUserId: userId, ...data, name });
+  } catch (err) {
+    if (err instanceof BrandSlugConflictError) {
+      return { error: err.message };
+    }
+    throw err;
+  }
   revalidatePath("/brands");
+  return {};
 }
 
 export async function updateBrandAction(
@@ -50,6 +58,7 @@ export async function updateBrandAction(
 
 export async function deleteBrandAction(id: string): Promise<void> {
   const userId = await requireUserId();
-  await deleteBrand(id, userId);
+  const deleted = await deleteBrand(id, userId);
+  if (!deleted) return;
   revalidatePath("/brands");
 }
