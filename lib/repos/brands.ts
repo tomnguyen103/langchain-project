@@ -35,7 +35,8 @@ export async function createBrand(input: CreateBrandInput): Promise<Brand> {
       err != null &&
       typeof err === "object" &&
       "code" in err &&
-      (err as { code: unknown }).code === "23505"
+      (err as { code: unknown; constraint?: unknown }).code === "23505" &&
+      (err as { constraint?: unknown }).constraint === "brands_user_slug_uq"
     ) {
       throw new BrandSlugConflictError();
     }
