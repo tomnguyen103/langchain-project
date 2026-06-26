@@ -1,11 +1,16 @@
 import type { Job } from "bullmq";
 
+import {
+  AgentRunForbiddenError,
+  QuotaExceededError,
+  startMeteredAgentRun,
+} from "@/lib/agents/metered-run";
 import { AgentName } from "@/lib/agents/types";
-import { orchestrator } from "@/lib/agents/orchestrator.runtime";
 import {
   buildRunBudget,
   estimateAgentRunCostUsd,
 } from "@/lib/billing/agent-budget";
+import { getPlanLimitsForUser } from "@/lib/billing/entitlements";
 import {
   nextEvergreenRunAt,
   selectEvergreenSource,
@@ -49,7 +54,7 @@ export async function evergreenProcessor(job: Job): Promise<void> {
     const topic = `Re-angle and refresh for ${platformLabel}. Do not duplicate - find a new hook or angle. Original post:\n\n${source.body}`;
 
     try {
-      await orchestrator.startRun({
+      await startMeteredAgentRun({
         clerkUserId: pref.clerkUserId,
         plan: {
           niche: topic,
@@ -66,6 +71,7 @@ export async function evergreenProcessor(job: Job): Promise<void> {
             derivedFromTargetId: source.targetId,
           },
         },
+        limits: await getPlanLimitsForUser(pref.clerkUserId),
       });
       await updateEvergreenPreference(pref.clerkUserId, {
         lastRunAt: now,
@@ -74,6 +80,20 @@ export async function evergreenProcessor(job: Job): Promise<void> {
       });
       started += 1;
     } catch (error) {
+      if (
+        error instanceof AgentRunForbiddenError ||
+        error instanceof QuotaExceededError
+      ) {
+        await updateEvergreenPreference(pref.clerkUserId, { nextRunAt });
+        skipped += 1;
+        logger.warn("evergreen: skipped refresh run due to plan or quota", {
+          preferenceId: pref.id,
+          clerkUserId: pref.clerkUserId,
+          error: error.message,
+        });
+        continue;
+      }
+
       failed += 1;
       logger.error("evergreen: failed to start refresh run", {
         preferenceId: pref.id,

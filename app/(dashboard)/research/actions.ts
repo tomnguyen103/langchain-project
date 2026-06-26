@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/current-role";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { env } from "@/lib/env";
@@ -30,6 +31,7 @@ type WatchSourceMode = "auto" | "web" | "model_only";
 
 export async function startResearch(niche: string): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const trimmed = niche.trim();
   if (!trimmed) throw new Error("Enter a niche or topic.");
 
@@ -102,6 +104,7 @@ export async function createResearchWatchAction(input: {
   sourceMode: WatchSourceMode;
 }): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   await requireResearchEntitlement();
   const niche = input.niche.trim();
   if (!niche) throw new Error("Enter a niche or topic.");
@@ -130,6 +133,7 @@ export async function pauseResearchWatchAction(
   paused: boolean,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const watch = await getUserResearchWatch(id, userId);
   if (!watch) throw new Error("Watch not found.");
   await updateResearchWatch(id, userId, {
@@ -141,12 +145,14 @@ export async function pauseResearchWatchAction(
 
 export async function deleteResearchWatchAction(id: string): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   await deleteResearchWatch(id, userId);
   revalidatePath("/research");
 }
 
 export async function runResearchWatchNowAction(id: string): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   await requireResearchEntitlement();
   const watch = await getUserResearchWatch(id, userId);
   if (!watch) throw new Error("Watch not found.");

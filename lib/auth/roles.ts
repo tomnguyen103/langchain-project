@@ -13,6 +13,7 @@ export type Role = (typeof ROLES)[number];
 
 /** Default role when a user has no explicit membership (solo/first user). */
 export const DEFAULT_ROLE: Role = "owner";
+export const DEFAULT_ORG_ROLE: Role = "viewer";
 
 const RANK: Record<Role, number> = {
   owner: 4,
@@ -44,4 +45,16 @@ export function canManageTeam(role: Role): boolean {
 /** Create or edit content and start runs (everyone except viewers). */
 export function canCreate(role: Role): boolean {
   return hasRole(role, "creator");
+}
+
+export function roleForMissingMembership(
+  clerkOrgRole: string | null | undefined,
+): Role {
+  if (!clerkOrgRole) return DEFAULT_ORG_ROLE;
+  const normalized = clerkOrgRole.startsWith("org:")
+    ? clerkOrgRole.slice(4)
+    : clerkOrgRole;
+  if (isRole(normalized)) return normalized;
+  if (normalized === "member") return DEFAULT_ORG_ROLE;
+  return DEFAULT_ORG_ROLE;
 }

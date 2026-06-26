@@ -6,8 +6,9 @@ import { timestamps } from "./_helpers";
 /**
  * Team membership + role within a workspace (Clerk org), Praetor. One row per
  * (org, user); the role gates sensitive actions — e.g. only an approver+ can
- * clear the review queue. A user with no membership row falls back to the
- * app-layer DEFAULT_ROLE (see lib/auth/roles.ts), so solo users keep full access.
+ * clear the review queue. Solo users keep app-layer owner access; org users
+ * without a membership row fall back to viewer unless Clerk's org role maps
+ * cleanly (see lib/auth/roles.ts).
  */
 export const memberships = pgTable(
   "memberships",

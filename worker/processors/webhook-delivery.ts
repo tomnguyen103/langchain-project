@@ -7,6 +7,7 @@ import {
   updateWebhookDelivery,
 } from "@/lib/repos/webhooks";
 import { decrypt } from "@/lib/utils/crypto";
+import { postWebhookJson } from "@/lib/webhooks/http";
 import { signWebhookPayload } from "@/lib/webhooks/signing";
 import { assertAllowedWebhookDestination } from "@/lib/webhooks/url";
 import { logger } from "../logger";
@@ -33,13 +34,11 @@ export async function webhookDeliveryProcessor(job: Job): Promise<void> {
     const timestamp = Math.floor(Date.now() / 1000);
 
     try {
-      await assertAllowedWebhookDestination(endpoint.url);
+      const destination = await assertAllowedWebhookDestination(endpoint.url);
       const secret = decrypt(endpoint.secretCiphertext);
       const signature = signWebhookPayload({ secret, timestamp, body });
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
-      const response = await fetch(endpoint.url, {
-        method: "POST",
+      const response = await postWebhookJson({
+        destination,
         headers: {
           "content-type": "application/json",
           "x-socialflow-event": claimed.eventType,
@@ -47,9 +46,8 @@ export async function webhookDeliveryProcessor(job: Job): Promise<void> {
           "x-socialflow-timestamp": String(timestamp),
         },
         body,
-        redirect: "manual",
-        signal: controller.signal,
-      }).finally(() => clearTimeout(timeout));
+        timeoutMs: TIMEOUT_MS,
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);

@@ -76,6 +76,7 @@ export async function publishProcessor(job: Job): Promise<void> {
     const media: MediaRef[] = assets.map((a) => ({
       type: a.type,
       url: a.url,
+      bytes: a.bytes,
       mimeType: a.mimeType,
     }));
 

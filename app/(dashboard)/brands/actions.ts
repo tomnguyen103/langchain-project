@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/current-role";
 import { requireUserId } from "@/lib/clerk";
 import { BrandSlugConflictError, createBrand, deleteBrand, getBrand, updateBrand } from "@/lib/repos/brands";
 
@@ -30,6 +31,7 @@ export async function createBrandAction(data: {
   logoUrl?: string;
 }): Promise<{ error?: string }> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const name = data.name.trim();
   if (!name) return {};
   try {
@@ -49,6 +51,7 @@ export async function updateBrandAction(
   data: { name?: string; description?: string; logoUrl?: string },
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const trimmed = { ...data };
   if (trimmed.name !== undefined) trimmed.name = trimmed.name.trim();
   const updated = await updateBrand(id, userId, trimmed);
@@ -58,6 +61,7 @@ export async function updateBrandAction(
 
 export async function deleteBrandAction(id: string): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const deleted = await deleteBrand(id, userId);
   if (!deleted) return;
   revalidatePath("/brands");

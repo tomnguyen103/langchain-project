@@ -8,19 +8,23 @@
  * real Postgres and are deliberately NOT part of `npm test` (which collects only
  * the unit tests under lib/). Run them against a throwaway database:
  *
- *   DATABASE_URL=postgres://user:pass@host/db npm run test:integration
+ *   DATABASE_URL=postgres://user:pass@host/db DB_DRIVER=node-postgres npm run test:integration
  *
- * With no `DATABASE_URL` the whole suite is SKIPPED (not failed), so CI — which
- * has no live DB — stays green. The suite writes and cleans up rows under a
- * unique synthetic `clerkUserId` / bucket, so it never touches real tenant data.
+ * With no `DATABASE_URL` or with a different DB driver, the whole suite is
+ * SKIPPED (not failed), which keeps ad-hoc local runs lightweight. CI provisions
+ * a throwaway Postgres with `DB_DRIVER=node-postgres` and runs this suite. The
+ * suite writes and cleans up rows under a unique synthetic `clerkUserId` /
+ * bucket, so it never touches real tenant data.
  */
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 
-const HAS_DB = Boolean(process.env.DATABASE_URL);
+const HAS_DB =
+  Boolean(process.env.DATABASE_URL) &&
+  process.env.DB_DRIVER === "node-postgres";
 const skip: boolean | string = HAS_DB
   ? false
-  : "set DATABASE_URL to run (needs a throwaway Postgres)";
+  : "set DATABASE_URL and DB_DRIVER=node-postgres to run (needs a throwaway Postgres)";
 
 describe("atomic quota / rate-limit race-safety (F-C6)", { skip }, () => {
   // Imported lazily so module load (env + db client) only happens when the suite

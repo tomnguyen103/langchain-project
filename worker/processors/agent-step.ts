@@ -12,6 +12,7 @@ import { logger } from "../logger";
 
 const AGENT_NAMES = new Set<string>(Object.values(AgentName));
 const isAgentName = (v: string): v is AgentName => AGENT_NAMES.has(v);
+const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 // A cast is not a runtime guard: validate the job payload shape before acting on
 // it so a drifted/corrupt message is failed as invalid, not misprocessed.
@@ -56,6 +57,20 @@ export async function agentStepProcessor(job: Job): Promise<void> {
       status: "completed",
       finishedAt: new Date(),
       lastError: "run not found",
+    });
+    return;
+  }
+
+  if (TERMINAL_RUN_STATUSES.has(run.status)) {
+    logger.info("agent-step: run already terminal, skipping job", {
+      runId,
+      agent,
+      status: run.status,
+    });
+    await updateScheduleStatus(QueueName.AgentStep, jobId, {
+      status: "completed",
+      finishedAt: new Date(),
+      lastError: `run already ${run.status}`,
     });
     return;
   }

@@ -15,13 +15,18 @@ import { switchBrandAction } from "@/app/(dashboard)/brands/actions";
 interface BrandSwitcherProps {
   brands: Array<Pick<Brand, "id" | "name">>;
   currentBrandId: string | null;
+  onChanged?: () => void;
 }
 
 /**
  * Topbar dropdown for switching between brand workspaces (Atrium).
  * Hidden when the user has no brands; "Personal" is always an option.
  */
-export function BrandSwitcher({ brands, currentBrandId }: BrandSwitcherProps) {
+export function BrandSwitcher({
+  brands,
+  currentBrandId,
+  onChanged,
+}: BrandSwitcherProps) {
   const [, startTransition] = useTransition();
 
   if (brands.length === 0) return null;
@@ -29,6 +34,7 @@ export function BrandSwitcher({ brands, currentBrandId }: BrandSwitcherProps) {
   function handleChange(value: string) {
     startTransition(async () => {
       await switchBrandAction(value === "__personal__" ? null : value);
+      onChanged?.();
     });
   }
 
@@ -37,7 +43,10 @@ export function BrandSwitcher({ brands, currentBrandId }: BrandSwitcherProps) {
       value={currentBrandId ?? "__personal__"}
       onValueChange={handleChange}
     >
-      <SelectTrigger className="h-8 w-36 text-xs" aria-label="Switch brand">
+      <SelectTrigger
+        className="h-8 w-full text-xs sm:w-36"
+        aria-label="Switch brand"
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

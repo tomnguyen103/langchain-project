@@ -5,6 +5,7 @@ export type { Platform };
 export interface MediaRef {
   type: MediaType;
   url: string;
+  bytes?: number | null;
   mimeType?: string | null;
 }
 

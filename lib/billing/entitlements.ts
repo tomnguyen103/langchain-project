@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
 import { reportError } from "@/lib/observability/report-error";
 import { consumeUsage, getUsageCount, releaseUsage } from "@/lib/repos/usage";
@@ -30,6 +30,32 @@ export async function getPlanLimits(): Promise<PlanLimits> {
   return PLAN_LIMITS[await getCurrentPlan()];
 }
 
+function planIdFromSlug(slug: string | null | undefined): PlanId | null {
+  return slug === "premium" || slug === "pro" || slug === "free" ? slug : null;
+}
+
+export async function getPlanForUser(userId: string): Promise<PlanId> {
+  try {
+    const client = await clerkClient();
+    const subscription = await client.billing.getUserBillingSubscription(userId);
+    if (subscription.status !== "active") return "free";
+
+    for (const item of subscription.subscriptionItems) {
+      if (item.status !== "active") continue;
+      const plan = planIdFromSlug(item.plan?.slug);
+      if (plan === "premium") return "premium";
+      if (plan === "pro") return "pro";
+    }
+  } catch (error) {
+    reportError("getPlanForUser: billing lookup failed", error, { userId });
+  }
+  return "free";
+}
+
+export async function getPlanLimitsForUser(userId: string): Promise<PlanLimits> {
+  return PLAN_LIMITS[await getPlanForUser(userId)];
+}
+
 function limitFor(metric: QuotaMetric): (l: PlanLimits) => number {
   return metric === "posts_scheduled"
     ? (l) => l.postsPerDay
@@ -46,6 +72,14 @@ export async function consumeQuota(
   metric: QuotaMetric,
 ): Promise<string> {
   const limits = await getPlanLimits();
+  return consumeQuotaWithLimits(userId, metric, limits);
+}
+
+export async function consumeQuotaWithLimits(
+  userId: string,
+  metric: QuotaMetric,
+  limits: PlanLimits,
+): Promise<string> {
   const periodStart = periodStartFor(metric);
   const limit = limitFor(metric);
   const ok = await consumeUsage(userId, metric, periodStart, limit(limits));

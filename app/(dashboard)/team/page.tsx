@@ -53,8 +53,9 @@ export default async function TeamPage() {
                 <div className="py-10 text-center">
                   <p className="font-medium">No members assigned</p>
                   <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-                    Members with no explicit role have full access until an admin
-                    assigns one.
+                    Members without an explicit app role fall back to their
+                    Clerk org role when it maps cleanly; otherwise they can
+                    only view the workspace.
                   </p>
                 </div>
               ) : (

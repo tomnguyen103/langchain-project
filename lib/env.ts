@@ -17,9 +17,10 @@ const EnvSchema = z.object({
 
   // Database (Neon) — required at runtime
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  // DB driver selection: "http" (default, serverless app) or "pool" (the
-  // long-running worker uses a pooled WebSocket connection). See db/index.ts.
-  DB_DRIVER: z.enum(["http", "pool"]).optional(),
+  // DB driver selection: "http" (default, serverless app), "pool" (the
+  // long-running worker's pooled WebSocket connection), or "node-postgres"
+  // for local/CI Postgres integration tests. See db/index.ts.
+  DB_DRIVER: z.enum(["http", "pool", "node-postgres"]).optional(),
 
   // Queue broker (Upstash Redis) — required to enqueue + run the worker
   REDIS_URL: z.string().min(1, "REDIS_URL is required"),

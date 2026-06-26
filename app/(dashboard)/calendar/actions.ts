@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { requireRole } from "@/lib/auth/current-role";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { createMensa } from "@/lib/agents/mensa";
@@ -14,6 +15,7 @@ const PRO_SLOT_CAP = 14;
 
 export async function generatePlan(): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
 
   const limits = await getPlanLimits();
   if (!limits.research) {

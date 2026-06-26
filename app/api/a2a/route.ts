@@ -9,11 +9,17 @@ import {
   mapRunStatusToTaskState,
   parseA2aRequest,
 } from "@/lib/a2a/protocol";
-import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import {
+  AgentRunForbiddenError,
+  AgentRunRateLimitedError,
+  QuotaExceededError,
+  startMeteredAgentRun,
+} from "@/lib/agents/metered-run";
 import {
   buildRunBudget,
   estimateAgentRunCostUsd,
 } from "@/lib/billing/agent-budget";
+import { getPlanLimitsForUser } from "@/lib/billing/entitlements";
 import { env } from "@/lib/env";
 import { hasIntegrationScope } from "@/lib/integrations/tokens";
 import { getAgentRun } from "@/lib/repos/agent-runs";
@@ -187,18 +193,46 @@ export async function POST(req: NextRequest): Promise<Response> {
       platformCount: parsed.platforms.length,
       provider: env.LLM_PROVIDER,
     });
-    const { runId } = await orchestrator.startRun({
-      clerkUserId: auth.clerkUserId,
-      plan: {
-        niche: parsed.text,
-        platforms: parsed.platforms,
-        budget: buildRunBudget({ estimate }),
-      },
-    });
-    await auditA2a(auth, parsed.method, "allowed", { runId });
-    return NextResponse.json(
-      jsonRpcResult(parsed.id, { id: runId, status: { state: "submitted" } }),
-    );
+    try {
+      const { runId } = await startMeteredAgentRun({
+        clerkUserId: auth.clerkUserId,
+        plan: {
+          niche: parsed.text,
+          platforms: parsed.platforms,
+          budget: buildRunBudget({ estimate }),
+        },
+        limits: () => getPlanLimitsForUser(auth.clerkUserId),
+        rateLimitBucket: `a2a-message:${auth.clerkUserId}`,
+      });
+      await auditA2a(auth, parsed.method, "allowed", { runId });
+      return NextResponse.json(
+        jsonRpcResult(parsed.id, { id: runId, status: { state: "submitted" } }),
+      );
+    } catch (error) {
+      if (error instanceof AgentRunForbiddenError) {
+        await auditA2a(auth, parsed.method, "denied", {
+          reason: "plan_required",
+        });
+        return NextResponse.json(jsonRpcError(parsed.id, -32003, error.message), {
+          status: 403,
+        });
+      }
+      if (
+        error instanceof AgentRunRateLimitedError ||
+        error instanceof QuotaExceededError
+      ) {
+        await auditA2a(auth, parsed.method, "denied", {
+          reason: "quota_or_rate_limit",
+        });
+        return NextResponse.json(jsonRpcError(parsed.id, -32004, error.message), {
+          status: 429,
+        });
+      }
+      await auditA2a(auth, parsed.method, "error", {
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   }
 
   // ── tasks/get: poll run status (single snapshot) ─────────────────────────
