@@ -49,7 +49,7 @@ export async function GET(
         try {
           const run = await getAgentRunForUser(runId, userId);
           if (!run) {
-            emit("error", { message: "Run not found" });
+            emit("run-error", { message: "Run not found" });
             controller.close();
             return;
           }

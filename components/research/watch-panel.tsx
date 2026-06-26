@@ -27,9 +27,15 @@ export type ResearchWatchView = {
   lastSourceStatus: string | null;
 };
 
+const WATCH_DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
+
 function formatDate(iso: string | null): string {
   if (!iso) return "not scheduled";
-  return new Date(iso).toLocaleString();
+  return WATCH_DATE_FORMATTER.format(new Date(iso));
 }
 
 export function ResearchWatchPanel({

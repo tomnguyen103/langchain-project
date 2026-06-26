@@ -42,6 +42,7 @@ export function AccountCard({ account }: { account: AccountView }) {
   const reconnectable =
     account.platform !== "discord" &&
     (account.healthStatus === "critical" ||
+      account.healthStatus === "warning" ||
       ["expired", "revoked"].includes(account.status));
 
   return (

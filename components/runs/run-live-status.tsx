@@ -26,6 +26,7 @@ export function RunLiveStatus({
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [connection, setConnection] =
     useState<ConnectionState>("connecting");
+  const [streamError, setStreamError] = useState<string | null>(null);
   const versionRef = useRef(initialSnapshot.version);
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export function RunLiveStatus({
     source.addEventListener("snapshot", (event: MessageEvent) => {
       const next = JSON.parse(event.data) as RunLiveSnapshot;
       setSnapshot(next);
+      setStreamError(null);
       setConnection(next.final ? "closed" : "live");
       if (next.version !== versionRef.current) {
         versionRef.current = next.version;
@@ -45,11 +47,22 @@ export function RunLiveStatus({
     });
 
     source.addEventListener("timeout", () => {
+      setStreamError(null);
       setConnection("closed");
       source.close();
     });
 
+    source.addEventListener("run-error", (event) => {
+      const payload = JSON.parse((event as MessageEvent).data) as {
+        message?: string;
+      };
+      setStreamError(payload.message ?? "Run stream ended.");
+      setConnection("error");
+      source.close();
+    });
+
     source.onerror = () => {
+      setStreamError("Run stream disconnected.");
       setConnection("error");
     };
 
@@ -90,6 +103,9 @@ export function RunLiveStatus({
           </span>
         ) : null}
       </div>
+      {streamError ? (
+        <p className="text-destructive mt-2 text-xs">{streamError}</p>
+      ) : null}
 
       {snapshot.pauseReason ? (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 p-3">

@@ -128,14 +128,23 @@ export async function approveRunBudgetAction(runId: string): Promise<void> {
     (sum, step) => sum + stepCostUsd(step.summary ?? null),
     0,
   );
+  const approvedPlan = approveRunBudget(run.plan, {
+    approvedBy: userId,
+    actualUsd,
+  });
   await updateAgentRun(runId, {
-    plan: approveRunBudget(run.plan, { approvedBy: userId, actualUsd }),
+    plan: approvedPlan,
   });
-  await orchestrator.resumeRun({
-    runId,
-    clerkUserId: userId,
-    step: { agent: handoff.to as AgentName, payload: handoff.payload },
-  });
+  try {
+    await orchestrator.resumeRun({
+      runId,
+      clerkUserId: userId,
+      step: { agent: handoff.to as AgentName, payload: handoff.payload },
+    });
+  } catch (error) {
+    await updateAgentRun(runId, { plan: run.plan });
+    throw error;
+  }
   revalidatePath(`/runs/${runId}`);
   revalidatePath("/review");
 }

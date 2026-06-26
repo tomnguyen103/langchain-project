@@ -151,7 +151,7 @@ export function decidePublishTargetRecovery(opts: {
       canRetry: false,
       confidence: "high",
       failureClass,
-      reason: "Account or token problem. Reconnect the account before retrying.",
+      reason: "Account or token problem. Reconnect the account before continuing.",
     };
   }
 

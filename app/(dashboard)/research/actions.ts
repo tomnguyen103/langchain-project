@@ -6,7 +6,7 @@ import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { env } from "@/lib/env";
 import { enqueueResearch } from "@/lib/queue/jobs";
-import type { Platform } from "@/db/schema";
+import { platformEnum, type Platform } from "@/db/schema";
 import {
   nextWatchRunAt,
   researchSourceStatus,
@@ -23,16 +23,7 @@ import {
   updateResearchWatch,
 } from "@/lib/repos/research-watches";
 
-const PLATFORMS = [
-  "facebook",
-  "instagram",
-  "linkedin",
-  "x",
-  "youtube",
-  "tiktok",
-  "pinterest",
-  "discord",
-] as const;
+const PLATFORMS = platformEnum.enumValues;
 
 type WatchFrequency = "daily" | "weekly";
 type WatchSourceMode = "auto" | "web" | "model_only";

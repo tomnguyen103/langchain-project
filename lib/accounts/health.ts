@@ -91,16 +91,17 @@ export function evaluateAccountHealth(
       });
     }
 
-    if (
-      REFRESH_TOKEN_PLATFORMS.has(account.platform) &&
-      !account.refreshToken
-    ) {
-      issues.push({
-        code: "missing_refresh_token",
-        severity: msUntilExpiry <= SOON_MS ? "critical" : "warning",
-        message: `${label} is missing a refresh token. Reconnect to avoid expiry.`,
-      });
-    }
+  }
+
+  if (REFRESH_TOKEN_PLATFORMS.has(account.platform) && !account.refreshToken) {
+    const expiringSoon =
+      account.tokenExpiresAt != null &&
+      account.tokenExpiresAt.getTime() - now.getTime() <= SOON_MS;
+    issues.push({
+      code: "missing_refresh_token",
+      severity: expiringSoon ? "critical" : "warning",
+      message: `${label} is missing a refresh token. Reconnect to avoid expiry.`,
+    });
   }
 
   const requiredScopes = REQUIRED_SCOPES[account.platform] ?? [];

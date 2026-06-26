@@ -64,6 +64,22 @@ describe("evaluateAccountHealth", () => {
     assert.ok(!linkedin.issues.some((issue) => issue.code === "missing_refresh_token"));
   });
 
+  it("flags missing refresh tokens even when expiry is unknown", () => {
+    const health = evaluateAccountHealth(
+      {
+        platform: "x",
+        status: "active",
+        tokenExpiresAt: null,
+      },
+      now,
+    );
+    const issue = health.issues.find(
+      (item) => item.code === "missing_refresh_token",
+    );
+    assert.equal(health.status, "warning");
+    assert.equal(issue?.severity, "warning");
+  });
+
   it("flags missing required scopes when scopes are known", () => {
     const health = evaluateAccountHealth(
       {
