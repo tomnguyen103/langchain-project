@@ -1,71 +1,41 @@
+<div align="center">
+
 # SocialFlow
 
-**AI social-content automation.** Research a niche, generate platform-tailored
-posts with an LLM, then schedule and auto-publish across every connected social
-account - with a calendar, per-target retry/reschedule, engagement metrics, and
-keyword/AI auto-replies to comments.
+**AI-powered social content operations for research, creation, scheduling, publishing, and replies.**
 
-Connectors: **Facebook, Instagram** (Meta Graph), **LinkedIn, TikTok, Discord,
-YouTube, Pinterest, X**. Non-Meta connectors are env-gated (hidden until their
-credentials are set).
+![AI content engine](https://img.shields.io/badge/AI%20content-engine-7c3aed)
+![Multi platform publishing](https://img.shields.io/badge/Multi--platform-publishing-111827)
+![Scheduling](https://img.shields.io/badge/Smart-scheduling-2563eb)
+![Auto replies](https://img.shields.io/badge/Comment-auto--replies-059669)
+![Brand safety](https://img.shields.io/badge/Brand-safety-f59e0b)
 
-## Architecture
+</div>
 
-Two processes share one database (Neon/Postgres) and one queue broker
-(Upstash Redis):
+![SocialFlow working product screenshot](./public/socialflow-working.png)
 
-| Process | Runtime | Responsibility |
-|---|---|---|
-| **App** (`next`) | Serverless (Vercel) | UI, auth, server actions, API routes. Uses the stateless Neon **HTTP** driver. |
-| **Worker** (`tsx worker/index.ts`) | Always-on (Railway/Render) | BullMQ processors: publish, comment-poll, reply, research, token-refresh. Uses a **pooled** Postgres driver (`DB_DRIVER=pool`). |
+## What It Does
 
-All scheduling lives in the worker via BullMQ **delayed jobs**, with a durable
-`schedules` ledger for idempotency. Key building blocks:
+SocialFlow helps creators and teams run a complete social-content workflow from one workspace. It researches a niche, drafts platform-tailored content, schedules posts, publishes to connected accounts, tracks activity, and responds to comments with keyword or AI-assisted replies.
 
-- **Auth:** Clerk - **DB/ORM:** Neon + Drizzle (`db/`, migrations in `db/migrations/`)
-- **Queue:** BullMQ + Upstash (`lib/queue/`, `worker/`)
-- **AI:** LangGraph agent (Gemini default) -> `/api/generate` (returns JSON)
-- **Media:** ImageKit (upload + URL transforms) - **Billing:** Clerk Billing + usage quotas
+## Core Workflow
 
-## Environment
+1. **Research** - gather topic ideas, audience angles, and trends for a niche.
+2. **Generate** - create platform-ready captions, posts, and campaign variants.
+3. **Review** - approve content plans with brand-safety and usage controls.
+4. **Schedule** - organize posts on a calendar and queue them for publishing.
+5. **Publish** - send content to connected social channels automatically.
+6. **Reply** - monitor comments and respond with rules or AI-generated replies.
 
-Copy [`.env.example`](./.env.example) to `.env.local` (app) and set the same
-variables on the worker host. Required: `DATABASE_URL`, `REDIS_URL`, Clerk keys,
-`ENCRYPTION_KEY`, ImageKit keys, `META_APP_ID`/`META_APP_SECRET`. Everything else
-(other platforms, LLM providers, LangSmith, Tavily, `HEALTH_CHECK_TOKEN`) is
-optional and documented inline in `.env.example`.
+## Product Highlights
 
-## Local development
+- Unified composer for short-form and long-form social posts.
+- Campaign planning with agent-run timelines and approval checkpoints.
+- Workspace roles, quotas, and plan limits for controlled team usage.
+- Media upload validation for image and video publishing.
+- Calendar views, retry handling, and publishing status tracking.
+- Comment automation for ongoing audience engagement.
 
-```bash
-npm install
+## Supported Channels
 
-# 1. Apply database migrations (through the latest in db/migrations/)
-npm run db:migrate
-
-# 2. Run the app (http://localhost:3000)
-npm run dev
-
-# 3. In a second terminal, run the always-on worker
-npm run worker        # or: npm run worker:dev  (watch mode)
-```
-
-Both processes need `.env.local`. The worker defaults to the pooled DB driver;
-override with `DB_DRIVER=http` if needed.
-
-## Checks
-
-```bash
-npm run lint        # eslint
-npm run typecheck   # tsc --noEmit
-npm run test        # node:test unit tests (via tsx)
-npm run build       # next build
-```
-
-CI runs all four on every PR (`.github/workflows/ci.yml`) with placeholder
-secrets (`SKIP_ENV_VALIDATION=true`).
-
-## Docs
-
-- [`docs/MASTER_PLAN.md`](./docs/MASTER_PLAN.md) - single active source of truth.
-- Older plans and condensed roadmap artifacts are preserved under [`docs/archive/`](./docs/archive/).
+Facebook, Instagram, LinkedIn, TikTok, Discord, YouTube, Pinterest, and X.
