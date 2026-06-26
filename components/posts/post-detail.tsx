@@ -52,6 +52,9 @@ export type PostDetailView = {
     scheduledAt: string | null;
     metrics: Record<string, number> | null;
     metricsUpdatedAt: string | null;
+    recoveryClass: string | null;
+    recoveryReason: string | null;
+    canRetry: boolean;
   }>;
 };
 
@@ -215,7 +218,7 @@ export function PostDetail({ post }: { post: PostDetailView }) {
                     </a>
                   </Button>
                 )}
-                {t.status === "failed" && (
+                {t.status === "failed" && t.canRetry && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -250,6 +253,21 @@ export function PostDetail({ post }: { post: PostDetailView }) {
               )}
               {t.lastError && (
                 <p className="text-destructive mt-2 text-xs">{t.lastError}</p>
+              )}
+              {t.recoveryReason && (
+                <div className="mt-3 rounded-lg border p-3 text-xs">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      {(t.recoveryClass ?? "unknown").replace(/_/g, " ")}
+                    </Badge>
+                    {!t.canRetry && (
+                      <span className="text-muted-foreground">
+                        Retry disabled
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground">{t.recoveryReason}</p>
+                </div>
               )}
               {t.metrics && Object.keys(t.metrics).length > 0 && (
                 <div className="text-muted-foreground mt-3 flex flex-wrap gap-4 text-xs">

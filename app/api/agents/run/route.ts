@@ -4,12 +4,17 @@ import { z } from "zod";
 import { platformEnum, type Platform } from "@/db/schema";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
 import {
+  buildRunBudget,
+  estimateAgentRunCostUsd,
+} from "@/lib/billing/agent-budget";
+import {
   consumeQuota,
   getPlanLimits,
   QuotaExceededError,
   releaseQuota,
 } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
+import { env } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 
 // Orion + the agent pipeline touch BullMQ/Redis + the LangGraph engine, so this
@@ -21,6 +26,7 @@ const VALID_PLATFORMS = new Set<string>(platformEnum.enumValues);
 const RunRequest = z.object({
   niche: z.string().trim().min(1),
   platforms: z.array(z.string()).optional().default([]),
+  budgetUsd: z.coerce.number().positive().max(100).optional(),
 });
 
 /**
@@ -46,6 +52,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
   const platforms = parsed.data.platforms as Platform[];
+  const estimate = estimateAgentRunCostUsd({
+    platformCount: platforms.length,
+    provider: env.LLM_PROVIDER,
+  });
+  const budget = buildRunBudget({
+    limitUsd: parsed.data.budgetUsd,
+    estimate,
+  });
 
   // Autonomous runs bundle niche research + AI generation — a Pro+ feature,
   // gated identically to the /research action and metered like /api/generate.
@@ -76,7 +90,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const { runId } = await orchestrator.startRun({
       clerkUserId,
-      plan: { niche: parsed.data.niche, platforms },
+      plan: { niche: parsed.data.niche, platforms, budget },
     });
     return NextResponse.json({ runId });
   } catch (error) {

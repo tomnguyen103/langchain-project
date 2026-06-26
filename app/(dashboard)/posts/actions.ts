@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { consumeQuota, releaseQuotaForPeriod } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
+import { decidePublishTargetRecovery } from "@/lib/agents/recovery";
 import { toMetricsRecord } from "@/lib/metrics/poll";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { hasLiveTarget } from "@/lib/posts/status";
@@ -31,6 +32,7 @@ async function loadOwnedTarget(targetId: string, userId: string) {
 function revalidate(postId: string) {
   revalidatePath(`/posts/${postId}`);
   revalidatePath("/calendar");
+  revalidatePath("/dashboard");
 }
 
 /** Cancel a scheduled target: remove its job and return it to an unscheduled state. */
@@ -79,6 +81,32 @@ export async function retryTarget(targetId: string) {
   if (target.status !== "failed") {
     throw new Error("Only failed targets can be retried.");
   }
+  const account = await getUserSocialAccount(target.socialAccountId, userId);
+  if (!account) {
+    throw new Error("Connected account not found. Reconnect before retrying.");
+  }
+  const decision = decidePublishTargetRecovery({
+    error: target.lastError ?? "Unknown error",
+    accountStatus: account.status,
+    attemptCount: target.attemptCount,
+    status: target.status,
+    platform: target.platform,
+  });
+  if (!decision.canRetry) {
+    console.warn("publish target retry blocked", {
+      targetId: target.id,
+      platform: target.platform,
+      failureClass: decision.failureClass,
+      attempts: target.attemptCount,
+    });
+    throw new Error(decision.reason);
+  }
+  console.info("publish target retry accepted", {
+    targetId: target.id,
+    platform: target.platform,
+    failureClass: decision.failureClass,
+    attempts: target.attemptCount,
+  });
   // Re-charge a previously-refunded (fully-cancelled) metered post before
   // re-activating a failed target. Consume first so an over-cap user is blocked
   // cleanly (it throws) with no job enqueued.

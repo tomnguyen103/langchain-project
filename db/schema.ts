@@ -12,6 +12,7 @@ export * from "./schema/media-assets";
 export * from "./schema/schedules";
 export * from "./schema/generated-content";
 export * from "./schema/research";
+export * from "./schema/research-watches";
 export * from "./schema/usage";
 export * from "./schema/auto-reply";
 export * from "./schema/comment-events";

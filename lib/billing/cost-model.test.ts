@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { estimateCostUsd, modelForProvider } from "./cost-model";
+import { estimateCost, estimateCostUsd, modelForProvider } from "./cost-model";
 
 describe("modelForProvider", () => {
   it("maps provider ids to model ids (Gemini default)", () => {
@@ -32,6 +32,15 @@ describe("estimateCostUsd", () => {
       "some-future-model",
     );
     assert.equal(cost, 1); // fallback inputPerMTok = 1
+  });
+
+  it("labels unknown-model estimates as fallback-priced", () => {
+    const estimate = estimateCost(
+      { inputTokens: 1_000_000, outputTokens: 0, totalTokens: 1_000_000 },
+      "some-future-model",
+    );
+    assert.equal(estimate.costUsd, 1);
+    assert.equal(estimate.rateSource, "fallback");
   });
 
   it("is zero for zero usage", () => {

@@ -17,6 +17,7 @@ function makeDeps(over: Partial<OrchestratorDeps>): OrchestratorDeps {
     createAgentRun: async () => ({}),
     updateAgentRun: async () => ({}),
     recordAgentStep: async () => ({}),
+    sumStepCostUsd: async () => 0,
     findCompletedStep: async () => undefined,
     enqueueAgentStep: async () => "job",
     getLatestReport: async () => undefined,
@@ -274,6 +275,51 @@ describe("orchestrator", () => {
       pause: "awaiting_approval",
       reason: "low score",
     });
+  });
+
+  it("dispatch pauses before the next enqueue when the run budget is exceeded", async () => {
+    const runUpdates: Partial<NewAgentRun>[] = [];
+    const steps: NewAgentStep[] = [];
+    let enqueueCount = 0;
+    const orchestrator = createOrchestrator(
+      makeDeps({
+        getAgent: (name) =>
+          stubAgent(name, {
+            summary: { costUsd: 0.4 },
+            handoff: { to: AgentName.Lyra, payload: { topic: "t" } },
+          }),
+        sumStepCostUsd: async () => 0.2,
+        updateAgentRun: async (_runId, data) => {
+          runUpdates.push(data);
+          return {};
+        },
+        recordAgentStep: async (data) => {
+          steps.push(data);
+          return {};
+        },
+        enqueueAgentStep: async () => {
+          enqueueCount += 1;
+          return "job";
+        },
+      }),
+    );
+
+    await orchestrator.dispatch(
+      { agent: AgentName.Vega, payload: {} },
+      {
+        clerkUserId: "u",
+        runId: "run-1",
+        plan: { budget: { limitUsd: 0.5 } },
+      },
+    );
+
+    assert.equal(enqueueCount, 0);
+    assert.ok(runUpdates.some((u) => u.status === "awaiting_approval"));
+    assert.deepEqual(steps.at(-1)?.handoff, {
+      to: AgentName.Lyra,
+      payload: { topic: "t" },
+    });
+    assert.equal(steps.at(-1)?.control?.code, "budget_exceeded");
   });
 
   it("dispatch re-applies a paused step's awaiting_approval on retry WITHOUT re-running or completing", async () => {

@@ -5,6 +5,7 @@ import { disconnectAccount } from "@/app/(dashboard)/accounts/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import type { AccountHealthStatus } from "@/lib/accounts/health";
 
 /** Token-free projection of a social account — safe to pass to the client. */
 export type AccountView = {
@@ -14,6 +15,8 @@ export type AccountView = {
   displayName: string | null;
   avatarUrl: string | null;
   status: string;
+  healthStatus: AccountHealthStatus;
+  healthMessages: string[];
 };
 
 const platformLabels: Record<Platform, string> = {
@@ -30,9 +33,19 @@ const platformLabels: Record<Platform, string> = {
 export function AccountCard({ account }: { account: AccountView }) {
   const name = account.displayName ?? account.handle ?? "Account";
   const initials = name.slice(0, 2).toUpperCase();
+  const healthVariant =
+    account.healthStatus === "critical"
+      ? "destructive"
+      : account.healthStatus === "warning"
+        ? "outline"
+        : "secondary";
+  const reconnectable =
+    account.platform !== "discord" &&
+    (account.healthStatus === "critical" ||
+      ["expired", "revoked"].includes(account.status));
 
   return (
-    <div className="flex items-center justify-between rounded-xl border p-4">
+    <div className="flex items-start justify-between gap-3 rounded-xl border p-4">
       <div className="flex min-w-0 items-center gap-3">
         <Avatar>
           {account.avatarUrl ? (
@@ -42,16 +55,21 @@ export function AccountCard({ account }: { account: AccountView }) {
         </Avatar>
         <div className="min-w-0">
           <div className="truncate font-medium">{name}</div>
-          <div className="mt-0.5 flex items-center gap-2">
+          <div className="mt-0.5 flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{platformLabels[account.platform]}</Badge>
-            {account.status !== "active" && (
-              <Badge variant="destructive">{account.status}</Badge>
-            )}
+            <Badge variant={healthVariant}>{account.healthStatus}</Badge>
           </div>
+          {account.healthMessages.length > 0 && (
+            <ul className="text-muted-foreground mt-2 space-y-1 text-xs">
+              {account.healthMessages.slice(0, 2).map((message) => (
+                <li key={message}>{message}</li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {["expired", "revoked"].includes(account.status) && account.platform !== "discord" && (
+        {reconnectable && (
           <Button asChild size="sm" variant="outline">
             <a href={`/api/oauth/${account.platform}/start`}>Reconnect</a>
           </Button>

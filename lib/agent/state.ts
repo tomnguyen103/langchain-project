@@ -21,6 +21,10 @@ export const ContentState = Annotation.Root({
     reducer: (_current, next) => next,
     default: () => "",
   }),
+  derivedFromTargetId: Annotation<string | null>({
+    reducer: (_current, next) => next,
+    default: () => null,
+  }),
 
   // Working state
   digest: Annotation<string>({

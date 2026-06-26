@@ -70,6 +70,7 @@ export async function agentStepProcessor(job: Job): Promise<void> {
       clerkUserId: run.clerkUserId,
       clerkOrgId: run.clerkOrgId ?? undefined,
       runId,
+      plan: run.plan,
     };
     await orchestrator.dispatch({ agent, payload }, ctx);
     await updateScheduleStatus(QueueName.AgentStep, jobId, {

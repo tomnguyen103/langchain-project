@@ -1,0 +1,141 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+import { platformEnum, type Platform } from "@/db/schema";
+import { AgentName } from "@/lib/agents/types";
+import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import { requireRole } from "@/lib/auth/current-role";
+import {
+  approveRunBudget,
+  buildRunBudget,
+  estimateAgentRunCostUsd,
+  isBudgetPauseStep,
+  stepCostUsd,
+} from "@/lib/billing/agent-budget";
+import {
+  consumeQuota,
+  getPlanLimits,
+  QuotaExceededError,
+  releaseQuota,
+} from "@/lib/billing/entitlements";
+import { requireUserId } from "@/lib/clerk";
+import { env } from "@/lib/env";
+import {
+  getAgentRun,
+  listStepsForRun,
+  updateAgentRun,
+} from "@/lib/repos/agent-runs";
+
+const VALID_PLATFORMS = new Set<string>(platformEnum.enumValues);
+const AGENT_NAMES = new Set<string>(Object.values(AgentName));
+
+const StartRunInput = z.object({
+  niche: z.string().trim().min(1, "Enter a niche or topic."),
+  platforms: z.array(z.string()).min(1, "Select at least one platform."),
+  budgetUsd: z.coerce
+    .number()
+    .positive("Budget must be greater than zero.")
+    .max(100, "Budget must be $100 or less."),
+});
+
+function assertPlatforms(values: string[]): Platform[] {
+  const invalid = values.filter((value) => !VALID_PLATFORMS.has(value));
+  if (invalid.length > 0) {
+    throw new Error(`Unsupported platform: ${invalid.join(", ")}`);
+  }
+  return [...new Set(values)] as Platform[];
+}
+
+export async function startAgentRunAction(input: {
+  niche: string;
+  platforms: string[];
+  budgetUsd: number;
+}): Promise<{ runId: string }> {
+  const userId = await requireUserId();
+  const parsed = StartRunInput.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Invalid run.");
+  }
+
+  const limits = await getPlanLimits();
+  if (!limits.research) {
+    throw new Error("Autonomous runs are a Pro feature. Upgrade to use them.");
+  }
+
+  const platforms = assertPlatforms(parsed.data.platforms);
+  const estimate = estimateAgentRunCostUsd({
+    platformCount: platforms.length,
+    provider: env.LLM_PROVIDER,
+  });
+
+  try {
+    await consumeQuota(userId, "ai_generations");
+  } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      throw new Error(error.message);
+    }
+    throw error;
+  }
+
+  try {
+    const { runId } = await orchestrator.startRun({
+      clerkUserId: userId,
+      plan: {
+        niche: parsed.data.niche,
+        platforms,
+        budget: buildRunBudget({
+          limitUsd: parsed.data.budgetUsd,
+          estimate,
+        }),
+      },
+    });
+    revalidatePath("/runs");
+    return { runId };
+  } catch (error) {
+    await releaseQuota(userId, "ai_generations");
+    throw error;
+  }
+}
+
+export async function approveRunBudgetAction(runId: string): Promise<void> {
+  const userId = await requireUserId();
+  await requireRole("admin");
+
+  const run = await getAgentRun(runId);
+  if (!run || run.clerkUserId !== userId) {
+    throw new Error("Run not found.");
+  }
+  if (run.status !== "awaiting_approval") {
+    throw new Error("This run is no longer awaiting approval.");
+  }
+
+  const steps = await listStepsForRun(runId);
+  const latestPaused = [...steps]
+    .reverse()
+    .find((step) => step.control?.pause === "awaiting_approval");
+  if (!latestPaused || !isBudgetPauseStep(latestPaused)) {
+    throw new Error("This run is not paused for budget approval.");
+  }
+
+  const handoff = latestPaused.handoff;
+  if (!handoff || !AGENT_NAMES.has(handoff.to)) {
+    throw new Error("Budget approval has no resumable next step.");
+  }
+
+  const actualUsd = steps.reduce(
+    (sum, step) => sum + stepCostUsd(step.summary ?? null),
+    0,
+  );
+  await updateAgentRun(runId, {
+    plan: approveRunBudget(run.plan, { approvedBy: userId, actualUsd }),
+  });
+  await orchestrator.resumeRun({
+    runId,
+    clerkUserId: userId,
+    step: { agent: handoff.to as AgentName, payload: handoff.payload },
+  });
+  revalidatePath(`/runs/${runId}`);
+  revalidatePath("/review");
+}

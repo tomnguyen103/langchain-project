@@ -1,4 +1,5 @@
 import { requireUserId } from "@/lib/clerk";
+import { evaluateAccountHealth } from "@/lib/accounts/health";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import type { AccountView } from "@/components/accounts/account-card";
 import { Composer } from "@/components/composer/composer";
@@ -13,14 +14,20 @@ export default async function CreatePage({
     listSocialAccounts(userId),
     searchParams,
   ]);
-  const views: AccountView[] = accounts.map((a) => ({
-    id: a.id,
-    platform: a.platform,
-    handle: a.handle,
-    displayName: a.displayName,
-    avatarUrl: a.avatarUrl,
-    status: a.status,
-  }));
+  const now = new Date();
+  const views: AccountView[] = accounts.map((a) => {
+    const health = evaluateAccountHealth(a, now);
+    return {
+      id: a.id,
+      platform: a.platform,
+      handle: a.handle,
+      displayName: a.displayName,
+      avatarUrl: a.avatarUrl,
+      status: a.status,
+      healthStatus: health.status,
+      healthMessages: health.issues.map((issue) => issue.message),
+    };
+  });
 
   return (
     <div>

@@ -3,7 +3,11 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db, runAtomicWrite } from "@/db";
 import { agentRuns, generatedContent, type Platform } from "@/db/schema";
 
-export type ReviewViolation = { rule: string; detail: string };
+export type ReviewViolation = {
+  rule: string;
+  detail: string;
+  level?: "warn" | "block";
+};
 export type ReviewVerdict = "pass" | "review" | "block";
 
 export type DraftReviewOutcome = {

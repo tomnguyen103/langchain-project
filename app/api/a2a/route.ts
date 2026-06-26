@@ -10,6 +10,10 @@ import {
   parseA2aRequest,
 } from "@/lib/a2a/protocol";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import {
+  buildRunBudget,
+  estimateAgentRunCostUsd,
+} from "@/lib/billing/agent-budget";
 import { env } from "@/lib/env";
 import { getAgentRun } from "@/lib/repos/agent-runs";
 
@@ -107,9 +111,17 @@ export async function POST(req: NextRequest): Promise<Response> {
         { status: 400 },
       );
     }
+    const estimate = estimateAgentRunCostUsd({
+      platformCount: parsed.platforms.length,
+      provider: env.LLM_PROVIDER,
+    });
     const { runId } = await orchestrator.startRun({
       clerkUserId: tenant,
-      plan: { niche: parsed.text, platforms: parsed.platforms },
+      plan: {
+        niche: parsed.text,
+        platforms: parsed.platforms,
+        budget: buildRunBudget({ estimate }),
+      },
     });
     return NextResponse.json(
       jsonRpcResult(parsed.id, { id: runId, status: { state: "submitted" } }),

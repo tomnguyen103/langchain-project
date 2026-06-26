@@ -4,6 +4,7 @@ import type {
   NewAgentStep,
   ReportData,
 } from "@/db/schema";
+import { decideRunBudget, stepCostUsd } from "@/lib/billing/agent-budget";
 import type { AgentRunUpdate } from "@/lib/repos/agent-runs";
 
 import {
@@ -20,7 +21,11 @@ export type RunStep = { agent: AgentName; payload: unknown };
 type StoredHandoff = { to: string; payload: unknown } | null;
 
 /** A persisted pause control (as stored on a completed agent_steps row). */
-type StoredControl = { pause: "awaiting_approval"; reason?: string } | null;
+type StoredControl = {
+  pause: "awaiting_approval";
+  reason?: string;
+  code?: string;
+} | null;
 
 /**
  * Orion's side effects, injected so the orchestrator unit-tests without a db,
@@ -32,6 +37,8 @@ export type OrchestratorDeps = {
   createAgentRun: (data: NewAgentRun) => Promise<unknown>;
   updateAgentRun: (runId: string, data: AgentRunUpdate) => Promise<unknown>;
   recordAgentStep: (data: NewAgentStep) => Promise<unknown>;
+  /** Sum already-recorded step spend for this run before the current step. */
+  sumStepCostUsd: (runId: string) => Promise<number>;
   /** Idempotency guard: the already-completed step for this (run, agent), if any. */
   findCompletedStep: (
     runId: string,
@@ -230,6 +237,16 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
         effectiveHandoff = { to: override.agent, payload: override.payload };
       }
     }
+    let effectiveControl: StoredControl = result.control ?? null;
+    if (effectiveHandoff && !effectiveControl?.pause) {
+      const spentBefore = await deps.sumStepCostUsd(ctx.runId);
+      const budget = decideRunBudget({
+        plan: ctx.plan,
+        spentUsd: spentBefore + stepCostUsd(result.summary ?? null),
+        nextAgent: effectiveHandoff.to,
+      });
+      if (!budget.allowed) effectiveControl = budget.control;
+    }
 
     await deps.recordAgentStep({
       runId: ctx.runId,
@@ -238,7 +255,7 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
       input: step.payload,
       summary: result.summary,
       handoff: effectiveHandoff,
-      control: result.control ?? null,
+      control: effectiveControl,
       startedAt,
       finishedAt: new Date(),
     });
@@ -248,7 +265,7 @@ export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
     // re-settles — it does not re-run.
     await settle(ctx, {
       handoff: effectiveHandoff,
-      control: result.control ?? null,
+      control: effectiveControl,
     });
     return result;
   }

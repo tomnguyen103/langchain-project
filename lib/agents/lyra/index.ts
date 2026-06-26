@@ -9,6 +9,8 @@ export type LyraInput = {
   platforms: Platform[];
   /** Carried through from Vega's handoff; not needed to generate. */
   generatedContentIds?: string[];
+  /** Evergreen Recycler provenance for refreshed drafts. */
+  derivedFromTargetId?: string;
 };
 
 /**
@@ -22,6 +24,7 @@ export type LyraDeps = {
     platforms: Platform[];
     userId: string;
     brand?: { voice?: string; bannedTerms?: string[]; learnedNotes?: string };
+    derivedFromTargetId?: string | null;
   }) => Promise<{
     drafts: Record<string, string>;
     savedContentIds: string[];
@@ -56,6 +59,7 @@ export function createLyra(deps: LyraDeps): AgentDefinition<LyraInput> {
             bannedTerms: profile.bannedTerms,
             learnedNotes: formatLearnedNotes(profile.learnedMemory),
           },
+          derivedFromTargetId: input.derivedFromTargetId ?? null,
         });
 
       return {

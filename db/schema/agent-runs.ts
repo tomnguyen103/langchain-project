@@ -13,6 +13,16 @@ import { timestamps } from "./_helpers";
 
 /** One step in a run's plan: which agent to invoke with what payload. */
 export type AgentRunPlanStep = { agent: string; payload?: unknown };
+export type AgentRunBudget = {
+  limitUsd: number;
+  estimateUsd?: number;
+  model?: string;
+  rateSource?: "listed" | "fallback";
+  approvedBy?: string;
+  approvedAt?: string;
+  lastApprovedActualUsd?: number;
+  approvalCount?: number;
+};
 
 /**
  * The plan Orion drives for a run. Flexible jsonb so later goals (e.g. Rigel's
@@ -22,6 +32,7 @@ export type AgentRunPlan = {
   niche?: string;
   platforms?: string[];
   steps?: AgentRunPlanStep[];
+  budget?: AgentRunBudget;
   [key: string]: unknown;
 };
 

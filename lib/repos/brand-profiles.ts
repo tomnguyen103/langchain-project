@@ -143,7 +143,7 @@ export async function setDisclosurePolicy(
 /** Persist Rigel's learned-memory blob without touching the tenant's settings. */
 export async function setLearnedMemory(
   clerkUserId: string,
-  learnedMemory: Record<string, unknown>,
+  learnedMemory: Record<string, unknown> | null,
 ): Promise<void> {
   await db
     .insert(brandProfiles)

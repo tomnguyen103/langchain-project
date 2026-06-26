@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Copy } from "lucide-react";
+import { CircleAlert, Copy, Info } from "lucide-react";
 
 import type { Platform } from "@/db/schema";
 import { PLATFORM_META } from "@/lib/platforms/constants";
+import type { PlatformValidationIssue } from "@/lib/platforms/validation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +19,7 @@ export function VariantEditor({
   onChange,
   onCopyToAll,
   mediaCount = 0,
+  issuesByPlatform = {},
 }: {
   platforms: Platform[];
   value: Record<string, string>;
@@ -25,6 +27,7 @@ export function VariantEditor({
   onCopyToAll: (platform: Platform) => void;
   /** Attached media count, so each preview reflects required-media accurately. */
   mediaCount?: number;
+  issuesByPlatform?: Partial<Record<Platform, PlatformValidationIssue[]>>;
 }) {
   const [active, setActive] = useState<string>(platforms[0] ?? "");
   // Derive a valid active tab, then snap stored state back to it during render
@@ -53,6 +56,7 @@ export function VariantEditor({
         value={value[platform] ?? ""}
         onChange={(v) => onChange(platform, v)}
         mediaCount={mediaCount}
+        issues={issuesByPlatform[platform] ?? []}
       />
     );
   }
@@ -73,6 +77,7 @@ export function VariantEditor({
             value={value[p] ?? ""}
             onChange={(v) => onChange(p, v)}
             mediaCount={mediaCount}
+            issues={issuesByPlatform[p] ?? []}
           />
           <Button
             type="button"
@@ -93,14 +98,19 @@ function Field({
   value,
   onChange,
   mediaCount,
+  issues,
 }: {
   platform: Platform;
   value: string;
   onChange: (value: string) => void;
   mediaCount: number;
+  issues: PlatformValidationIssue[];
 }) {
   const max = PLATFORM_META[platform].maxBodyLength;
   const over = value.length > max;
+  const hasError = issues.some((issue) => issue.level === "error");
+  const issuesId =
+    issues.length > 0 ? `${platform}-validation-issues` : undefined;
   return (
     <div className="space-y-1.5">
       <Textarea
@@ -109,7 +119,8 @@ function Field({
         rows={7}
         placeholder={`Write your ${PLATFORM_META[platform].label} caption…`}
         aria-label={`${PLATFORM_META[platform].label} caption`}
-        aria-invalid={over}
+        aria-describedby={issuesId}
+        aria-invalid={over || hasError}
       />
       <div
         aria-live="polite"
@@ -121,6 +132,27 @@ function Field({
         {value.length} / {max}
         {over ? " (over limit)" : ""}
       </div>
+      {issues.length > 0 && (
+        <div id={issuesId} className="space-y-1" aria-live="polite">
+          {issues.map((issue) => {
+            const Icon = issue.level === "info" ? Info : CircleAlert;
+            return (
+              <div
+                key={`${issue.code}-${issue.message}`}
+                className={cn(
+                  "flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs",
+                  issue.level === "error"
+                    ? "border-destructive/30 bg-destructive/5 text-destructive"
+                    : "border-border bg-muted/40 text-muted-foreground",
+                )}
+              >
+                <Icon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                <span className="min-w-0">{issue.message}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <PlatformPreview platform={platform} body={value} mediaCount={mediaCount} />
     </div>
   );

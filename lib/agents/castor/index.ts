@@ -2,6 +2,12 @@ import type {
   OrgPolicyRule,
   PolicyFinding,
 } from "@/lib/compliance/policy-linter";
+import { buildCampaignSimulation } from "@/lib/reviews/campaign-simulation";
+import { auditVariantConsistency } from "@/lib/reviews/consistency";
+import {
+  extractRefreshSource,
+  recyclingSimilarityFinding,
+} from "@/lib/recycling/similarity";
 
 import { AgentName, type AgentDefinition } from "../types";
 
@@ -11,7 +17,7 @@ export type CastorInput = {
 };
 
 type ReviewVerdict = "pass" | "review" | "block";
-type ReviewViolation = { rule: string; detail: string };
+type ReviewViolation = { rule: string; detail: string; level?: "warn" | "block" };
 
 type ReviewResult = {
   contentId?: string;
@@ -33,7 +39,13 @@ type BrandProfile = {
 export type CastorDeps = {
   getGeneratedContentByIds: (
     ids: string[],
-  ) => Promise<Array<{ id: string; platform: string | null; content: string }>>;
+  ) => Promise<Array<{
+    id: string;
+    platform: string | null;
+    content: string;
+    topic?: string | null;
+    derivedFromTargetId?: string | null;
+  }>>;
   getBrandProfile: (clerkUserId: string) => Promise<BrandProfile>;
   reviewDrafts: (
     drafts: Array<{ contentId?: string; platform?: string; text: string }>,
@@ -96,6 +108,13 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
       const resultById = new Map(
         results.filter((r) => r.contentId).map((r) => [r.contentId as string, r]),
       );
+      const consistencyById = auditVariantConsistency(
+        contents.map((c) => ({
+          id: c.id,
+          platform: c.platform,
+          content: c.content,
+        })),
+      );
       const approvedIds: string[] = [];
       const outcomes = contents.map((c) => {
         const r = resultById.get(c.id);
@@ -110,11 +129,28 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
         const lint =
           deps.lintPolicy?.(c.platform, c.content, profile.policyRules) ?? [];
         const blockingLint = lint.some((f) => f.level === "block");
+        const consistency = consistencyById.get(c.id) ?? [];
+        const blockingConsistency = consistency.some(
+          (f) => f.level === "block",
+        );
+        const recyclingFinding = c.derivedFromTargetId
+          ? recyclingSimilarityFinding({
+              source: extractRefreshSource(c.topic),
+              draft: c.content,
+            })
+          : null;
         const violations = [
           ...baseViolations,
           ...lint.map((f) => ({ rule: f.rule, detail: f.detail })),
+          ...consistency.map((f) => ({
+            rule: f.rule,
+            detail: f.detail,
+            level: f.level,
+          })),
+          ...(recyclingFinding ? [recyclingFinding] : []),
         ];
-        const verdict: ReviewVerdict = blockingLint
+        const verdict: ReviewVerdict =
+          blockingLint || blockingConsistency || Boolean(recyclingFinding)
           ? "block"
           : (r?.verdict ?? "review");
 
@@ -131,6 +167,29 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
           status: (canAuto ? "approved" : "held") as "approved" | "held",
         };
       });
+      const campaign =
+        contents.length > 1
+          ? buildCampaignSimulation(
+              outcomes.map((outcome) => {
+                const content = contents.find(
+                  (c) => c.id === outcome.generatedContentId,
+                );
+                return {
+                  id: outcome.generatedContentId,
+                  platform: content?.platform ?? null,
+                  content: content?.content ?? "",
+                  violations: outcome.violations,
+                };
+              }),
+            )
+          : null;
+      const campaignSummary = campaign
+        ? {
+            campaignScore: campaign.score,
+            campaignRecommendation: campaign.recommendation,
+            campaignFindings: campaign.findings.length,
+          }
+        : {};
 
       await deps.recordReviews(ctx.runId, outcomes);
       if (approvedIds.length > 0) {
@@ -140,7 +199,11 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
       const heldCount = outcomes.length - approvedIds.length;
       if (heldCount === 0) {
         return {
-          summary: { reviewed: outcomes.length, approved: approvedIds.length },
+          summary: {
+            reviewed: outcomes.length,
+            approved: approvedIds.length,
+            ...campaignSummary,
+          },
           handoff: {
             to: AgentName.Atlas,
             payload: { acceptedContentIds: approvedIds },
@@ -152,6 +215,7 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
           reviewed: outcomes.length,
           approved: approvedIds.length,
           held: heldCount,
+          ...campaignSummary,
         },
         control: {
           pause: "awaiting_approval",

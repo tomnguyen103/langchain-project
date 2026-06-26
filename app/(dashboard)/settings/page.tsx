@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUserId } from "@/lib/clerk";
+import { topicsFromLearnedMemory } from "@/lib/brand/learned-notes";
 import { formatOrgPolicyRules } from "@/lib/compliance/org-policy";
 import {
   getBrandProfile,
@@ -11,6 +12,30 @@ import type { VoiceHistoryEntry } from "@/db/schema";
 
 import { BrandProfileForm } from "./brand-profile-form";
 import { DisclosurePolicyForm } from "./disclosure-policy-form";
+import { LearnedMemoryForm } from "./learned-memory-form";
+
+function LearnedMemoryCard({
+  memory,
+}: {
+  memory: Record<string, unknown> | null;
+}) {
+  const topics = topicsFromLearnedMemory(memory);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base font-semibold">
+          Learned memory
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-muted-foreground text-sm">
+          Themes saved here are passed into the next Lyra generation run.
+        </p>
+        <LearnedMemoryForm initialTopics={topics} />
+      </CardContent>
+    </Card>
+  );
+}
 
 function VoiceHistoryCard({ entries }: { entries: VoiceHistoryEntry[] }) {
   return (
@@ -78,6 +103,7 @@ export default async function SettingsPage() {
             autoPublishThreshold: profile.autoPublishThreshold,
           }}
         />
+        <LearnedMemoryCard memory={profile.learnedMemory} />
         <VoiceHistoryCard entries={profile.voiceHistory} />
       </section>
 
