@@ -21,7 +21,11 @@ export function CreateBrandForm() {
     if (!name.trim()) return;
     startTransition(async () => {
       try {
-        await createBrandAction({ name: name.trim(), description: description.trim() || undefined });
+        const result = await createBrandAction({ name: name.trim(), description: description.trim() || undefined });
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
         toast.success("Brand created.");
         setName("");
         setDescription("");
