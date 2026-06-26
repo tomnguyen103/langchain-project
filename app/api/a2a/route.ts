@@ -15,7 +15,12 @@ import {
   estimateAgentRunCostUsd,
 } from "@/lib/billing/agent-budget";
 import { env } from "@/lib/env";
+import { hasIntegrationScope } from "@/lib/integrations/tokens";
 import { getAgentRun } from "@/lib/repos/agent-runs";
+import {
+  authenticateIntegrationToken,
+  createIntegrationAuditLog,
+} from "@/lib/repos/integrations";
 
 // Touches Orion (BullMQ/Redis + LangGraph), so Node.js runtime (not edge).
 export const runtime = "nodejs";
@@ -23,6 +28,7 @@ export const runtime = "nodejs";
 const TERMINAL_STATES = new Set(["completed", "failed", "canceled"]);
 const SSE_POLL_MS = 2_000;
 const SSE_TIMEOUT_MS = 5 * 60 * 1_000; // 5 min hard cap
+const ENV_A2A_SCOPES = ["a2a:message", "a2a:read"];
 
 /**
  * Token→tenantId map parsed once at module load from A2A_TENANT_TOKENS JSON.
@@ -56,16 +62,42 @@ const TENANT_TOKEN_MAP: Record<string, string> | null = (() => {
  *
  * Returns null when A2A is disabled or the bearer token is unrecognised.
  */
-function resolveTenant(req: NextRequest): string | null {
+type A2aAuth = {
+  clerkUserId: string;
+  tokenId?: string;
+  scopes: string[];
+  source: "db" | "env";
+};
+
+async function resolveTenant(req: NextRequest): Promise<A2aAuth | null> {
   if (env.A2A_ENABLED !== "true") return null;
 
   const authHeader = req.headers.get("authorization") ?? "";
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
 
+  if (bearer) {
+    const token = await authenticateIntegrationToken({
+      plaintext: bearer,
+      kind: "a2a",
+    }).catch(() => undefined);
+    if (token) {
+      return {
+        clerkUserId: token.clerkUserId,
+        tokenId: token.id,
+        scopes: token.scopes,
+        source: "db",
+      };
+    }
+  }
+
   // Multi-tenant mode
   if (TENANT_TOKEN_MAP) {
     return bearer && Object.hasOwn(TENANT_TOKEN_MAP, bearer)
-      ? TENANT_TOKEN_MAP[bearer]
+      ? {
+          clerkUserId: TENANT_TOKEN_MAP[bearer],
+          scopes: ENV_A2A_SCOPES,
+          source: "env",
+        }
       : null;
   }
 
@@ -76,7 +108,34 @@ function resolveTenant(req: NextRequest): string | null {
   const valid =
     provided.length === expected.length &&
     timingSafeEqual(provided, expected);
-  return valid ? env.A2A_TENANT_ID : null;
+  return valid
+    ? {
+        clerkUserId: env.A2A_TENANT_ID,
+        scopes: ENV_A2A_SCOPES,
+        source: "env",
+      }
+    : null;
+}
+
+function canUseA2a(auth: A2aAuth, scope: "a2a:message" | "a2a:read"): boolean {
+  return auth.source === "env" || hasIntegrationScope(auth.scopes, scope);
+}
+
+async function auditA2a(
+  auth: A2aAuth,
+  action: string,
+  result: "allowed" | "denied" | "error",
+  metadata?: Record<string, unknown>,
+) {
+  if (!auth.tokenId) return;
+  await createIntegrationAuditLog({
+    clerkUserId: auth.clerkUserId,
+    tokenId: auth.tokenId,
+    surface: "a2a",
+    action,
+    result,
+    metadata,
+  }).catch(() => undefined);
 }
 
 function baseUrl(req: NextRequest): string {
@@ -93,8 +152,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 /** A2A JSON-RPC: message/send · tasks/get · tasks/sendSubscribe (SSE). */
 export async function POST(req: NextRequest): Promise<Response> {
-  const tenant = resolveTenant(req);
-  if (!tenant) {
+  const auth = await resolveTenant(req);
+  if (!auth) {
     // A2A disabled OR unknown bearer token → treat as 401 so callers know they
     // must authenticate rather than thinking the endpoint does not exist.
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -102,10 +161,23 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const body: unknown = await req.json().catch(() => null);
   const parsed = parseA2aRequest(body);
+  const requiredScope =
+    parsed.method === "message/send"
+      ? "a2a:message"
+      : parsed.method === "tasks/get" || parsed.method === "tasks/sendSubscribe"
+        ? "a2a:read"
+        : null;
+  if (requiredScope && !canUseA2a(auth, requiredScope)) {
+    await auditA2a(auth, parsed.method, "denied", { reason: "missing_scope" });
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
 
   // ── message/send: start a new pipeline run ────────────────────────────────
   if (parsed.method === "message/send") {
     if (!parsed.text) {
+      await auditA2a(auth, parsed.method, "error", {
+        reason: "message text is required",
+      });
       return NextResponse.json(
         jsonRpcError(parsed.id, -32602, "message text is required"),
         { status: 400 },
@@ -116,13 +188,14 @@ export async function POST(req: NextRequest): Promise<Response> {
       provider: env.LLM_PROVIDER,
     });
     const { runId } = await orchestrator.startRun({
-      clerkUserId: tenant,
+      clerkUserId: auth.clerkUserId,
       plan: {
         niche: parsed.text,
         platforms: parsed.platforms,
         budget: buildRunBudget({ estimate }),
       },
     });
+    await auditA2a(auth, parsed.method, "allowed", { runId });
     return NextResponse.json(
       jsonRpcResult(parsed.id, { id: runId, status: { state: "submitted" } }),
     );
@@ -137,12 +210,14 @@ export async function POST(req: NextRequest): Promise<Response> {
       );
     }
     const run = await getAgentRun(parsed.taskId);
-    if (!run || run.clerkUserId !== tenant) {
+    if (!run || run.clerkUserId !== auth.clerkUserId) {
+      await auditA2a(auth, parsed.method, "denied", { taskId: parsed.taskId });
       return NextResponse.json(
         jsonRpcError(parsed.id, -32001, "task not found"),
         { status: 404 },
       );
     }
+    await auditA2a(auth, parsed.method, "allowed", { taskId: parsed.taskId });
     return NextResponse.json(
       jsonRpcResult(parsed.id, {
         id: run.runId,
@@ -164,12 +239,14 @@ export async function POST(req: NextRequest): Promise<Response> {
 
     // Verify task exists and is owned by this tenant before opening the stream.
     const initial = await getAgentRun(taskId);
-    if (!initial || initial.clerkUserId !== tenant) {
+    if (!initial || initial.clerkUserId !== auth.clerkUserId) {
+      await auditA2a(auth, parsed.method, "denied", { taskId });
       return NextResponse.json(
         jsonRpcError(parsed.id, -32001, "task not found"),
         { status: 404 },
       );
     }
+    await auditA2a(auth, parsed.method, "allowed", { taskId });
 
     const encoder = new TextEncoder();
     const deadline = Date.now() + SSE_TIMEOUT_MS;
@@ -203,7 +280,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
           if (cancelled) return;
 
-          if (!run || run.clerkUserId !== tenant) {
+          if (!run || run.clerkUserId !== auth.clerkUserId) {
             emit(jsonRpcError(parsed.id, -32001, "task not found"));
             controller.close();
             return;

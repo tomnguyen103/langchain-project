@@ -59,6 +59,28 @@ describe("lintPolicy", () => {
     const findings = lintPolicy("x", "GUARANTEED winner");
     assert.ok(findings.some((f) => f.rule === "absolute_claim"));
   });
+
+  it("runs enabled industry packs", () => {
+    const findings = lintPolicy(
+      "linkedin",
+      "This post includes a patient record from the case file.",
+      [],
+      ["healthcare"],
+    );
+    assert.ok(
+      findings.some(
+        (f) => f.rule === "healthcare_patient_privacy" && f.level === "block",
+      ),
+    );
+  });
+
+  it("does not run industry pack rules unless the pack is enabled", () => {
+    const findings = lintPolicy(
+      "linkedin",
+      "This post includes a patient record from the case file.",
+    );
+    assert.ok(!findings.some((f) => f.rule === "healthcare_patient_privacy"));
+  });
 });
 
 describe("lintOrgRules (Praxis Live)", () => {

@@ -17,6 +17,8 @@ import { db, runAtomicWrite } from "@/db";
 import {
   posts,
   postTargets,
+  socialAccounts,
+  type AccountStatus,
   type NewPost,
   type NewPostTarget,
   type Post,
@@ -143,6 +145,29 @@ export async function listFailedTargetsForUser(
     .where(
       and(eq(posts.clerkUserId, clerkUserId), eq(postTargets.status, "failed")),
     )
+    .orderBy(desc(postTargets.updatedAt))
+    .limit(limit);
+}
+
+export async function listFailedTargetsForRepair(
+  limit = 50,
+): Promise<
+  Array<{
+    target: PostTarget;
+    clerkUserId: string;
+    accountStatus: AccountStatus;
+  }>
+> {
+  return db
+    .select({
+      target: postTargets,
+      clerkUserId: posts.clerkUserId,
+      accountStatus: socialAccounts.status,
+    })
+    .from(postTargets)
+    .innerJoin(posts, eq(postTargets.postId, posts.id))
+    .innerJoin(socialAccounts, eq(postTargets.socialAccountId, socialAccounts.id))
+    .where(eq(postTargets.status, "failed"))
     .orderBy(desc(postTargets.updatedAt))
     .limit(limit);
 }

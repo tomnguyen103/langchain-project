@@ -1,6 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { AgentName } from "@/lib/agents/types";
+import { platformEnum, type Platform } from "@/db/schema";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
 import {
   buildRunBudget,
@@ -9,10 +12,13 @@ import {
 import { requireUserId } from "@/lib/clerk";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { env } from "@/lib/env";
+import { nextEvergreenRunAt } from "@/lib/evergreen/automation";
+import { upsertEvergreenPreference } from "@/lib/repos/evergreen";
 import { getUserPostTarget } from "@/lib/repos/posts";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 
 const RECYCLE_GAP_MS = 30 * 24 * 60 * 60_000;
+const PLATFORMS = new Set<string>(platformEnum.enumValues);
 
 /**
  * Kick off a repurpose run for a published post target. Skips Vega (research)
@@ -65,4 +71,38 @@ export async function repurposePost(formData: FormData): Promise<void> {
       },
     },
   });
+}
+
+export async function saveEvergreenAutomation(
+  formData: FormData,
+): Promise<void> {
+  const userId = await requireUserId();
+  const limits = await getPlanLimits();
+  if (!limits.research) {
+    throw new Error("Evergreen automation is a Pro feature. Upgrade to use it.");
+  }
+
+  const enabled = formData.get("enabled") === "on";
+  const frequencyRaw = String(formData.get("frequency") ?? "monthly");
+  const frequency =
+    frequencyRaw === "weekly" || frequencyRaw === "monthly"
+      ? frequencyRaw
+      : "monthly";
+  const minEngagementRaw = Number(formData.get("minEngagement") ?? 1);
+  const minEngagement = Number.isFinite(minEngagementRaw)
+    ? Math.max(1, Math.floor(minEngagementRaw))
+    : 1;
+  const platforms = formData
+    .getAll("platform")
+    .filter((value): value is string => typeof value === "string")
+    .filter((value) => PLATFORMS.has(value)) as Platform[];
+
+  await upsertEvergreenPreference(userId, {
+    enabled,
+    frequency,
+    minEngagement,
+    platforms,
+    nextRunAt: enabled ? nextEvergreenRunAt(frequency) : null,
+  });
+  revalidatePath("/dashboard");
 }

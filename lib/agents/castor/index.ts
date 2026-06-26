@@ -1,4 +1,5 @@
 import type {
+  IndustryPolicyPackId,
   OrgPolicyRule,
   PolicyFinding,
 } from "@/lib/compliance/policy-linter";
@@ -33,6 +34,8 @@ type BrandProfile = {
   autoPublishThreshold: number;
   /** Custom Praxis policy rules (Praxis Live); empty when none configured. */
   policyRules: OrgPolicyRule[];
+  /** Enabled deterministic industry policy packs. */
+  policyPacks: IndustryPolicyPackId[];
 };
 
 /** Castor's side effects, injected for testability (no llm/db/env imports). */
@@ -73,6 +76,7 @@ export type CastorDeps = {
     platform: string | null,
     text: string,
     orgRules?: OrgPolicyRule[],
+    policyPacks?: IndustryPolicyPackId[],
   ) => PolicyFinding[];
 };
 
@@ -127,7 +131,12 @@ export function createCastor(deps: CastorDeps): AgentDefinition<CastorInput> {
         // blocking finding overrides a brand-safety `pass` to `block`, so the
         // existing `verdict === "pass"` gate keeps it out of auto-publish.
         const lint =
-          deps.lintPolicy?.(c.platform, c.content, profile.policyRules) ?? [];
+          deps.lintPolicy?.(
+            c.platform,
+            c.content,
+            profile.policyRules,
+            profile.policyPacks,
+          ) ?? [];
         const blockingLint = lint.some((f) => f.level === "block");
         const consistency = consistencyById.get(c.id) ?? [];
         const blockingConsistency = consistency.some(

@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { platformEnum, type Platform } from "@/db/schema";
+import {
+  applyAgentRunTemplate,
+  assertAgentRunTemplateKey,
+} from "@/lib/agents/run-templates";
 import { AgentName } from "@/lib/agents/types";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
 import { requireRole } from "@/lib/auth/current-role";
@@ -34,6 +38,7 @@ const AGENT_NAMES = new Set<string>(Object.values(AgentName));
 const StartRunInput = z.object({
   niche: z.string().trim().min(1, "Enter a niche or topic."),
   platforms: z.array(z.string()).min(1, "Select at least one platform."),
+  templateKey: z.string().default("standard_pipeline"),
   budgetUsd: z.coerce
     .number()
     .positive("Budget must be greater than zero.")
@@ -51,6 +56,7 @@ function assertPlatforms(values: string[]): Platform[] {
 export async function startAgentRunAction(input: {
   niche: string;
   platforms: string[];
+  templateKey?: string;
   budgetUsd: number;
 }): Promise<{ runId: string }> {
   const userId = await requireUserId();
@@ -65,9 +71,20 @@ export async function startAgentRunAction(input: {
   }
 
   const platforms = assertPlatforms(parsed.data.platforms);
+  const templateKey = assertAgentRunTemplateKey(parsed.data.templateKey);
   const estimate = estimateAgentRunCostUsd({
     platformCount: platforms.length,
     provider: env.LLM_PROVIDER,
+  });
+  const budget = buildRunBudget({
+    limitUsd: parsed.data.budgetUsd,
+    estimate,
+  });
+  const runTemplate = applyAgentRunTemplate({
+    templateKey,
+    niche: parsed.data.niche,
+    platforms,
+    budget,
   });
 
   try {
@@ -82,14 +99,8 @@ export async function startAgentRunAction(input: {
   try {
     const { runId } = await orchestrator.startRun({
       clerkUserId: userId,
-      plan: {
-        niche: parsed.data.niche,
-        platforms,
-        budget: buildRunBudget({
-          limitUsd: parsed.data.budgetUsd,
-          estimate,
-        }),
-      },
+      plan: runTemplate.plan,
+      firstStep: runTemplate.firstStep,
     });
     revalidatePath("/runs");
     return { runId };

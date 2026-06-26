@@ -7,6 +7,10 @@ import { PLATFORM_META } from "@/lib/platforms/constants";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
+  listReplyCopilotInbox,
+  type ReplyCopilotInboxItem,
+} from "@/lib/repos/reply-copilot";
+import {
   listEscalatedCommentsForUser,
   listRecentCommentEventsForUser,
   listRules,
@@ -16,7 +20,14 @@ import { RuleTable, type RuleView } from "@/components/auto-reply/rule-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  dismissReplyCopilotDraftAction,
+  prepareReplyCopilotDraftsAction,
+  saveReplyCopilotDraftAction,
+  sendReplyCopilotDraftAction,
+} from "./actions";
 
 const accountName = (a: SocialAccount) =>
   a.displayName ?? a.handle ?? a.platformAccountId;
@@ -153,10 +164,16 @@ export default async function AutoReplyPage() {
     maxPerDay: r.maxPerDay,
   }));
 
-  const [events, escalations] = await Promise.all([
+  const [events, escalations, copilotItems] = await Promise.all([
     listRecentCommentEventsForUser(userId),
     listEscalatedCommentsForUser(userId),
+    listReplyCopilotInbox(userId),
   ]);
+  const openCopilotItems = copilotItems.filter(
+    (item) =>
+      !item.draft ||
+      (item.draft.status !== "sent" && item.draft.status !== "dismissed"),
+  );
 
   return (
     <div className="space-y-6">
@@ -170,6 +187,14 @@ export default async function AutoReplyPage() {
             {escalations.length > 0 && (
               <span className="bg-destructive text-destructive-foreground ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium">
                 {escalations.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="copilot">
+            Copilot
+            {openCopilotItems.length > 0 && (
+              <span className="bg-secondary text-secondary-foreground ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium">
+                {openCopilotItems.length}
               </span>
             )}
           </TabsTrigger>
@@ -217,6 +242,31 @@ export default async function AutoReplyPage() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="copilot" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-muted-foreground text-sm">
+              Draft-first replies for leads and questions. Abuse and complaints
+              are held for manual review in the source platform.
+            </p>
+            <form action={prepareReplyCopilotDraftsAction}>
+              <Button type="submit" size="sm">
+                Prepare suggestions
+              </Button>
+            </form>
+          </div>
+          {copilotItems.length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              No Copilot-eligible comments yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {copilotItems.map((item) => (
+                <CopilotRow key={item.comment.id} item={item} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -250,6 +300,86 @@ function CommentRow({
         ) : null}
         <Badge variant={statusVariant[e.status]}>{e.status}</Badge>
       </div>
+    </div>
+  );
+}
+
+function CopilotRow({ item }: { item: ReplyCopilotInboxItem }) {
+  const { comment, draft, account } = item;
+  const draftText = draft?.editedText ?? draft?.suggestedText ?? "";
+  const closed =
+    draft?.status === "sent" ||
+    draft?.status === "dismissed" ||
+    draft?.status === "blocked";
+
+  return (
+    <div className="space-y-3 rounded-lg border p-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium">
+              {comment.author || "Someone"}
+            </span>
+            <Badge variant="outline">{PLATFORM_META[account.platform].label}</Badge>
+            {comment.intent ? (
+              <Badge variant={intentVariant[comment.intent] ?? "outline"}>
+                {comment.intent}
+              </Badge>
+            ) : null}
+          </div>
+          <p className="text-muted-foreground text-sm">{comment.text || "No text"}</p>
+        </div>
+        <Badge variant={draft?.status === "blocked" ? "destructive" : "secondary"}>
+          {draft?.status ?? "needs draft"}
+        </Badge>
+      </div>
+
+      {draft ? (
+        <form className="space-y-2">
+          <input type="hidden" name="draftId" value={draft.id} />
+          <Textarea
+            name="text"
+            defaultValue={draftText}
+            rows={3}
+            disabled={draft.status === "sent" || draft.status === "dismissed"}
+          />
+          <div className="flex flex-wrap justify-end gap-2">
+            {draft.status !== "sent" && draft.status !== "dismissed" ? (
+              <>
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="outline"
+                  formAction={saveReplyCopilotDraftAction}
+                >
+                  Save
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="outline"
+                  formAction={dismissReplyCopilotDraftAction}
+                >
+                  Dismiss
+                </Button>
+              </>
+            ) : null}
+            {!closed ? (
+              <Button
+                type="submit"
+                size="sm"
+                formAction={sendReplyCopilotDraftAction}
+              >
+                Send reply
+              </Button>
+            ) : null}
+          </div>
+        </form>
+      ) : (
+        <p className="text-muted-foreground text-sm">
+          No suggestion prepared yet. Use Prepare suggestions to create a draft.
+        </p>
+      )}
     </div>
   );
 }

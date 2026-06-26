@@ -3,6 +3,39 @@ import type { Platform } from "@/db/schema";
 /** Severity of a policy finding: `block` gates auto-publish; `warn` advises. */
 export type PolicyLevel = "warn" | "block";
 
+export type IndustryPolicyPackId =
+  | "healthcare"
+  | "finance"
+  | "employment"
+  | "alcohol";
+
+export const INDUSTRY_POLICY_PACKS: Array<{
+  id: IndustryPolicyPackId;
+  label: string;
+  detail: string;
+}> = [
+  {
+    id: "healthcare",
+    label: "Healthcare",
+    detail: "Flags patient privacy, medical advice, and cure-risk claims.",
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    detail: "Flags investment advice, guaranteed returns, and no-risk claims.",
+  },
+  {
+    id: "employment",
+    label: "Employment",
+    detail: "Flags discriminatory hiring and protected-class language.",
+  },
+  {
+    id: "alcohol",
+    label: "Alcohol",
+    detail: "Flags underage, irresponsible, or health-benefit alcohol claims.",
+  },
+];
+
 /** One policy-lint hit on a draft, shaped to merge into `reviewViolations`. */
 export type PolicyFinding = {
   rule: string;
@@ -21,6 +54,8 @@ type PolicyRule = {
   test: RegExp;
   /** When set, the rule applies only to these platforms. */
   platforms?: Platform[];
+  /** When set, the rule applies only when this industry pack is enabled. */
+  pack?: IndustryPolicyPackId;
 };
 
 /**
@@ -72,6 +107,73 @@ const RULES: PolicyRule[] = [
   },
 ];
 
+const INDUSTRY_RULES: PolicyRule[] = [
+  {
+    pack: "healthcare",
+    rule: "healthcare_patient_privacy",
+    level: "block",
+    detail:
+      "Avoid patient identifiers, records, or photos unless explicit consent and legal review are recorded.",
+    test: /\b(patient\s+(?:name|record|photo|story)|medical\s+record|case\s+file)\b/i,
+  },
+  {
+    pack: "healthcare",
+    rule: "healthcare_medical_advice",
+    level: "block",
+    detail:
+      "Avoid direct medical advice such as changing medication or replacing clinician guidance.",
+    test: /\b(stop\s+taking\s+(?:medicine|medication)|replace\s+your\s+doctor|diagnose\s+yourself)\b/i,
+  },
+  {
+    pack: "finance",
+    rule: "finance_investment_advice",
+    level: "block",
+    detail:
+      "Avoid individualized investment instructions or no-downside claims without regulated review.",
+    test: /\b(buy\s+this\s+stock|sell\s+this\s+stock|no\s+downside|guaranteed\s+alpha)\b/i,
+  },
+  {
+    pack: "finance",
+    rule: "finance_performance_projection",
+    level: "warn",
+    detail:
+      "Performance projections should include assumptions, risk, and required disclaimers.",
+    test: /\b(projected\s+returns?|expected\s+returns?|beat\s+the\s+market)\b/i,
+  },
+  {
+    pack: "employment",
+    rule: "employment_discriminatory_targeting",
+    level: "block",
+    detail:
+      "Avoid discriminatory or protected-class language in hiring and workplace posts.",
+    test: /\b(only\s+(?:men|women)|young\s+and\s+energetic|native\s+english\s+speakers)\b/i,
+  },
+  {
+    pack: "employment",
+    rule: "employment_salary_pressure",
+    level: "warn",
+    detail:
+      "Pressure language around salary or benefits can create hiring-compliance risk.",
+    test: /\b(no\s+salary\s+negotiation|must\s+accept\s+offer\s+immediately)\b/i,
+  },
+  {
+    pack: "alcohol",
+    rule: "alcohol_underage",
+    level: "block",
+    detail:
+      "Avoid alcohol content that targets or depicts underage audiences.",
+    test: /\b(?:kids?|teens?|underage)\b[\s\S]{0,40}\b(?:beer|wine|vodka|cocktail|alcohol)\b/i,
+  },
+  {
+    pack: "alcohol",
+    rule: "alcohol_health_claim",
+    level: "block",
+    detail:
+      "Avoid health, performance, or therapeutic claims about alcohol.",
+    test: /\b(?:beer|wine|vodka|cocktail|alcohol)\b[\s\S]{0,40}\b(?:healthy|therapeutic|improves\s+sleep|boosts\s+performance)\b/i,
+  },
+];
+
 /**
  * Lint a draft against a tenant's custom rules (Praxis Live) — case-insensitive
  * LITERAL substring matches. Treating terms as literals (never compiled as a
@@ -111,9 +213,11 @@ export function lintPolicy(
   platform: string | null,
   text: string,
   orgRules: OrgPolicyRule[] = [],
+  policyPacks: IndustryPolicyPackId[] = [],
 ): PolicyFinding[] {
   const findings: PolicyFinding[] = [];
-  for (const r of RULES) {
+  for (const r of [...RULES, ...INDUSTRY_RULES]) {
+    if (r.pack && !policyPacks.includes(r.pack)) continue;
     if (r.platforms) {
       // A null or non-enum platform simply skips platform-scoped rules (fail-safe).
       if (!platform || !r.platforms.includes(platform as Platform)) continue;

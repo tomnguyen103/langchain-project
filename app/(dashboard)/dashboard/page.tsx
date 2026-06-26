@@ -27,19 +27,20 @@ import {
   listPostsWithTargets,
   listRecyclableWinners,
 } from "@/lib/repos/posts";
+import { getEvergreenPreference } from "@/lib/repos/evergreen";
 import { getLatestReport } from "@/lib/repos/reports";
 import { listRules } from "@/lib/repos/replies";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
-import { repurposePost } from "./actions";
+import { repurposePost, saveEvergreenAutomation } from "./actions";
 
 export default async function OverviewPage() {
   const userId = await requireUserId();
   const now = new Date();
   const horizon = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-  const [user, accounts, failedTargets, upcoming, rules, postCount, engagement, latestReport, recyclableWinners] =
+  const [user, accounts, failedTargets, upcoming, rules, postCount, engagement, latestReport, recyclableWinners, evergreenPreference] =
     await Promise.all([
       currentUser(),
       listSocialAccounts(userId),
@@ -50,6 +51,7 @@ export default async function OverviewPage() {
       getEngagementSummary(userId),
       getLatestReport(userId),
       listRecyclableWinners(userId),
+      getEvergreenPreference(userId),
     ]);
 
   const name = user?.firstName ?? "there";
@@ -57,6 +59,13 @@ export default async function OverviewPage() {
     (p) => p.scheduledAt && p.scheduledAt >= now,
   );
   const accountById = new Map(accounts.map((account) => [account.id, account]));
+  const evergreenPlatforms = [
+    ...new Set(
+      accounts
+        .filter((account) => account.status === "active")
+        .map((account) => account.platform),
+    ),
+  ];
   const accountFindings = accounts
     .map((account) => {
       const health = evaluateAccountHealth(account, now);
@@ -234,6 +243,77 @@ export default async function OverviewPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Evergreen automation</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form action={saveEvergreenAutomation} className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="inline-flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  name="enabled"
+                  className="h-4 w-4 accent-primary"
+                  defaultChecked={evergreenPreference?.enabled ?? false}
+                />
+                Enabled
+              </label>
+              <select
+                name="frequency"
+                defaultValue={evergreenPreference?.frequency ?? "monthly"}
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+              >
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+              <label className="inline-flex items-center gap-2 text-sm">
+                Min interactions
+                <input
+                  type="number"
+                  name="minEngagement"
+                  min={1}
+                  defaultValue={evergreenPreference?.minEngagement ?? 1}
+                  className="h-9 w-24 rounded-md border bg-background px-3 text-sm"
+                />
+              </label>
+              <Button type="submit" size="sm">
+                Save
+              </Button>
+              {evergreenPreference?.nextRunAt ? (
+                <span className="text-muted-foreground text-xs">
+                  Next: {evergreenPreference.nextRunAt.toLocaleDateString()}
+                </span>
+              ) : null}
+            </div>
+            {evergreenPlatforms.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {evergreenPlatforms.map((platform) => {
+                  const selected = evergreenPreference?.platforms.length
+                    ? evergreenPreference.platforms.includes(platform)
+                    : true;
+                  return (
+                    <label
+                      key={platform}
+                      className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+                    >
+                      <input
+                        type="checkbox"
+                        name="platform"
+                        value={platform}
+                        defaultChecked={selected}
+                        className="h-3.5 w-3.5 accent-primary"
+                      />
+                      {PLATFORM_META[platform].label}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : null}
+          </form>
+        </CardContent>
+      </Card>
 
       {recyclableWinners.length > 0 && (
         <Card>

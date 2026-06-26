@@ -7,6 +7,7 @@ const base = {
   voice: "",
   bannedTerms: "",
   policyRules: "",
+  policyPacks: [] as string[],
   autoPublishEnabled: true as boolean,
   autoPublishThreshold: 0.8,
 };
@@ -55,5 +56,13 @@ describe("normalizeBrandProfileInput", () => {
       { term: "guaranteed", level: "block" },
       { term: "limited time", level: "warn" },
     ]);
+  });
+
+  it("keeps only known industry policy packs and dedupes them", () => {
+    const out = normalizeBrandProfileInput({
+      ...base,
+      policyPacks: ["finance", "unknown", "finance", "healthcare"],
+    });
+    assert.deepEqual(out.policyPacks, ["finance", "healthcare"]);
   });
 });

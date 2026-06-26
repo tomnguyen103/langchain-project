@@ -6,22 +6,30 @@ import { Worker, type Job, type Processor } from "bullmq";
 import { closeDbPool } from "@/db";
 import { connection } from "@/lib/queue/connection";
 import {
+  registerEvergreenSchedule,
+  registerPublishRepairSchedule,
   registerReconcileSchedule,
   registerReportSchedule,
+  registerResearchWatchSchedule,
   registerTokenRefresh,
+  registerWebhookDeliverySchedule,
 } from "@/lib/queue/jobs";
 import { QueueName } from "@/lib/queue/queues";
 import { agentStepProcessor } from "./processors/agent-step";
 import { commentPollProcessor } from "./processors/comment-poll";
+import { evergreenProcessor } from "./processors/evergreen";
 import { metricsPollProcessor } from "./processors/metrics-poll";
 import { postingWindowsRefreshProcessor } from "./processors/posting-windows";
 import { publishProcessor } from "./processors/publish";
+import { publishRepairProcessor } from "./processors/publish-repair";
 import { reconcileProcessor } from "./processors/reconcile";
 import { replyProcessor } from "./processors/reply";
 import { reportProcessor } from "./processors/report";
 import { researchProcessor } from "./processors/research";
+import { researchWatchProcessor } from "./processors/research-watch";
 import { seedingProcessor } from "./processors/seeding";
 import { tokenRefreshProcessor } from "./processors/token-refresh";
+import { webhookDeliveryProcessor } from "./processors/webhook-delivery";
 import { logger } from "./logger";
 
 const workers: Worker[] = [];
@@ -69,8 +77,12 @@ const stub =
   };
 
 startWorker(QueueName.Publish, publishProcessor, 5);
+startWorker(QueueName.PublishRepair, publishRepairProcessor, 1);
 startWorker(QueueName.Generate, stub("generate"), 2);
 startWorker(QueueName.Research, researchProcessor, 2);
+startWorker(QueueName.ResearchWatch, researchWatchProcessor, 1);
+startWorker(QueueName.Evergreen, evergreenProcessor, 1);
+startWorker(QueueName.WebhookDelivery, webhookDeliveryProcessor, 1);
 // Orion: one worker routes every agent handoff by AgentName via getAgent(...).run.
 startWorker(QueueName.AgentStep, agentStepProcessor, 3);
 startWorker(QueueName.CommentPoll, commentPollProcessor, 5);
@@ -124,6 +136,82 @@ async function ensureReportScheduler(attempt = 1): Promise<void> {
   }
 }
 void ensureReportScheduler();
+
+async function ensureResearchWatchScheduler(attempt = 1): Promise<void> {
+  try {
+    await registerResearchWatchSchedule();
+    logger.info("research-watch scheduler registered");
+  } catch (error) {
+    logger.error("failed to register research-watch scheduler", {
+      attempt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    if (attempt < 10) {
+      setTimeout(
+        () => void ensureResearchWatchScheduler(attempt + 1),
+        Math.min(30_000, attempt * 5_000),
+      );
+    }
+  }
+}
+void ensureResearchWatchScheduler();
+
+async function ensurePublishRepairScheduler(attempt = 1): Promise<void> {
+  try {
+    await registerPublishRepairSchedule();
+    logger.info("publish-repair scheduler registered");
+  } catch (error) {
+    logger.error("failed to register publish-repair scheduler", {
+      attempt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    if (attempt < 10) {
+      setTimeout(
+        () => void ensurePublishRepairScheduler(attempt + 1),
+        Math.min(30_000, attempt * 5_000),
+      );
+    }
+  }
+}
+void ensurePublishRepairScheduler();
+
+async function ensureEvergreenScheduler(attempt = 1): Promise<void> {
+  try {
+    await registerEvergreenSchedule();
+    logger.info("evergreen scheduler registered");
+  } catch (error) {
+    logger.error("failed to register evergreen scheduler", {
+      attempt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    if (attempt < 10) {
+      setTimeout(
+        () => void ensureEvergreenScheduler(attempt + 1),
+        Math.min(30_000, attempt * 5_000),
+      );
+    }
+  }
+}
+void ensureEvergreenScheduler();
+
+async function ensureWebhookDeliveryScheduler(attempt = 1): Promise<void> {
+  try {
+    await registerWebhookDeliverySchedule();
+    logger.info("webhook-delivery scheduler registered");
+  } catch (error) {
+    logger.error("failed to register webhook-delivery scheduler", {
+      attempt,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    if (attempt < 10) {
+      setTimeout(
+        () => void ensureWebhookDeliveryScheduler(attempt + 1),
+        Math.min(30_000, attempt * 5_000),
+      );
+    }
+  }
+}
+void ensureWebhookDeliveryScheduler();
 
 // Same retry-on-Redis-blip guard for the ledger-reconciliation sweep.
 async function ensureReconcileScheduler(attempt = 1): Promise<void> {

@@ -16,11 +16,13 @@ import {
 
 import {
   acceptDraftAction,
+  addDraftCommentAction,
   approveRunAction,
   editDraftAction,
   ignoreDraftAction,
   rejectDraftAction,
   rejectRunAction,
+  resolveDraftCommentAction,
   respondDraftAction,
 } from "./actions";
 
@@ -112,6 +114,7 @@ function DraftCard({ runId, draft }: { runId: string; draft: PendingReview }) {
   const [mode, setMode] = useState<"idle" | "edit" | "respond">("idle");
   const [editValue, setEditValue] = useState(draft.content);
   const [feedback, setFeedback] = useState("");
+  const [comment, setComment] = useState("");
 
   return (
     <div id={`draft-${draft.id}`} className="rounded-lg border p-3">
@@ -206,6 +209,91 @@ function DraftCard({ runId, draft }: { runId: string; draft: PendingReview }) {
           Your note: {draft.reviewerNote}
         </p>
       ) : null}
+
+      <div className="mt-3 space-y-2 border-t pt-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-medium">Review comments</p>
+          {draft.comments.length > 0 ? (
+            <Badge variant="outline">
+              {draft.comments.filter((item) => !item.resolvedAt).length} open
+            </Badge>
+          ) : null}
+        </div>
+        {draft.comments.length > 0 ? (
+          <div className="space-y-2">
+            {draft.comments.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-wrap items-start gap-2 text-xs"
+              >
+                <span className="text-muted-foreground shrink-0">
+                  {item.authorLabel}
+                </span>
+                <span
+                  className={
+                    item.resolvedAt
+                      ? "text-muted-foreground flex-1 line-through"
+                      : "flex-1"
+                  }
+                >
+                  {item.body}
+                </span>
+                {item.resolvedAt ? (
+                  <Badge variant="secondary">resolved</Badge>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={pending}
+                    onClick={() =>
+                      run(
+                        () =>
+                          resolveDraftCommentAction(
+                            runId,
+                            draft.id,
+                            item.id,
+                          ),
+                        "Comment resolved.",
+                      )
+                    }
+                  >
+                    Resolve
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            No collaborator comments yet.
+          </p>
+        )}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Textarea
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            rows={2}
+            placeholder="Add a note for collaborators"
+            aria-label="Collaborative review comment"
+            className="min-h-16"
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={pending || comment.trim().length === 0}
+            onClick={() =>
+              run(async () => {
+                await addDraftCommentAction(runId, draft.id, comment);
+                setComment("");
+              }, "Comment added.")
+            }
+          >
+            Comment
+          </Button>
+        </div>
+      </div>
 
       {mode === "respond" ? (
         <div className="mt-3 space-y-2">

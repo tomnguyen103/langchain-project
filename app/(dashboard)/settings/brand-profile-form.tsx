@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { BrandProfileFormInput } from "@/lib/brand/profile-input";
+import { INDUSTRY_POLICY_PACKS } from "@/lib/compliance/policy-linter";
 
 import { saveBrandProfileAction } from "./actions";
 
@@ -20,11 +21,21 @@ export function BrandProfileForm({
   const [voice, setVoice] = useState(initial.voice);
   const [bannedTerms, setBannedTerms] = useState(initial.bannedTerms);
   const [policyRules, setPolicyRules] = useState(initial.policyRules);
+  const [policyPacks, setPolicyPacks] = useState(initial.policyPacks);
   const [autoPublishEnabled, setAutoPublishEnabled] = useState(
     initial.autoPublishEnabled,
   );
   const [threshold, setThreshold] = useState(initial.autoPublishThreshold);
   const [pending, startTransition] = useTransition();
+
+  function togglePolicyPack(packId: string, checked: boolean) {
+    setPolicyPacks((current) => {
+      if (checked) {
+        return current.includes(packId) ? current : [...current, packId];
+      }
+      return current.filter((id) => id !== packId);
+    });
+  }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -34,6 +45,7 @@ export function BrandProfileForm({
           voice,
           bannedTerms,
           policyRules,
+          policyPacks,
           autoPublishEnabled,
           autoPublishThreshold: threshold,
         });
@@ -92,6 +104,39 @@ export function BrandProfileForm({
           literal substring (case-insensitive), so prefer specific phrases.
           Checked at the brand-safety gate alongside the built-in policies.
         </p>
+      </div>
+
+      <div className="space-y-3">
+        <div className="space-y-1">
+          <Label>Industry policy packs</Label>
+          <p className="text-muted-foreground text-xs">
+            Deterministic extra checks for regulated categories. Pack hits are
+            recorded with the normal brand-safety violations.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {INDUSTRY_POLICY_PACKS.map((pack) => (
+            <label
+              key={pack.id}
+              className="flex min-h-20 cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm"
+            >
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-primary"
+                checked={policyPacks.includes(pack.id)}
+                onChange={(event) =>
+                  togglePolicyPack(pack.id, event.target.checked)
+                }
+              />
+              <span className="space-y-1">
+                <span className="block font-medium">{pack.label}</span>
+                <span className="text-muted-foreground block text-xs leading-5">
+                  {pack.detail}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-4 rounded-lg border p-4">

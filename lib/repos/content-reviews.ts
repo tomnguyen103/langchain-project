@@ -1,7 +1,12 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db, runAtomicWrite } from "@/db";
-import { agentRuns, generatedContent, type Platform } from "@/db/schema";
+import {
+  agentRuns,
+  draftReviewComments,
+  generatedContent,
+  type Platform,
+} from "@/db/schema";
 
 export type ReviewViolation = {
   rule: string;
@@ -65,6 +70,7 @@ export type PendingReview = {
   reviewViolations: ReviewViolation[] | null;
   reviewerNote: string | null;
   createdAt: Date;
+  comments: DraftReviewCommentView[];
 };
 
 /** Drafts Castor held for this tenant, awaiting human approval. */
@@ -72,7 +78,7 @@ export async function listPendingReviews(
   clerkUserId: string,
   limit = 100,
 ): Promise<PendingReview[]> {
-  return db
+  const rows = await db
     .select({
       id: generatedContent.id,
       agentRunId: generatedContent.agentRunId,
@@ -94,6 +100,16 @@ export async function listPendingReviews(
     )
     .orderBy(desc(generatedContent.createdAt))
     .limit(limit);
+  if (rows.length === 0) return [];
+
+  const comments = await listDraftReviewCommentsForContentIds(
+    rows.map((row) => row.id),
+    clerkUserId,
+  );
+  return rows.map((row) => ({
+    ...row,
+    comments: comments.filter((comment) => comment.generatedContentId === row.id),
+  }));
 }
 
 /**
@@ -381,4 +397,88 @@ export async function countHeldForRun(
       ),
     );
   return rows.length;
+}
+
+export type DraftReviewCommentView = {
+  id: string;
+  generatedContentId: string;
+  authorLabel: string;
+  body: string;
+  resolvedAt: Date | null;
+  createdAt: Date;
+};
+
+export async function listDraftReviewCommentsForContentIds(
+  ids: string[],
+  clerkUserId: string,
+): Promise<DraftReviewCommentView[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select({
+      id: draftReviewComments.id,
+      generatedContentId: draftReviewComments.generatedContentId,
+      authorLabel: draftReviewComments.authorLabel,
+      body: draftReviewComments.body,
+      resolvedAt: draftReviewComments.resolvedAt,
+      createdAt: draftReviewComments.createdAt,
+    })
+    .from(draftReviewComments)
+    .where(
+      and(
+        eq(draftReviewComments.clerkUserId, clerkUserId),
+        inArray(draftReviewComments.generatedContentId, ids),
+      ),
+    )
+    .orderBy(desc(draftReviewComments.createdAt));
+}
+
+export async function addDraftReviewComment(
+  id: string,
+  agentRunId: string,
+  clerkUserId: string,
+  body: string,
+): Promise<DraftReviewCommentView | undefined> {
+  const draft = await getHeldDraft(id, agentRunId, clerkUserId);
+  if (!draft) return undefined;
+
+  const [row] = await db
+    .insert(draftReviewComments)
+    .values({
+      generatedContentId: id,
+      clerkUserId,
+      authorLabel: "Reviewer",
+      body,
+    })
+    .returning({
+      id: draftReviewComments.id,
+      generatedContentId: draftReviewComments.generatedContentId,
+      authorLabel: draftReviewComments.authorLabel,
+      body: draftReviewComments.body,
+      resolvedAt: draftReviewComments.resolvedAt,
+      createdAt: draftReviewComments.createdAt,
+    });
+  return row;
+}
+
+export async function resolveDraftReviewComment(
+  commentId: string,
+  contentId: string,
+  agentRunId: string,
+  clerkUserId: string,
+): Promise<string[]> {
+  const draft = await getHeldDraft(contentId, agentRunId, clerkUserId);
+  if (!draft) return [];
+
+  const updated = await db
+    .update(draftReviewComments)
+    .set({ resolvedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(draftReviewComments.id, commentId),
+        eq(draftReviewComments.generatedContentId, contentId),
+        eq(draftReviewComments.clerkUserId, clerkUserId),
+      ),
+    )
+    .returning({ id: draftReviewComments.id });
+  return updated.map((row) => row.id);
 }

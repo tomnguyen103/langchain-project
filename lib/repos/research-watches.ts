@@ -1,10 +1,13 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, lte } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
+  researchWatchRuns,
   researchWatches,
   type NewResearchWatch,
+  type NewResearchWatchRun,
   type ResearchWatch,
+  type ResearchWatchRun,
 } from "@/db/schema";
 
 export async function listResearchWatches(
@@ -60,4 +63,60 @@ export async function deleteResearchWatch(
     .where(
       and(eq(researchWatches.id, id), eq(researchWatches.clerkUserId, clerkUserId)),
     );
+}
+
+/** Worker-only due sweep. User-facing code must use the scoped functions above. */
+export async function listDueResearchWatches(
+  now = new Date(),
+  limit = 100,
+): Promise<ResearchWatch[]> {
+  return db
+    .select()
+    .from(researchWatches)
+    .where(
+      and(
+        eq(researchWatches.status, "active"),
+        lte(researchWatches.nextRunAt, now),
+      ),
+    )
+    .orderBy(asc(researchWatches.nextRunAt))
+    .limit(limit);
+}
+
+export async function claimResearchWatchRun(
+  data: NewResearchWatchRun,
+): Promise<ResearchWatchRun> {
+  const [inserted] = await db
+    .insert(researchWatchRuns)
+    .values(data)
+    .onConflictDoNothing({
+      target: [researchWatchRuns.researchWatchId, researchWatchRuns.periodKey],
+    })
+    .returning();
+  if (inserted) return inserted;
+
+  const [existing] = await db
+    .select()
+    .from(researchWatchRuns)
+    .where(
+      and(
+        eq(researchWatchRuns.researchWatchId, data.researchWatchId),
+        eq(researchWatchRuns.periodKey, data.periodKey),
+      ),
+    )
+    .limit(1);
+  if (!existing) {
+    throw new Error("Could not claim research watch run.");
+  }
+  return existing;
+}
+
+export async function updateResearchWatchRun(
+  id: string,
+  data: Partial<NewResearchWatchRun>,
+): Promise<void> {
+  await db
+    .update(researchWatchRuns)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(researchWatchRuns.id, id));
 }
