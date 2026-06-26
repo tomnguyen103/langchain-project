@@ -180,6 +180,17 @@ export async function listStepsForRun(runId: string): Promise<AgentStep[]> {
     .orderBy(asc(agentSteps.createdAt));
 }
 
+/** Estimated LLM cost for one run, summed from recorded step summaries. */
+export async function sumStepCostUsd(runId: string): Promise<number> {
+  const [row] = await db
+    .select({
+      total: sql<string>`coalesce(sum((${agentSteps.summary} ->> 'costUsd')::numeric), 0)`,
+    })
+    .from(agentSteps)
+    .where(eq(agentSteps.runId, runId));
+  return Number(row?.total ?? 0);
+}
+
 /**
  * Estimated total LLM cost (USD) across a user's runs since `since` — sums the
  * per-step `costUsd` Quaestor records in agent_steps.summary, joined to the owning

@@ -8,8 +8,10 @@ import { requireUserId } from "@/lib/clerk";
 import { env } from "@/lib/env";
 import { buildTransformUrl, getVariantSpec } from "@/lib/imagekit/transform";
 import { isAllowedMediaUrl } from "@/lib/imagekit/url";
-import { PLATFORM_META } from "@/lib/platforms/constants";
-import { getConnector, hasConnector } from "@/lib/platforms/registry";
+import {
+  firstBlockingIssue,
+  validatePublishRequest,
+} from "@/lib/platforms/validation";
 import { enqueuePublish } from "@/lib/queue/jobs";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
@@ -173,45 +175,34 @@ export async function createPost(
     throw new Error("Selected accounts could not be found.");
   }
 
-  // Don't schedule onto expired/revoked accounts — they'd just fail at publish.
-  const inactive = selected.filter((a) => a.status !== "active");
-  if (inactive.length > 0) {
-    const labels = inactive
-      .map((a) => PLATFORM_META[a.platform].label)
-      .join(", ");
-    throw new Error(`Reconnect before scheduling: ${labels}.`);
-  }
-
   const bodyFor = (platform: Platform) =>
     (input.bodyByPlatform[platform] ?? "").trim();
 
-  for (const account of selected) {
-    const body = bodyFor(account.platform);
-    const label = PLATFORM_META[account.platform].label;
-    if (!body && input.mediaIds.length === 0) {
-      throw new Error(`Add a caption or media for ${label}.`);
-    }
-    if (!hasConnector(account.platform)) continue;
-    const caps = getConnector(account.platform).capabilities;
-    if (caps.media.required && input.mediaIds.length === 0) {
-      throw new Error(`${label} requires at least one image.`);
-    }
-    if (body.length > caps.maxBodyLength) {
-      throw new Error(
-        `Caption is too long for ${label} (max ${caps.maxBodyLength} chars).`,
-      );
-    }
-  }
-
   // Verify every attached media id exists and belongs to this user.
+  const mediaAssets =
+    input.mediaIds.length > 0 ? await getMediaAssets(input.mediaIds) : [];
   if (input.mediaIds.length > 0) {
-    const media = await getMediaAssets(input.mediaIds);
     const ownedIds = new Set(
-      media.filter((m) => m.clerkUserId === userId).map((m) => m.id),
+      mediaAssets.filter((m) => m.clerkUserId === userId).map((m) => m.id),
     );
     if (input.mediaIds.some((id) => !ownedIds.has(id))) {
       throw new Error("Some attached media could not be found.");
     }
+  }
+
+  const issue = firstBlockingIssue(
+    validatePublishRequest({
+      accounts: selected.map((account) => ({
+        id: account.id,
+        platform: account.platform,
+        status: account.status,
+      })),
+      bodyByPlatform: input.bodyByPlatform,
+      media: mediaAssets.map((asset) => ({ type: asset.type })),
+    }),
+  );
+  if (issue) {
+    throw new Error(issue.message);
   }
 
   const targets: Array<Omit<NewPostTarget, "postId">> = selected.map(

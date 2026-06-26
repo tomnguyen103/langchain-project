@@ -1,4 +1,5 @@
 import { requireUserId } from "@/lib/clerk";
+import { evaluateAccountHealth } from "@/lib/accounts/health";
 import { listConnectableProviders } from "@/lib/oauth/registry";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import {
@@ -23,14 +24,20 @@ export default async function AccountsPage({
   const firstValue = (v: string | string[] | undefined) =>
     Array.isArray(v) ? v[0] : v;
 
-  const views: AccountView[] = accounts.map((a) => ({
-    id: a.id,
-    platform: a.platform,
-    handle: a.handle,
-    displayName: a.displayName,
-    avatarUrl: a.avatarUrl,
-    status: a.status,
-  }));
+  const now = new Date();
+  const views: AccountView[] = accounts.map((a) => {
+    const health = evaluateAccountHealth(a, now);
+    return {
+      id: a.id,
+      platform: a.platform,
+      handle: a.handle,
+      displayName: a.displayName,
+      avatarUrl: a.avatarUrl,
+      status: a.status,
+      healthStatus: health.status,
+      healthMessages: health.issues.map((issue) => issue.message),
+    };
+  });
 
   const connectButtons = (
     <div className="flex flex-wrap gap-2">

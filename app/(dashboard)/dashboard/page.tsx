@@ -9,10 +9,14 @@ import {
   Heart,
   MessageCircle,
   Plug,
+  RotateCw,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
+import { retryTarget } from "@/app/(dashboard)/posts/actions";
+import { accountNeedsAttention, evaluateAccountHealth } from "@/lib/accounts/health";
+import { decidePublishTargetRecovery } from "@/lib/agents/recovery";
 import { requireUserId } from "@/lib/clerk";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { listSocialAccounts } from "@/lib/repos/accounts";
@@ -49,10 +53,34 @@ export default async function OverviewPage() {
     ]);
 
   const name = user?.firstName ?? "there";
-  const unhealthy = accounts.filter((a) => a.status !== "active");
   const upcomingPosts = upcoming.filter(
     (p) => p.scheduledAt && p.scheduledAt >= now,
   );
+  const accountById = new Map(accounts.map((account) => [account.id, account]));
+  const accountFindings = accounts
+    .map((account) => {
+      const health = evaluateAccountHealth(account, now);
+      return {
+        account: { ...account, status: health.status },
+        health,
+      };
+    })
+    .filter(({ health }) => accountNeedsAttention(health));
+  const targetFindings = failedTargets.map((target) => {
+    const account = accountById.get(target.socialAccountId);
+    return {
+      account,
+      target,
+      decision: decidePublishTargetRecovery({
+        error: target.lastError ?? "Unknown error",
+        accountStatus: account?.status ?? null,
+        attemptCount: target.attemptCount,
+        status: target.status,
+        platform: target.platform,
+      }),
+    };
+  });
+  const unhealthy = accountFindings.map(({ account }) => account);
 
   const onboarding = [
     { done: accounts.length > 0, label: "Connect a social account", href: "/accounts" },
@@ -61,7 +89,7 @@ export default async function OverviewPage() {
   ];
   const onboardingComplete = onboarding.every((s) => s.done);
 
-  const attention = failedTargets.length + unhealthy.length;
+  const attention = targetFindings.length + accountFindings.length;
   const stats: Array<{
     label: string;
     value: number;
@@ -250,13 +278,13 @@ export default async function OverviewPage() {
           <CardTitle className="text-base">Needs attention</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {failedTargets.length === 0 && unhealthy.length === 0 ? (
+          {targetFindings.length === 0 && accountFindings.length === 0 ? (
             <p className="text-muted-foreground text-sm">
               All clear. No failed posts or disconnected accounts.
             </p>
           ) : (
             <>
-              {unhealthy.map((a) => (
+              {accountFindings.map(({ account: a, health }) => (
                 <Link
                   key={a.id}
                   href="/accounts"
@@ -265,26 +293,58 @@ export default async function OverviewPage() {
                   <span className="truncate text-sm">
                     {PLATFORM_META[a.platform].label}:{" "}
                     {a.displayName ?? a.handle ?? a.platformAccountId}
+                    <span className="text-muted-foreground mt-0.5 block truncate text-xs">
+                      {health.issues[0]?.message ?? "Review account health."}
+                    </span>
                   </span>
                   <Badge variant="destructive">{a.status} · reconnect</Badge>
                 </Link>
               ))}
-              {failedTargets.map((t) => (
-                <Link
+              {targetFindings.map(({ target: t, account, decision }) => (
+                <div
                   key={t.id}
-                  href={`/posts/${t.postId}`}
-                  className="hover:bg-accent flex items-center justify-between gap-3 rounded-lg border p-3"
+                  className="flex items-start justify-between gap-3 rounded-lg border p-3"
                 >
-                  <span className="min-w-0">
-                    <span className="text-sm font-medium">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="destructive">failed</Badge>
+                      <Badge variant="outline">
+                        {decision.failureClass.replace(/_/g, " ")}
+                      </Badge>
+                      <span className="text-muted-foreground text-xs">
+                        {decision.confidence} confidence
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm font-medium">
                       {PLATFORM_META[t.platform].label} publish failed
-                    </span>
-                    <span className="text-muted-foreground block truncate text-xs">
+                    </p>
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {decision.reason}
+                    </p>
+                    <p className="text-muted-foreground mt-1 truncate text-xs">
                       {t.lastError ?? "Unknown error"}
-                    </span>
-                  </span>
-                  <Badge variant="destructive">failed</Badge>
-                </Link>
+                    </p>
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Attempts: {t.attemptCount}
+                      {account
+                        ? ` / ${account.displayName ?? account.handle ?? account.platformAccountId}`
+                        : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/posts/${t.postId}`}>Details</Link>
+                    </Button>
+                    {decision.canRetry && (
+                      <form action={retryTarget.bind(null, t.id)}>
+                        <Button type="submit" size="sm">
+                          <RotateCw className="size-3.5" />
+                          Retry
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+                </div>
               ))}
             </>
           )}

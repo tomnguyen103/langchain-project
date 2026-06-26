@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { requireRole } from "@/lib/auth/current-role";
+import { normalizeLearnedMemoryInput } from "@/lib/brand/learned-notes";
 import { normalizeBrandProfileInput } from "@/lib/brand/profile-input";
 import { getOrgId, requireUserId } from "@/lib/clerk";
 import {
   setDisclosurePolicy,
+  setLearnedMemory,
   upsertBrandProfile,
 } from "@/lib/repos/brand-profiles";
 
@@ -54,5 +57,26 @@ export async function saveDisclosurePolicyAction(input: unknown): Promise<void> 
     jurisdiction:
       parsed.data.jurisdiction.trim().slice(0, MAX_JURISDICTION_LENGTH) || null,
   });
+  revalidatePath("/settings");
+}
+
+const LearnedMemoryInput = z.object({
+  topics: z.string(),
+});
+
+export async function saveLearnedMemoryAction(input: unknown): Promise<void> {
+  const parsed = LearnedMemoryInput.safeParse(input);
+  if (!parsed.success) throw new Error("Invalid learned memory.");
+
+  await requireRole("admin");
+  const userId = await requireUserId();
+  await setLearnedMemory(userId, normalizeLearnedMemoryInput(parsed.data));
+  revalidatePath("/settings");
+}
+
+export async function clearLearnedMemoryAction(): Promise<void> {
+  await requireRole("admin");
+  const userId = await requireUserId();
+  await setLearnedMemory(userId, null);
   revalidatePath("/settings");
 }

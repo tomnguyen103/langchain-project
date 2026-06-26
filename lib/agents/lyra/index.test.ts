@@ -41,6 +41,7 @@ describe("lyra agent", () => {
         bannedTerms: ["cheap"],
         learnedNotes: "cold brew",
       },
+      derivedFromTargetId: null,
     });
     assert.equal(result.handoff?.to, AgentName.Castor);
     assert.deepEqual(result.handoff?.payload, {
@@ -75,6 +76,40 @@ describe("lyra agent", () => {
       costUsd: 0,
     });
     assert.deepEqual(result.handoff?.payload, { generatedContentIds: [] });
+  });
+
+  it("passes evergreen source provenance into content generation", async () => {
+    let received: unknown;
+    const lyra = createLyra({
+      getBrandProfile: async () => ({
+        voice: "",
+        bannedTerms: [],
+        learnedMemory: null,
+      }),
+      runContentAgent: async (input) => {
+        received = input;
+        return {
+          drafts: { linkedin: "fresh angle" },
+          savedContentIds: ["c1"],
+          usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+          costUsd: 0,
+        };
+      },
+    });
+
+    await lyra.run(
+      {
+        topic: "refresh",
+        platforms: ["linkedin"],
+        derivedFromTargetId: "target-1",
+      },
+      { clerkUserId: "u", runId: "r" },
+    );
+
+    assert.equal(
+      (received as { derivedFromTargetId?: string }).derivedFromTargetId,
+      "target-1",
+    );
   });
 
   it("propagates a content-generation failure (no swallow)", async () => {

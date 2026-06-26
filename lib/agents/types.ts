@@ -8,6 +8,8 @@
  * See docs/ORCHESTRATION.md → "Core contract".
  */
 
+import type { AgentRunPlan } from "@/db/schema";
+
 /**
  * The named roster (constellation names). Values are stable wire identifiers
  * reused across queues, the `agent_runs`/`agent_steps` tables, and LangSmith —
@@ -43,6 +45,8 @@ export interface AgentContext {
   clerkOrgId?: string;
   /** Correlates every step of one pipeline run across queues + LangSmith. */
   runId: string;
+  /** The run plan as read immediately before this step executes. */
+  plan?: AgentRunPlan | null;
 }
 
 /** Hand off to the next agent. */
@@ -55,7 +59,7 @@ type AgentHandoffResult = {
 /** Pause the run for human approval (Castor's brand-safety gate). */
 type AgentPauseResult = {
   summary?: Record<string, unknown>;
-  control: { pause: "awaiting_approval"; reason?: string };
+  control: { pause: "awaiting_approval"; reason?: string; code?: string };
   handoff?: never;
 };
 

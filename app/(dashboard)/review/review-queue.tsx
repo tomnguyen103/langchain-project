@@ -9,6 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { PlatformPreview } from "@/components/composer/platform-preview";
 import type { PendingReview } from "@/lib/repos/content-reviews";
+import {
+  buildCampaignSimulation,
+  type CampaignSimulation,
+} from "@/lib/reviews/campaign-simulation";
 
 import {
   acceptDraftAction,
@@ -27,6 +31,62 @@ const verdictVariant = {
   review: "secondary",
   block: "destructive",
 } as const;
+
+const recommendationLabel: Record<CampaignSimulation["recommendation"], string> = {
+  ready: "ready",
+  approve_with_warnings: "warnings allowed",
+  hold: "hold",
+};
+
+function CampaignScorecard({
+  simulation,
+}: {
+  simulation: CampaignSimulation;
+}) {
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={simulation.blockCount > 0 ? "destructive" : "outline"}>
+          Campaign score {simulation.score}
+        </Badge>
+        <Badge variant={simulation.blockCount > 0 ? "destructive" : "secondary"}>
+          {recommendationLabel[simulation.recommendation]}
+        </Badge>
+        <span className="text-muted-foreground text-xs">
+          {simulation.draftCount} drafts / {simulation.platformCount} platforms
+        </span>
+        <span className="text-muted-foreground text-xs">
+          {simulation.blockCount} blockers / {simulation.warnCount} warnings
+        </span>
+      </div>
+
+      {simulation.findings.length > 0 ? (
+        <ul className="mt-3 space-y-1 text-xs">
+          {simulation.findings.slice(0, 5).map((finding, index) => (
+            <li
+              key={`${finding.draftId}-${finding.rule}-${index}`}
+              className="flex items-start gap-2"
+            >
+              <Badge
+                variant={finding.level === "block" ? "destructive" : "outline"}
+                className="mt-0.5 shrink-0"
+              >
+                {finding.level}
+              </Badge>
+              <a
+                href={`#draft-${finding.draftId}`}
+                className="text-primary shrink-0 hover:underline"
+              >
+                {finding.platform ?? "draft"}
+              </a>
+              <span className="text-muted-foreground">{finding.detail}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 /** Run an action, toasting success or the thrown error message. */
 function useAction() {
@@ -54,7 +114,7 @@ function DraftCard({ runId, draft }: { runId: string; draft: PendingReview }) {
   const [feedback, setFeedback] = useState("");
 
   return (
-    <div className="rounded-lg border p-3">
+    <div id={`draft-${draft.id}`} className="rounded-lg border p-3">
       <div className="mb-1 flex flex-wrap items-center gap-2">
         {draft.platform ? (
           <Badge variant="outline">{draft.platform}</Badge>
@@ -122,10 +182,20 @@ function DraftCard({ runId, draft }: { runId: string; draft: PendingReview }) {
       ) : null}
 
       {draft.reviewViolations && draft.reviewViolations.length > 0 ? (
-        <ul className="text-muted-foreground mt-2 list-disc pl-5 text-xs">
+        <ul className="text-muted-foreground mt-2 space-y-1 text-xs">
           {draft.reviewViolations.map((v, i) => (
-            <li key={`${v.rule}-${i}`}>
-              {v.rule}: {v.detail}
+            <li key={`${v.rule}-${i}`} className="flex items-start gap-2">
+              {v.level ? (
+                <Badge
+                  variant={v.level === "block" ? "destructive" : "outline"}
+                  className="mt-0.5 shrink-0"
+                >
+                  {v.level}
+                </Badge>
+              ) : null}
+              <span>
+                {v.rule}: {v.detail}
+              </span>
             </li>
           ))}
         </ul>
@@ -241,6 +311,17 @@ function DraftCard({ runId, draft }: { runId: string; draft: PendingReview }) {
 /** One run's held drafts, with per-item actions and run-level bulk actions. */
 function RunCard({ runId, drafts }: RunGroup) {
   const { pending, run } = useAction();
+  const simulation =
+    drafts.length > 1
+      ? buildCampaignSimulation(
+          drafts.map((draft) => ({
+            id: draft.id,
+            platform: draft.platform,
+            content: draft.content,
+            violations: draft.reviewViolations,
+          })),
+        )
+      : null;
 
   return (
     <Card>
@@ -272,6 +353,8 @@ function RunCard({ runId, drafts }: RunGroup) {
             </Button>
           </div>
         </div>
+
+        {simulation ? <CampaignScorecard simulation={simulation} /> : null}
 
         <div className="space-y-3">
           {drafts.map((d) => (

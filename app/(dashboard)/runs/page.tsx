@@ -5,13 +5,30 @@ import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { agentLabel, runStatusBadge } from "@/components/runs/run-meta";
+import { StartRunForm } from "@/components/runs/start-run-form";
 import { requireUserId } from "@/lib/clerk";
+import { env } from "@/lib/env";
+import { PLATFORM_META } from "@/lib/platforms/constants";
+import { listSocialAccounts } from "@/lib/repos/accounts";
 import { listAgentRunsForUser } from "@/lib/repos/agent-runs";
 import { formatDuration, runDurationMs } from "@/lib/runs/timeline";
 
 export default async function RunsPage() {
   const userId = await requireUserId();
-  const runs = await listAgentRunsForUser(userId);
+  const [runs, accounts] = await Promise.all([
+    listAgentRunsForUser(userId),
+    listSocialAccounts(userId),
+  ]);
+  const startPlatforms = [
+    ...new Set(
+      accounts
+        .filter((account) => account.status === "active")
+        .map((account) => account.platform),
+    ),
+  ].map((platform) => ({
+    value: platform,
+    label: PLATFORM_META[platform].label,
+  }));
 
   return (
     <div className="space-y-6">
@@ -23,6 +40,11 @@ export default async function RunsPage() {
           with.
         </p>
       </header>
+
+      <StartRunForm
+        platforms={startPlatforms}
+        provider={env.LLM_PROVIDER}
+      />
 
       {runs.length === 0 ? (
         <Card>

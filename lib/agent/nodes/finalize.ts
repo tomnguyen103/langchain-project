@@ -16,6 +16,7 @@ export async function finalizeNode(state: ContentStateType) {
       critiqueNotes: state.critiqueNotes || null,
       model,
       promptVersion: PROMPT_VERSION,
+      derivedFromTargetId: state.derivedFromTargetId ?? null,
     })),
   );
   return { savedContentIds: saved.map((row) => row.id) };

@@ -3,13 +3,20 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
+import { CircleAlert, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { createPost, type SavedMedia } from "@/app/(dashboard)/create/actions";
 import type { AccountView } from "@/components/accounts/account-card";
 import type { Platform } from "@/db/schema";
 import { PLATFORM_META } from "@/lib/platforms/constants";
+import {
+  dedupeValidationIssues,
+  firstBlockingIssue,
+  hasBlockingIssues,
+  validatePublishRequest,
+  type PlatformValidationIssue,
+} from "@/lib/platforms/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -41,11 +48,41 @@ export function Composer({
   const [scheduledAt, setScheduledAt] = useState(defaultScheduleLocal());
   const [pending, startTransition] = useTransition();
 
+  const selectedAccounts = useMemo(
+    () => accounts.filter((account) => selected.includes(account.id)),
+    [accounts, selected],
+  );
+
   const selectedPlatforms = useMemo(() => {
     const set = new Set<Platform>();
-    for (const a of accounts) if (selected.includes(a.id)) set.add(a.platform);
+    for (const a of selectedAccounts) set.add(a.platform);
     return [...set];
-  }, [accounts, selected]);
+  }, [selectedAccounts]);
+
+  const validationIssues = useMemo(
+    () =>
+      dedupeValidationIssues(
+        validatePublishRequest({
+          accounts: selectedAccounts.map((account) => ({
+            id: account.id,
+            platform: account.platform,
+            status: account.status,
+          })),
+          bodyByPlatform,
+          media: media.map((item) => ({ type: item.type })),
+        }),
+      ),
+    [bodyByPlatform, media, selectedAccounts],
+  );
+  const blockingIssue = firstBlockingIssue(validationIssues);
+  const blocked = hasBlockingIssues(validationIssues);
+  const issuesByPlatform = useMemo(() => {
+    const grouped: Partial<Record<Platform, PlatformValidationIssue[]>> = {};
+    for (const issue of validationIssues) {
+      grouped[issue.platform] = [...(grouped[issue.platform] ?? []), issue];
+    }
+    return grouped;
+  }, [validationIssues]);
 
   if (accounts.length === 0) {
     return (
@@ -87,6 +124,10 @@ export function Composer({
       toast.error("Pick a time in the future to schedule this post.");
       return;
     }
+    if (blockingIssue) {
+      toast.error(blockingIssue.message);
+      return;
+    }
     startTransition(async () => {
       try {
         await createPost({
@@ -124,6 +165,7 @@ export function Composer({
               onChange={setVariant}
               onCopyToAll={copyToAll}
               mediaCount={media.length}
+              issuesByPlatform={issuesByPlatform}
             />
             <MediaUploader value={media} onChange={setMedia} />
           </CardContent>
@@ -140,6 +182,10 @@ export function Composer({
                   const name =
                     account.displayName ?? account.handle ?? "Account";
                   const active = selected.includes(account.id);
+                  const healthLabel =
+                    account.healthStatus === "healthy"
+                      ? null
+                      : account.healthMessages[0] ?? account.healthStatus;
                   return (
                     <label
                       key={account.id}
@@ -157,8 +203,15 @@ export function Composer({
                         onChange={() => toggle(account.id)}
                       />
                       <span className="min-w-0 flex-1 truncate">{name}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {PLATFORM_META[account.platform].label}
+                      <span className="min-w-0 text-right">
+                        <span className="text-muted-foreground block text-xs">
+                          {PLATFORM_META[account.platform].label}
+                        </span>
+                        {active && healthLabel && (
+                          <span className="text-destructive block truncate text-xs">
+                            {healthLabel}
+                          </span>
+                        )}
                       </span>
                     </label>
                   );
@@ -172,9 +225,16 @@ export function Composer({
               platforms={selectedPlatforms}
             />
 
+            {blockingIssue && (
+              <div className="text-destructive flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs">
+                <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
+                <span>{blockingIssue.message}</span>
+              </div>
+            )}
+
             <Button
               onClick={submit}
-              disabled={pending || selected.length === 0}
+              disabled={pending || selected.length === 0 || blocked}
               className="w-full"
             >
               {pending ? (

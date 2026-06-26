@@ -6,8 +6,9 @@ import { refineDraftWithFeedback } from "@/lib/agent/refine-draft";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
 import { AgentName } from "@/lib/agents/types";
 import { requireRole } from "@/lib/auth/current-role";
+import { isBudgetPauseStep } from "@/lib/billing/agent-budget";
 import { requireUserId } from "@/lib/clerk";
-import { getAgentRun } from "@/lib/repos/agent-runs";
+import { getAgentRun, listStepsForRun } from "@/lib/repos/agent-runs";
 import {
   acceptHeldDraft,
   countHeldForRun,
@@ -40,6 +41,13 @@ async function requireApprovableRun(
   }
   if (run.status !== "awaiting_approval") {
     throw new Error("This run is no longer awaiting approval.");
+  }
+  const steps = await listStepsForRun(runId);
+  const latestPaused = [...steps]
+    .reverse()
+    .find((step) => step.control?.pause === "awaiting_approval");
+  if (latestPaused && isBudgetPauseStep(latestPaused)) {
+    throw new Error("This run is waiting for budget approval.");
   }
 }
 

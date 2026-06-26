@@ -5,6 +5,7 @@ import {
   createAgentRun,
   findCompletedStep,
   recordAgentStep,
+  sumStepCostUsd,
   updateAgentRun,
 } from "@/lib/repos/agent-runs";
 import { getLatestReport } from "@/lib/repos/reports";
@@ -23,6 +24,7 @@ export const orchestrator = createOrchestrator({
   createAgentRun,
   updateAgentRun,
   recordAgentStep,
+  sumStepCostUsd,
   findCompletedStep,
   enqueueAgentStep,
   getLatestReport,

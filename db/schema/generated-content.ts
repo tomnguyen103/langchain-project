@@ -42,7 +42,9 @@ export const generatedContent = pgTable(
     brandSafetyScore: real("brand_safety_score"),
     reviewVerdict: text("review_verdict").$type<"pass" | "review" | "block">(),
     reviewViolations:
-      jsonb("review_violations").$type<Array<{ rule: string; detail: string }>>(),
+      jsonb("review_violations").$type<
+        Array<{ rule: string; detail: string; level?: "warn" | "block" }>
+      >(),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     reviewedBy: text("reviewed_by"), // "auto" or a Clerk user id
     // Free-text note from a per-item review action (Agent Inbox): the feedback a

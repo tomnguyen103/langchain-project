@@ -12,6 +12,12 @@ export type TokenUsage = {
 };
 
 type Rate = { inputPerMTok: number; outputPerMTok: number };
+export type CostRateSource = "listed" | "fallback";
+export type CostEstimate = {
+  model: string;
+  costUsd: number;
+  rateSource: CostRateSource;
+};
 
 /** USD per 1,000,000 tokens, keyed by the model id the providers construct. */
 const MODEL_RATES: Record<string, Rate> = {
@@ -22,6 +28,13 @@ const MODEL_RATES: Record<string, Rate> = {
 
 /** Conservative fallback when the configured model isn't in the rate table. */
 const FALLBACK_RATE: Rate = { inputPerMTok: 1, outputPerMTok: 3 };
+
+function rateForModel(model: string): { rate: Rate; source: CostRateSource } {
+  const rate = MODEL_RATES[model];
+  return rate
+    ? { rate, source: "listed" }
+    : { rate: FALLBACK_RATE, source: "fallback" };
+}
 
 /**
  * The model id the configured provider constructs (mirrors the switch in
@@ -44,9 +57,21 @@ export function modelForProvider(provider: string | undefined): string {
  * conservative fallback rate so cost is never silently understated to zero.
  */
 export function estimateCostUsd(usage: TokenUsage, model: string): number {
-  const rate = MODEL_RATES[model] ?? FALLBACK_RATE;
+  const { rate } = rateForModel(model);
   const cost =
     (usage.inputTokens / 1_000_000) * rate.inputPerMTok +
     (usage.outputTokens / 1_000_000) * rate.outputPerMTok;
   return Math.round(cost * 1_000_000) / 1_000_000;
+}
+
+export function estimateCost(
+  usage: TokenUsage,
+  model: string,
+): CostEstimate {
+  const { source } = rateForModel(model);
+  return {
+    model,
+    costUsd: estimateCostUsd(usage, model),
+    rateSource: source,
+  };
 }

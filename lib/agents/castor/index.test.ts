@@ -15,12 +15,18 @@ type Outcome = {
   generatedContentId: string;
   score: number;
   verdict: Verdict;
-  violations: Array<{ rule: string; detail: string }>;
+  violations: Array<{ rule: string; detail: string; level?: "warn" | "block" }>;
   status: "approved" | "held";
 };
 
 function makeDeps(opts: {
-  contents: Array<{ id: string; platform: string | null; content: string }>;
+  contents: Array<{
+    id: string;
+    platform: string | null;
+    content: string;
+    topic?: string | null;
+    derivedFromTargetId?: string | null;
+  }>;
   profile: {
     voice: string;
     bannedTerms: string[];
@@ -32,7 +38,7 @@ function makeDeps(opts: {
     contentId?: string;
     score: number;
     verdict: Verdict;
-    violations: Array<{ rule: string; detail: string }>;
+    violations: Array<{ rule: string; detail: string; level?: "warn" | "block" }>;
   }>;
   recorded: Outcome[][];
   accepted: string[][];
@@ -273,6 +279,126 @@ describe("castor agent", () => {
     assert.equal(result.control?.pause, "awaiting_approval");
     assert.deepEqual(accepted, []); // custom block rule kept it out of auto-publish
     assert.ok(recorded[0][0].violations.some((v) => v.rule === "org_policy"));
+  });
+
+  it("holds conflicting platform variants with consistency findings", async () => {
+    const recorded: Outcome[][] = [];
+    const accepted: string[][] = [];
+    const castor = createCastor(
+      makeDeps({
+        contents: [
+          { id: "c1", platform: "instagram", content: "Launch price is $99." },
+          { id: "c2", platform: "x", content: "Launch price is $79." },
+        ],
+        profile: {
+          voice: "",
+          bannedTerms: [],
+          autoPublishEnabled: true,
+          autoPublishThreshold: 0.5,
+        },
+        results: [
+          { contentId: "c1", score: 0.95, verdict: "pass", violations: [] },
+          { contentId: "c2", score: 0.95, verdict: "pass", violations: [] },
+        ],
+        recorded,
+        accepted,
+      }),
+    );
+
+    const result = await castor.run({ generatedContentIds: ["c1", "c2"] }, ctx);
+
+    assert.equal(result.control?.pause, "awaiting_approval");
+    assert.deepEqual(accepted, []);
+    assert.deepEqual(
+      recorded[0].map((o) => o.status),
+      ["held", "held"],
+    );
+    assert.ok(
+      recorded[0].every((o) =>
+        o.violations.some((v) => v.rule === "consistency_price_drift"),
+      ),
+    );
+  });
+
+  it("records warning consistency findings without blocking approval", async () => {
+    const recorded: Outcome[][] = [];
+    const accepted: string[][] = [];
+    const castor = createCastor(
+      makeDeps({
+        contents: [
+          { id: "c1", platform: "linkedin", content: "Read https://a.test" },
+          { id: "c2", platform: "facebook", content: "Read https://b.test" },
+        ],
+        profile: {
+          voice: "",
+          bannedTerms: [],
+          autoPublishEnabled: true,
+          autoPublishThreshold: 0.5,
+        },
+        results: [
+          { contentId: "c1", score: 0.95, verdict: "pass", violations: [] },
+          { contentId: "c2", score: 0.95, verdict: "pass", violations: [] },
+        ],
+        recorded,
+        accepted,
+      }),
+    );
+
+    const result = await castor.run({ generatedContentIds: ["c1", "c2"] }, ctx);
+
+    assert.equal(result.handoff?.to, AgentName.Atlas);
+    assert.deepEqual(accepted, [["c1", "c2"]]);
+    assert.deepEqual(
+      recorded[0].map((o) => o.status),
+      ["approved", "approved"],
+    );
+    assert.ok(
+      recorded[0].every((o) =>
+        o.violations.some(
+          (v) => v.rule === "consistency_url_drift" && v.level === "warn",
+        ),
+      ),
+    );
+  });
+
+  it("holds evergreen refreshed drafts that are too similar to the source", async () => {
+    const recorded: Outcome[][] = [];
+    const accepted: string[][] = [];
+    const source = "Three ways to plan a launch calendar for your team";
+    const castor = createCastor(
+      makeDeps({
+        contents: [
+          {
+            id: "c1",
+            platform: "linkedin",
+            content: source,
+            topic: `Refresh this.\n\nOriginal post:\n\n${source}`,
+            derivedFromTargetId: "target-1",
+          },
+        ],
+        profile: {
+          voice: "",
+          bannedTerms: [],
+          autoPublishEnabled: true,
+          autoPublishThreshold: 0.5,
+        },
+        results: [
+          { contentId: "c1", score: 0.95, verdict: "pass", violations: [] },
+        ],
+        recorded,
+        accepted,
+      }),
+    );
+
+    const result = await castor.run({ generatedContentIds: ["c1"] }, ctx);
+
+    assert.equal(result.control?.pause, "awaiting_approval");
+    assert.deepEqual(accepted, []);
+    assert.ok(
+      recorded[0][0].violations.some(
+        (violation) => violation.rule === "evergreen_similarity",
+      ),
+    );
   });
 
   it("terminates with reviewed 0 when there is nothing to review", async () => {

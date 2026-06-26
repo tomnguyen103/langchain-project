@@ -33,7 +33,11 @@ export const agentSteps = pgTable(
     // Set when an agent pauses the run for human approval (Castor's brand-safety
     // gate). Persisted on the SAME row as the completed step so a retried dispatch
     // re-applies the pause instead of marking the run completed.
-    control: jsonb("control").$type<{ pause: "awaiting_approval"; reason?: string }>(),
+    control: jsonb("control").$type<{
+      pause: "awaiting_approval";
+      reason?: string;
+      code?: string;
+    }>(),
     error: text("error"),
     startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
