@@ -6,10 +6,14 @@ import {
   agentStepJobId,
   commentPollSchedulerId,
   commentReplyJobId,
+  evergreenSchedulerId,
   metricsPollSchedulerId,
+  publishRepairSchedulerId,
   publishJobId,
+  researchWatchSchedulerId,
   researchJobId,
   seedingSchedulerId,
+  webhookDeliverySchedulerId,
 } from "./job-ids";
 import { getQueue, QueueName } from "./queues";
 import { enqueueWithLedger } from "./with-ledger";
@@ -306,6 +310,92 @@ export async function registerReportSchedule(): Promise<void> {
     { every: REPORT_EVERY_MS },
     {
       name: "report",
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+const RESEARCH_WATCH_EVERY_MS = 15 * 60_000; // sweep due watches every 15 min
+
+export type ResearchWatchJobData = { requestedAt: string };
+
+/** Register the single global Trend Watch scheduler (idempotent upsert). */
+export async function registerResearchWatchSchedule(): Promise<void> {
+  await getQueue(QueueName.ResearchWatch).upsertJobScheduler(
+    researchWatchSchedulerId(),
+    { every: RESEARCH_WATCH_EVERY_MS },
+    {
+      name: "research-watch",
+      data: {
+        requestedAt: new Date().toISOString(),
+      } satisfies ResearchWatchJobData,
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+const PUBLISH_REPAIR_EVERY_MS = 30 * 60_000; // scan failed publish targets
+
+export type PublishRepairJobData = { requestedAt: string };
+
+/** Register the single global Medic publish-repair scheduler. */
+export async function registerPublishRepairSchedule(): Promise<void> {
+  await getQueue(QueueName.PublishRepair).upsertJobScheduler(
+    publishRepairSchedulerId(),
+    { every: PUBLISH_REPAIR_EVERY_MS },
+    {
+      name: "publish-repair",
+      data: {
+        requestedAt: new Date().toISOString(),
+      } satisfies PublishRepairJobData,
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+const EVERGREEN_EVERY_MS = 6 * 60 * 60_000; // scan due preferences every 6h
+
+export type EvergreenJobData = { requestedAt: string };
+
+export async function registerEvergreenSchedule(): Promise<void> {
+  await getQueue(QueueName.Evergreen).upsertJobScheduler(
+    evergreenSchedulerId(),
+    { every: EVERGREEN_EVERY_MS },
+    {
+      name: "evergreen",
+      data: {
+        requestedAt: new Date().toISOString(),
+      } satisfies EvergreenJobData,
+      opts: {
+        removeOnComplete: { age: 3600 },
+        removeOnFail: { age: 24 * 3600 },
+      },
+    },
+  );
+}
+
+const WEBHOOK_DELIVERY_EVERY_MS = 60_000;
+
+export type WebhookDeliveryJobData = { requestedAt: string };
+
+export async function registerWebhookDeliverySchedule(): Promise<void> {
+  await getQueue(QueueName.WebhookDelivery).upsertJobScheduler(
+    webhookDeliverySchedulerId(),
+    { every: WEBHOOK_DELIVERY_EVERY_MS },
+    {
+      name: "webhook-delivery",
+      data: {
+        requestedAt: new Date().toISOString(),
+      } satisfies WebhookDeliveryJobData,
       opts: {
         removeOnComplete: { age: 3600 },
         removeOnFail: { age: 24 * 3600 },

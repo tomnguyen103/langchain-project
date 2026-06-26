@@ -9,7 +9,10 @@ import {
 } from "@/db/schema";
 import { DEFAULT_DISCLOSURE_POLICY } from "@/lib/compliance/disclosure";
 import { coerceOrgPolicyRules } from "@/lib/compliance/org-policy";
-import type { OrgPolicyRule } from "@/lib/compliance/policy-linter";
+import type {
+  IndustryPolicyPackId,
+  OrgPolicyRule,
+} from "@/lib/compliance/policy-linter";
 
 /** A tenant's brand profile with defaults applied — never returns undefined. */
 export type ResolvedBrandProfile = {
@@ -20,6 +23,7 @@ export type ResolvedBrandProfile = {
   learnedMemory: Record<string, unknown> | null;
   /** Custom Praxis policy rules (Praxis Live); empty when none configured. */
   policyRules: OrgPolicyRule[];
+  policyPacks: IndustryPolicyPackId[];
   /** Mnemosyne voice history — previous voice snapshots, newest first. */
   voiceHistory: VoiceHistoryEntry[];
 };
@@ -32,6 +36,7 @@ export const DEFAULT_BRAND_PROFILE: ResolvedBrandProfile = {
   autoPublishThreshold: 0.8,
   learnedMemory: null,
   policyRules: [],
+  policyPacks: [],
   voiceHistory: [],
 };
 
@@ -46,7 +51,14 @@ export async function getBrandProfile(
     .limit(1);
   // Fresh copy, not the shared DEFAULT_BRAND_PROFILE reference, so a caller
   // mutating the result can't leak into future tenants' defaults.
-  if (!row) return { ...DEFAULT_BRAND_PROFILE, bannedTerms: [], policyRules: [] };
+  if (!row) {
+    return {
+      ...DEFAULT_BRAND_PROFILE,
+      bannedTerms: [],
+      policyRules: [],
+      policyPacks: [],
+    };
+  }
   return {
     voice: row.voice ?? "",
     bannedTerms: row.bannedTerms ?? [],
@@ -54,8 +66,29 @@ export async function getBrandProfile(
     autoPublishThreshold: row.autoPublishThreshold,
     learnedMemory: row.learnedMemory ?? null,
     policyRules: coerceOrgPolicyRules(row.policyRules),
+    policyPacks: coercePolicyPacks(row.policyPacks),
     voiceHistory: row.voiceHistory ?? [],
   };
+}
+
+const POLICY_PACKS = new Set<IndustryPolicyPackId>([
+  "healthcare",
+  "finance",
+  "employment",
+  "alcohol",
+]);
+
+function coercePolicyPacks(value: unknown): IndustryPolicyPackId[] {
+  if (!Array.isArray(value)) return [];
+  const out: IndustryPolicyPackId[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    if (!POLICY_PACKS.has(item as IndustryPolicyPackId)) continue;
+    if (!out.includes(item as IndustryPolicyPackId)) {
+      out.push(item as IndustryPolicyPackId);
+    }
+  }
+  return out;
 }
 
 /** Create or update a tenant's brand profile (settings only). */
@@ -68,6 +101,7 @@ export async function upsertBrandProfile(
     autoPublishEnabled?: boolean;
     autoPublishThreshold?: number;
     policyRules?: OrgPolicyRule[];
+    policyPacks?: IndustryPolicyPackId[];
   },
 ): Promise<void> {
   // If voice is being updated, fetch current voice to build Mnemosyne history.
@@ -98,6 +132,7 @@ export async function upsertBrandProfile(
   if (data.autoPublishThreshold !== undefined)
     set.autoPublishThreshold = data.autoPublishThreshold;
   if (data.policyRules !== undefined) set.policyRules = data.policyRules;
+  if (data.policyPacks !== undefined) set.policyPacks = data.policyPacks;
   if (voiceHistory !== undefined) set.voiceHistory = voiceHistory;
 
   await db
@@ -110,6 +145,7 @@ export async function upsertBrandProfile(
       autoPublishEnabled: data.autoPublishEnabled ?? false,
       autoPublishThreshold: data.autoPublishThreshold ?? 0.8,
       policyRules: data.policyRules ?? [],
+      policyPacks: data.policyPacks ?? [],
     })
     .onConflictDoUpdate({ target: brandProfiles.clerkUserId, set });
 }

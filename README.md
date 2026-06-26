@@ -2,7 +2,7 @@
 
 **AI social-content automation.** Research a niche, generate platform-tailored
 posts with an LLM, then schedule and auto-publish across every connected social
-account — with a calendar, per-target retry/reschedule, engagement metrics, and
+account - with a calendar, per-target retry/reschedule, engagement metrics, and
 keyword/AI auto-replies to comments.
 
 Connectors: **Facebook, Instagram** (Meta Graph), **LinkedIn, TikTok, Discord,
@@ -22,10 +22,10 @@ Two processes share one database (Neon/Postgres) and one queue broker
 All scheduling lives in the worker via BullMQ **delayed jobs**, with a durable
 `schedules` ledger for idempotency. Key building blocks:
 
-- **Auth:** Clerk · **DB/ORM:** Neon + Drizzle (`db/`, migrations in `db/migrations/`)
+- **Auth:** Clerk - **DB/ORM:** Neon + Drizzle (`db/`, migrations in `db/migrations/`)
 - **Queue:** BullMQ + Upstash (`lib/queue/`, `worker/`)
-- **AI:** LangGraph agent (Gemini default) → `/api/generate` (returns JSON)
-- **Media:** ImageKit (upload + URL transforms) · **Billing:** Clerk Billing + usage quotas
+- **AI:** LangGraph agent (Gemini default) -> `/api/generate` (returns JSON)
+- **Media:** ImageKit (upload + URL transforms) - **Billing:** Clerk Billing + usage quotas
 
 ## Environment
 
@@ -67,7 +67,5 @@ secrets (`SKIP_ENV_VALIDATION=true`).
 
 ## Docs
 
-- [`docs/PLAN.md`](./docs/PLAN.md) — full product/architecture spec.
-- [`docs/ROADMAP.md`](./docs/ROADMAP.md) — per-goal build plan (Goals 0–10).
-- [`docs/FIX_PLAN.md`](./docs/FIX_PLAN.md) — post-launch remediation plan.
-- [`docs/IMPLEMENTATION_NOTES.md`](./docs/IMPLEMENTATION_NOTES.md) — running notes on fixes.
+- [`docs/MASTER_PLAN.md`](./docs/MASTER_PLAN.md) - single active source of truth.
+- Older plans and condensed roadmap artifacts are preserved under [`docs/archive/`](./docs/archive/).

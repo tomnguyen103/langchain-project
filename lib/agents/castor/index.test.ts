@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  type IndustryPolicyPackId,
   lintPolicy,
   type OrgPolicyRule,
   type PolicyFinding,
@@ -33,6 +34,7 @@ function makeDeps(opts: {
     autoPublishEnabled: boolean;
     autoPublishThreshold: number;
     policyRules?: OrgPolicyRule[];
+    policyPacks?: IndustryPolicyPackId[];
   };
   results: Array<{
     contentId?: string;
@@ -46,6 +48,7 @@ function makeDeps(opts: {
     platform: string | null,
     text: string,
     orgRules?: OrgPolicyRule[],
+    policyPacks?: IndustryPolicyPackId[],
   ) => PolicyFinding[];
 }): CastorDeps {
   return {
@@ -53,6 +56,7 @@ function makeDeps(opts: {
     getBrandProfile: async () => ({
       ...opts.profile,
       policyRules: opts.profile.policyRules ?? [],
+      policyPacks: opts.profile.policyPacks ?? [],
     }),
     reviewDrafts: async () => opts.results,
     recordReviews: async (_runId, outcomes) => {
@@ -279,6 +283,46 @@ describe("castor agent", () => {
     assert.equal(result.control?.pause, "awaiting_approval");
     assert.deepEqual(accepted, []); // custom block rule kept it out of auto-publish
     assert.ok(recorded[0][0].violations.some((v) => v.rule === "org_policy"));
+  });
+
+  it("holds a draft that hits an enabled industry policy pack", async () => {
+    const recorded: Outcome[][] = [];
+    const accepted: string[][] = [];
+    const castor = createCastor(
+      makeDeps({
+        contents: [
+          {
+            id: "c1",
+            platform: "linkedin",
+            content: "Our team can replace your doctor with faster guidance.",
+          },
+        ],
+        profile: {
+          voice: "",
+          bannedTerms: [],
+          autoPublishEnabled: true,
+          autoPublishThreshold: 0.5,
+          policyPacks: ["healthcare"],
+        },
+        results: [
+          { contentId: "c1", score: 0.95, verdict: "pass", violations: [] },
+        ],
+        recorded,
+        accepted,
+        lintPolicy,
+      }),
+    );
+
+    const result = await castor.run({ generatedContentIds: ["c1"] }, ctx);
+
+    assert.equal(result.control?.pause, "awaiting_approval");
+    assert.deepEqual(accepted, []);
+    assert.equal(recorded[0][0].verdict, "block");
+    assert.ok(
+      recorded[0][0].violations.some(
+        (v) => v.rule === "healthcare_medical_advice",
+      ),
+    );
   });
 
   it("holds conflicting platform variants with consistency findings", async () => {

@@ -53,6 +53,8 @@ export const brandProfiles = pgTable(
     policyRules: jsonb("policy_rules").$type<
       Array<{ term: string; level: "warn" | "block" }>
     >(),
+    /** Selected deterministic industry policy packs, e.g. healthcare or finance. */
+    policyPacks: text("policy_packs").array().notNull().default(sql`'{}'::text[]`),
     /** Mnemosyne voice history — previous voice snapshots, newest first, capped at 10. */
     voiceHistory: jsonb("voice_history").$type<VoiceHistoryEntry[]>(),
     ...timestamps,

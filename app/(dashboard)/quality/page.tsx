@@ -10,6 +10,12 @@ function formatScore(score: number | null): string {
   return (score * 100).toFixed(0) + "%";
 }
 
+function formatHours(hours: number | null): string {
+  if (hours == null) return "No data";
+  if (hours < 1) return "<1h";
+  return `${hours.toFixed(1)}h`;
+}
+
 function VerdictBadge({ verdict }: { verdict: string | null }) {
   if (!verdict) return <Badge variant="outline">pending</Badge>;
   if (verdict === "pass") return <Badge variant="default">pass</Badge>;
@@ -104,6 +110,124 @@ export default async function QualityPage() {
             <p className="text-3xl font-bold">{report.statusCounts.held}</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              Avg review time
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              {formatHours(report.approvalAnalytics.avgReviewHours)}
+            </p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              SLA: {report.approvalAnalytics.slaHours}h
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              Within SLA
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              {report.approvalAnalytics.withinSla}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              Breached
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              {report.approvalAnalytics.breached}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-muted-foreground text-sm font-medium">
+              Open breaches
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">
+              {report.approvalAnalytics.openBreaches}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold">Reviewer SLA</h2>
+          <Card>
+            <CardContent className="p-0">
+              {report.approvalAnalytics.reviewers.length === 0 ? (
+                <p className="text-muted-foreground p-4 text-sm">
+                  No reviewed drafts yet.
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {report.approvalAnalytics.reviewers.map((reviewer) => (
+                    <li
+                      key={reviewer.reviewer}
+                      className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 p-3 text-sm"
+                    >
+                      <span className="min-w-0 truncate font-medium">
+                        {reviewer.reviewer}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {reviewer.reviewed} reviewed
+                      </span>
+                      <span>{formatHours(reviewer.avgHours)}</span>
+                      <Badge
+                        variant={reviewer.breached > 0 ? "secondary" : "outline"}
+                      >
+                        {reviewer.breached} late
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold">Top findings</h2>
+          <Card>
+            <CardContent className="p-0">
+              {report.approvalAnalytics.topFindings.length === 0 ? (
+                <p className="text-muted-foreground p-4 text-sm">
+                  No policy or review findings yet.
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {report.approvalAnalytics.topFindings.map((finding) => (
+                    <li
+                      key={finding.rule}
+                      className="flex items-center justify-between gap-3 p-3 text-sm"
+                    >
+                      <span className="min-w-0 truncate font-medium">
+                        {finding.rule}
+                      </span>
+                      <Badge variant="outline">{finding.count}</Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </section>
       </div>
 
       {/* Flagged content */}

@@ -29,3 +29,15 @@ export const seedingSchedulerId = (socialAccountId: string) =>
 /** One repeatable metrics-poll scheduler per account (idempotent upsert by id). */
 export const metricsPollSchedulerId = (socialAccountId: string) =>
   `metrics-poll_${socialAccountId}`;
+
+/** One global Trend Watch scheduler. */
+export const researchWatchSchedulerId = () => "research-watch";
+
+/** One global Medic publish-repair scheduler. */
+export const publishRepairSchedulerId = () => "publish-repair";
+
+/** One global Evergreen automation scheduler. */
+export const evergreenSchedulerId = () => "evergreen";
+
+/** One global webhook delivery scheduler. */
+export const webhookDeliverySchedulerId = () => "webhook-delivery";

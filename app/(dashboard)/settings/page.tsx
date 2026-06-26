@@ -8,11 +8,15 @@ import {
   getBrandProfile,
   getDisclosurePolicy,
 } from "@/lib/repos/brand-profiles";
+import { listIntegrationTokens } from "@/lib/repos/integrations";
+import { listWebhookEndpoints } from "@/lib/repos/webhooks";
 import type { VoiceHistoryEntry } from "@/db/schema";
 
 import { BrandProfileForm } from "./brand-profile-form";
 import { DisclosurePolicyForm } from "./disclosure-policy-form";
+import { IntegrationTokensForm } from "./integration-tokens-form";
 import { LearnedMemoryForm } from "./learned-memory-form";
+import { WebhookEndpointsForm } from "./webhook-endpoints-form";
 
 function LearnedMemoryCard({
   memory,
@@ -79,9 +83,11 @@ function VoiceHistoryCard({ entries }: { entries: VoiceHistoryEntry[] }) {
 
 export default async function SettingsPage() {
   const userId = await requireUserId();
-  const [profile, disclosure] = await Promise.all([
+  const [profile, disclosure, integrationTokens, webhookEndpoints] = await Promise.all([
     getBrandProfile(userId),
     getDisclosurePolicy(userId),
+    listIntegrationTokens(userId),
+    listWebhookEndpoints(userId),
   ]);
 
   return (
@@ -99,6 +105,7 @@ export default async function SettingsPage() {
             voice: profile.voice,
             bannedTerms: profile.bannedTerms.join(", "),
             policyRules: formatOrgPolicyRules(profile.policyRules),
+            policyPacks: profile.policyPacks,
             autoPublishEnabled: profile.autoPublishEnabled,
             autoPublishThreshold: profile.autoPublishThreshold,
           }}
@@ -128,6 +135,55 @@ export default async function SettingsPage() {
             jurisdiction: disclosure.jurisdiction ?? "",
           }}
         />
+      </section>
+
+      <section className="space-y-6">
+        <header className="space-y-1">
+          <h2 className="text-xl font-semibold tracking-tight">
+            Integration tokens
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            Scoped A2A bearer tokens for external agent clients.
+          </p>
+        </header>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">A2A access</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <IntegrationTokensForm
+              tokens={integrationTokens.map((token) => ({
+                id: token.id,
+                name: token.name,
+                kind: token.kind,
+                scopes: token.scopes,
+                status: token.status,
+                createdAt: token.createdAt.toISOString(),
+                lastUsedAt: token.lastUsedAt?.toISOString() ?? null,
+              }))}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Webhook endpoints
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WebhookEndpointsForm
+              endpoints={webhookEndpoints.map((endpoint) => ({
+                id: endpoint.id,
+                name: endpoint.name,
+                url: endpoint.url,
+                eventTypes: endpoint.eventTypes,
+                enabled: endpoint.enabled,
+                lastDeliveredAt:
+                  endpoint.lastDeliveredAt?.toISOString() ?? null,
+              }))}
+            />
+          </CardContent>
+        </Card>
       </section>
     </div>
   );

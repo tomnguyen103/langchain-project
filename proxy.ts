@@ -13,6 +13,12 @@ const isPublicRoute = createRouteMatcher([
   // Inbound platform webhooks (e.g. Meta comments) authenticate via their own
   // HMAC signature, not a Clerk session, so they must bypass auth here.
   "/api/webhooks(.*)",
+  // Tokenized/client routes self-enforce their own bearer-token or link-token
+  // auth and must be reachable by non-Clerk external clients.
+  "/approve(.*)",
+  "/api/a2a",
+  "/api/public(.*)",
+  "/api/mcp",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

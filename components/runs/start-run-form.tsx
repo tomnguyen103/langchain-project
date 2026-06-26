@@ -6,12 +6,20 @@ import { Loader2, Play } from "lucide-react";
 import { toast } from "sonner";
 
 import { startAgentRunAction } from "@/app/(dashboard)/runs/actions";
+import { AGENT_RUN_TEMPLATES } from "@/lib/agents/run-templates";
 import {
   estimateAgentRunCostUsd,
   suggestedRunBudgetUsd,
 } from "@/lib/billing/agent-budget";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export type StartRunPlatform = {
   value: string;
@@ -28,9 +36,15 @@ export function StartRunForm({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [niche, setNiche] = useState("");
+  const [templateKey, setTemplateKey] = useState<string>(
+    AGENT_RUN_TEMPLATES[0]?.key ?? "standard_pipeline",
+  );
   const [selected, setSelected] = useState<string[]>(
     platforms.slice(0, 3).map((platform) => platform.value),
   );
+  const selectedTemplate =
+    AGENT_RUN_TEMPLATES.find((template) => template.key === templateKey) ??
+    AGENT_RUN_TEMPLATES[0];
   const estimate = useMemo(
     () =>
       estimateAgentRunCostUsd({
@@ -70,6 +84,7 @@ export function StartRunForm({
         const { runId } = await startAgentRunAction({
           niche,
           platforms: selected,
+          templateKey,
           budgetUsd: Number(budgetUsd),
         });
         toast.success("Agent run started.");
@@ -85,6 +100,27 @@ export function StartRunForm({
   return (
     <form onSubmit={submit} className="rounded-lg border p-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+        <div className="w-full space-y-1.5 lg:w-56">
+          <label htmlFor="run-template" className="text-sm font-medium">
+            Run template
+          </label>
+          <Select
+            value={templateKey}
+            onValueChange={setTemplateKey}
+            disabled={disabled}
+          >
+            <SelectTrigger id="run-template" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AGENT_RUN_TEMPLATES.map((template) => (
+                <SelectItem key={template.key} value={template.key}>
+                  {template.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <div className="min-w-0 flex-1 space-y-1.5">
           <label htmlFor="run-niche" className="text-sm font-medium">
             Start an agent run
@@ -93,7 +129,7 @@ export function StartRunForm({
             id="run-niche"
             value={niche}
             onChange={(event) => setNiche(event.target.value)}
-            placeholder="e.g. AI tools for indie founders"
+            placeholder={`e.g. ${selectedTemplate?.placeholder ?? "AI tools for indie founders"}`}
             disabled={disabled}
           />
         </div>
@@ -123,6 +159,12 @@ export function StartRunForm({
           Start run
         </Button>
       </div>
+
+      {selectedTemplate ? (
+        <p className="text-muted-foreground mt-3 text-xs">
+          {selectedTemplate.description}
+        </p>
+      ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
         {platforms.map((platform) => {

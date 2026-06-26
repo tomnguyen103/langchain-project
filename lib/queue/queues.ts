@@ -23,6 +23,14 @@ export enum QueueName {
   Metrics = "metrics",
   // Chronos: per-user posting-window score refresh (daily).
   PostingWindowsRefresh = "posting-windows-refresh",
+  // Scheduled Trend Watch sweep: finds due watches and enqueues research.
+  ResearchWatch = "research-watch",
+  // Medic: retries failed publish targets that are safely transient.
+  PublishRepair = "publish-repair",
+  // Evergreen automation: periodically starts refresh runs from proven posts.
+  Evergreen = "evergreen",
+  // External webhook delivery sweep.
+  WebhookDelivery = "webhook-delivery",
 }
 
 const queueCache = new Map<QueueName, Queue>();

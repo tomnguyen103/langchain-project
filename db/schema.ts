@@ -27,3 +27,4 @@ export * from "./schema/memberships";
 export * from "./schema/posting-windows";
 
 export * from "./schema/content-plans";
+export * from "./schema/roadmap";

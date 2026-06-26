@@ -11,6 +11,7 @@ import { requireUserId } from "@/lib/clerk";
 import { getAgentRun, listStepsForRun } from "@/lib/repos/agent-runs";
 import {
   acceptHeldDraft,
+  addDraftReviewComment,
   countHeldForRun,
   editHeldDraftBody,
   finalizeRunRejected,
@@ -18,6 +19,7 @@ import {
   listAcceptedContentIdsForRun,
   listHeldContentIdsForRun,
   rejectHeldDraft,
+  resolveDraftReviewComment,
   respondHeldDraft,
   restoreHeldDrafts,
   setReviewDecision,
@@ -178,6 +180,47 @@ export async function respondDraftAction(
   );
   if (changed.length === 0) {
     throw new Error("This draft is no longer held for review.");
+  }
+  revalidatePath("/review");
+}
+
+export async function addDraftCommentAction(
+  runId: string,
+  contentId: string,
+  body: string,
+): Promise<void> {
+  const userId = await requireUserId();
+  await requireApprovableRun(runId, userId);
+  const text = body.trim();
+  if (!text) throw new Error("Comment can't be empty.");
+
+  const comment = await addDraftReviewComment(
+    contentId,
+    runId,
+    userId,
+    text.slice(0, 1_000),
+  );
+  if (!comment) {
+    throw new Error("This draft is no longer held for review.");
+  }
+  revalidatePath("/review");
+}
+
+export async function resolveDraftCommentAction(
+  runId: string,
+  contentId: string,
+  commentId: string,
+): Promise<void> {
+  const userId = await requireUserId();
+  await requireApprovableRun(runId, userId);
+  const updated = await resolveDraftReviewComment(
+    commentId,
+    contentId,
+    runId,
+    userId,
+  );
+  if (updated.length === 0) {
+    throw new Error("Comment not found.");
   }
   revalidatePath("/review");
 }

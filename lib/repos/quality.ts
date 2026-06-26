@@ -2,11 +2,16 @@ import { and, avg, count, desc, eq, inArray, isNotNull, isNull, or } from "drizz
 
 import { db } from "@/db";
 import { generatedContent } from "@/db/schema";
+import {
+  summarizeApprovalAnalytics,
+  type ApprovalAnalytics,
+} from "@/lib/quality/approval-analytics";
 
 export type QualityReport = {
   verdictCounts: { pass: number; review: number; block: number; pending: number };
   statusCounts: { pending: number; held: number; approved: number; rejected: number };
   avgScore: number | null;
+  approvalAnalytics: ApprovalAnalytics;
   flagged: Array<{
     id: string;
     topic: string | null;
@@ -32,6 +37,7 @@ export async function getQualityReport(clerkUserId: string): Promise<QualityRepo
     rejectedRows,
     avgRows,
     flagged,
+    analyticsRows,
   ] = await Promise.all([
     // Verdict counts
     db
@@ -98,6 +104,27 @@ export async function getQualityReport(clerkUserId: string): Promise<QualityRepo
       )
       .orderBy(desc(generatedContent.createdAt))
       .limit(20),
+
+    db
+      .select({
+        reviewStatus: generatedContent.reviewStatus,
+        createdAt: generatedContent.createdAt,
+        reviewedAt: generatedContent.reviewedAt,
+        reviewedBy: generatedContent.reviewedBy,
+        reviewViolations: generatedContent.reviewViolations,
+      })
+      .from(generatedContent)
+      .where(
+        and(
+          userWhere,
+          or(
+            isNotNull(generatedContent.reviewedAt),
+            eq(generatedContent.reviewStatus, "held"),
+          ),
+        ),
+      )
+      .orderBy(desc(generatedContent.createdAt))
+      .limit(500),
   ]);
 
   const rawAvg = avgRows[0]?.avg;
@@ -117,6 +144,7 @@ export async function getQualityReport(clerkUserId: string): Promise<QualityRepo
       rejected: rejectedRows[0]?.n ?? 0,
     },
     avgScore,
+    approvalAnalytics: summarizeApprovalAnalytics(analyticsRows),
     flagged,
   };
 }

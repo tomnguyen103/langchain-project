@@ -5,7 +5,11 @@
  */
 
 import { parseOrgPolicyRules } from "@/lib/compliance/org-policy";
-import type { OrgPolicyRule } from "@/lib/compliance/policy-linter";
+import {
+  INDUSTRY_POLICY_PACKS,
+  type IndustryPolicyPackId,
+  type OrgPolicyRule,
+} from "@/lib/compliance/policy-linter";
 
 export type BrandProfileFormInput = {
   voice: string;
@@ -13,6 +17,8 @@ export type BrandProfileFormInput = {
   bannedTerms: string;
   /** One custom Praxis rule per line ("[block|warn]: phrase"). */
   policyRules: string;
+  /** Enabled deterministic industry policy packs. */
+  policyPacks: string[];
   autoPublishEnabled: boolean;
   autoPublishThreshold: number;
 };
@@ -21,6 +27,7 @@ export type NormalizedBrandProfile = {
   voice: string;
   bannedTerms: string[];
   policyRules: OrgPolicyRule[];
+  policyPacks: IndustryPolicyPackId[];
   autoPublishEnabled: boolean;
   autoPublishThreshold: number;
 };
@@ -29,6 +36,7 @@ const MAX_VOICE_LENGTH = 2000;
 const MAX_BANNED_TERMS = 200;
 const MAX_TERM_LENGTH = 100;
 const DEFAULT_THRESHOLD = 0.8;
+const POLICY_PACK_IDS = new Set(INDUSTRY_POLICY_PACKS.map((pack) => pack.id));
 
 export function normalizeBrandProfileInput(
   input: BrandProfileFormInput,
@@ -56,7 +64,18 @@ export function normalizeBrandProfileInput(
     voice,
     bannedTerms,
     policyRules: parseOrgPolicyRules(input.policyRules),
+    policyPacks: normalizePolicyPacks(input.policyPacks),
     autoPublishEnabled: Boolean(input.autoPublishEnabled),
     autoPublishThreshold,
   };
+}
+
+function normalizePolicyPacks(value: string[]): IndustryPolicyPackId[] {
+  const out: IndustryPolicyPackId[] = [];
+  for (const raw of value) {
+    const pack = raw.trim() as IndustryPolicyPackId;
+    if (!POLICY_PACK_IDS.has(pack)) continue;
+    if (!out.includes(pack)) out.push(pack);
+  }
+  return out;
 }
