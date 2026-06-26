@@ -1,472 +1,825 @@
-# SocialFlow — AI-Agent Feature Roadmap
+# AI-Agent Feature Roadmap
 
-**Date:** 2026-06-24 · **Status:** Strategy / read-only synthesis · **Owner:** Product
+Date checked: 2026-06-26. Scope: read-only roadmap for `C:\Users\huuth\Desktop\langchain-project`.
 
-> **How this was produced.** Four parallel research subagents each wrote one evidence-cited file, then this document reconciles them. Inputs:
-> - [`docs/research/01-repo-intelligence.md`](research/01-repo-intelligence.md) — capability map (T1)
-> - [`docs/research/02-trends.md`](research/02-trends.md) — 2026 trend delta (T2)
-> - [`docs/research/03-feature-ideation.md`](research/03-feature-ideation.md) — 14 feature ideas (T3)
-> - [`docs/research/04-feasibility.md`](research/04-feasibility.md) — feasibility buckets + risk (T4)
->
-> Synthesis applied the `product-management:synthesize-research` (theme ranking by frequency × impact, honest triangulation) and `product-management:write-spec` (mini-PRD structure) skills. Every product claim traces to a repo `path:LINE` (from T1/T3/T4) or a URL+date (from T2). No code was modified.
+All required inputs exist and were read before synthesis:
 
----
+- `docs/research/01-repo-intelligence.md:1`: 121 lines.
+- `docs/research/02-trends.md:1`: 221 lines.
+- `docs/research/03-feature-ideation.md:1`: 328 lines.
+- `docs/research/04-feasibility.md:1`: 185 lines.
 
-## 1. Strategic diagnosis (where the product is today)
+No required intermediate file was missing.
 
-**SocialFlow is a mature, multi-tenant AI social-content automation SaaS that is one feature away from being a closed-loop system — and that one feature is missing.**
+## 1. Strategic Diagnosis
 
-### What exists (the moat is real)
-The repo's on-disk name (`langchain-project`) is misleading. This is a commercial SaaS — pricing, legal, billing, and a 12-surface dashboard all exist ([01:18-21](research/01-repo-intelligence.md)). It runs **two** agent layers that the casual reader conflates:
+SocialFlow is already much closer to a production agentic operations platform than a thin LLM wrapper. The repo implements a Next.js 16 app with LangChain/LangGraph, BullMQ workers, Drizzle/Postgres, Clerk, ImageKit, and eight social platform connectors (`package.json:22`, `package.json:27`, `package.json:28`, `package.json:29`, `db/schema/enums.ts:3`, `lib/platforms/registry.ts:13`). The README describes the product as AI social-content automation for niche research, platform-tailored content generation, scheduling/publishing, metrics, and auto-replies (`README.md:1`, `README.md:3`, `README.md:5`). T1 confirms the same purpose from code, not only docs (`docs/research/01-repo-intelligence.md:7`).
 
-- A **LangGraph content graph** — `analyze → draftPerPlatform → critique → (refine ↩ ≤2 | finalize)` (`lib/agent/graph.ts`), pluggable LLM (default **Gemini**, `lib/llm/factory.ts:14-24`).
-- The real spine: a **durable multi-agent "constellation"** orchestrated by **Orion** — **Vega** (research) → **Lyra** (generate) → **Castor** (brand-safety gate; *pauses the run for human approval*) → **Atlas** (schedule/publish + AI-disclosure) → **Sirius** (engagement); plus **Rigel** (reports, feeds learned-memory back) and **Polaris** (seeding) (`lib/agents/orchestrator.ts`, roster `lib/agents/types.ts:16-25`).
+The main strategic advantage is that the hard primitives are already present:
 
-The engineering quality is high and unusually governance-forward for this category:
-- **Idempotent, ledger-backed handoffs** keyed on `(runId, agent)` over BullMQ + Postgres; a re-dispatch re-delivers the stored handoff instead of re-running a non-idempotent agent (`orchestrator.ts:159-188`).
-- **Tamper-evident run audit** — each step `hash = sha256(prevHash + canonical(step))`, surfaced in the **Lumen** `/runs/[runId]` inspector with "Integrity verified / failed at step N" (`lib/audit/run-audit.ts:36-105`).
-- **Human-in-the-loop is real, not aspirational** — Castor pause flips the run to `awaiting_approval`; **Praetor** role-gates the decision (`approver` only) before `resumeRun` enqueues Atlas with *only accepted ids* (`app/(dashboard)/review/actions.ts:32-44,65-69`).
-- **Compliance already shipped** — **Aletheia** AI-disclosure engine + append-only `disclosure_ledger` citing EU AI Act Art. 50 / CA SB 942 (`lib/compliance/disclosure.ts`), and **Praxis** deterministic ToS/policy linter wired into the gate (`lib/compliance/policy-linter.ts`, `registry.ts:84`).
-- **8 real platform connectors** (not stubs) with encrypted-at-rest OAuth tokens (AES-256-GCM, HKDF sub-keys) (`lib/platforms/registry.ts:14-23`, `lib/utils/crypto.ts`).
-- **Least-privilege capability matrix enforced by a test** (`lib/agents/capabilities.ts:12-40`).
+- Agent orchestration: a LangGraph content graph plus a named-agent queue/orchestrator with handoffs, pauses, resumes, supervisor overrides, and step recording (`lib/agent/graph.ts:14`, `lib/agents/orchestrator.ts:94`, `lib/agents/orchestrator.ts:121`, `lib/agents/orchestrator.ts:159`, `db/schema/agent-steps.ts:14`).
+- Human control: Castor gate, held draft review queue, per-item decisions, plan approval, and roles (`lib/agents/castor/index.ts:67`, `app/(dashboard)/review/actions.ts:26`, `app/(dashboard)/review/actions.ts:77`, `app/(dashboard)/plans/[id]/actions.ts:11`, `lib/auth/roles.ts:1`).
+- Operations engine: durable queue helpers and workers for publish, research, agent steps, comments, replies, metrics, reporting, seeding, reconcile, token refresh, and posting windows (`lib/queue/queues.ts:5`, `lib/queue/with-ledger.ts:1`, `worker/index.ts:71`).
+- Governance and observability: brand-safety guardrail, policy linter, disclosure ledger, LangSmith links, run timeline, tamper-evident step hashes, cost estimates, and CI brand-safety gate (`lib/agent/guardrails/brand-safety.ts:66`, `lib/compliance/policy-linter.ts:110`, `db/schema/disclosure-ledger.ts:7`, `lib/observability/langsmith.ts:3`, `lib/runs/timeline.ts:4`, `lib/audit/run-audit.ts:35`, `lib/billing/cost-model.ts:46`, `.github/workflows/ci.yml:64`).
 
-### The core problem: the loop is open at the measurement step
-Every research stream converged on the same structural finding (4/4 sources):
+The roadmap should therefore avoid generic chatbot work. The best product direction is a governed, observable background agent for social-content operations: it should research, draft, review, schedule, publish, monitor, recover, learn, and explain its actions. T2 reaches the same conclusion: "The strongest 2026-aligned path is not a chatbot; it is a governed background content-operations agent" (`docs/research/02-trends.md:209`).
 
-> **SocialFlow can publish, but it is blind to what happens next.** `post_targets.metrics` is a `jsonb` column with `metricsUpdatedAt`, connectors *declare* `fetchMetrics(account, externalPostId)`, and Rigel *reads* metrics to rank top topics — **but no worker ever calls `fetchMetrics`, so `metrics` is always empty** (`lib/platforms/base.ts:52`, `db/schema/post-targets.ts:48-49`, `lib/agents/rigel/aggregate.ts:13`; T3 §C1, T4 §Q1).
+The biggest constraints are equally clear:
 
-Because measurement is dead, **every learning loop is starved**: best-time-to-post, winner-recycling, hook A/B, "insights that explain why," send-time optimization — all of them read from a column that is never written. The product's analytics, feed-forward memory (`brand_profiles.learnedMemory`), and Rigel reports are running on zeros.
+- Live-service behavior is still unproven. The master plan states that runtime verification was deferred and real credentials/live services were not exercised (`docs/MASTER_PLAN.md:4`, `docs/MASTER_PLAN.md:13`, `docs/MASTER_PLAN.md:17`).
+- Platform capability is asymmetric. Facebook and Instagram expose comments/metrics; most other connectors are publish-only or constrained (`lib/platforms/facebook.ts:30`, `lib/platforms/facebook.ts:32`, `lib/platforms/instagram.ts:30`, `lib/platforms/instagram.ts:32`, `lib/platforms/x.ts:21`, `lib/platforms/linkedin.ts:21`, `lib/platforms/tiktok.ts:27`, `lib/platforms/youtube.ts:27`).
+- External-agent surfaces are early. A2A is implemented but disabled by env and the master plan says to hold it pre-PMF (`app/api/a2a/route.ts:46`, `docs/MASTER_PLAN.md:305`). MCP is a client only, not a SocialFlow server (`lib/mcp/client.ts:5`).
+- The data model has no first-class campaign object, so campaign/workspace features touch many tables (`db/schema.ts:1`, `db/schema/agent-runs.ts:28`, `db/schema/posts.ts:13`, `db/schema/generated-content.ts:19`, `db/schema/research.ts:6`, `db/schema/reports.ts:18`, `db/schema/content-plans.ts:25`).
 
-Two more best-architected-but-unused seams compound it:
-- The **`supervisor` dynamic-routing hook is a designed no-op** — defined in `OrchestratorDeps` but not wired in the runtime root, so runs are strictly linear with no recovery (`orchestrator.ts:66-71`, `orchestrator.runtime.ts:21-30`).
-- The **MCP client is built but never called by any agent** — tool-use is plumbing-only (`lib/mcp/client.ts`, no roster import; T1 Missing §3).
+The roadmap should start where high user value and architecture fit overlap: reliability, constraint clarity, account health, brand memory, consistency auditing, live run visibility, and guarded campaign-quality improvements. It should defer public A2A, broad MCP write tools, browser/computer-use automation, and autonomous high-risk replies until security, approval, and live-provider evidence catch up.
 
-### The dominant operational risk
-**Migrations `0000`–`0024` are generated but never applied** against a live Neon DB, and the BullMQ worker that runs *all* async work has not run live (T4 standing caveat; `db/migrations/meta/_journal.json`). The architecture is code-verified, not behavior-verified. Plus a **two-lane execution constraint** governs everything: `/api/generate` runs the graph synchronously under `maxDuration = 60` (`app/api/generate/route.ts:16-17`), so anything long/multi-LLM **must** go on the always-on worker, not the route.
+## 2. 2026 Trend Radar
 
-### Diagnosis in one line
-SocialFlow has built the hard, governed *generation-and-publish* half of an autonomous social agent and the *audit* rails around it; it has **not** built the *measurement-and-learning* half. The highest-leverage roadmap is not new capability surface — it is **closing the existing loop** (measure → learn → act), then lighting up the two dormant seams (supervisor, tools), with cost-metering and an eval gate as the safety rails that make further autonomy responsible.
+| Trend | Primary sources | Date | Relevance to SocialFlow |
+|---|---|---:|---|
+| Delegated background agents | [OpenAI workspace agents](https://openai.com/index/introducing-workspace-agents-in-chatgpt/); [GitHub Copilot coding agent](https://github.blog/ai-and-ml/github-copilot/whats-new-with-github-copilot-coding-agent/) | 2026-04-22; 2026-02-26 | SocialFlow already has queued agents and workers, so the product should expose delegated content operations rather than add a generic chat surface (`docs/research/02-trends.md:28`). |
+| Explicit multi-agent orchestration | [Google ADK](https://developers.googleblog.com/en/agent-development-kit-easy-to-build-multi-agent-applications/); [Google ADK + A2A](https://developers.googleblog.com/build-cross-language-multi-agent-team-with-google-agent-development-kit-and-a2a/); [LangGraph overview](https://docs.langchain.com/oss/javascript/langgraph/overview) | 2025-04-09; 2026-06-22; accessed 2026-06-26 | SocialFlow's named agents and run timeline already align; keep new work inside `agent_runs`/`agent_steps` rather than inventing opaque flows (`docs/research/02-trends.md:44`). |
+| Human approval as agent primitive | [LangGraph HITL](https://docs.langchain.com/oss/javascript/langgraph/human-in-the-loop); [Vercel AI SDK 7](https://vercel.com/blog/ai-sdk-7) | accessed 2026-06-26; 2026-06-25 | Castor and review queue are strong foundations. Expand approval to retries, replies, external tools, and client review (`docs/research/02-trends.md:61`). |
+| MCP tool ecosystems | [OpenAI tools](https://developers.openai.com/api/docs/guides/tools); [Anthropic MCP code execution](https://www.anthropic.com/engineering/code-execution-with-mcp); [GitHub MCP for Copilot coding agent](https://docs.github.com/en/enterprise-cloud@latest/copilot/customizing-copilot/extending-copilot-coding-agent-with-mcp) | accessed 2026-06-26; 2025-11-25; accessed 2026-06-26 | Build a narrow SocialFlow MCP server only after read-only/scoped/audited tool design. Do not start with broad write tools (`docs/research/02-trends.md:78`). |
+| A2A interoperability | [Google Agent2Agent foundation](https://developers.googleblog.com/agent2agent-the-foundation-for-collaborative-multi-agent-systems/); [Google ADK + A2A](https://developers.googleblog.com/build-cross-language-multi-agent-team-with-google-agent-development-kit-and-a2a/) | 2025-12-17; 2026-06-22 | Existing A2A route is useful evidence, but T4 recommends holding public inbound A2A until PMF/security catches up (`docs/research/02-trends.md:95`, `docs/research/04-feasibility.md:142`). |
+| Durable memory and procedural skills | [Anthropic Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview); [LangGraph overview](https://docs.langchain.com/oss/javascript/langgraph/overview) | accessed 2026-06-26 | Brand memory exists but needs a user-visible manager and audit so the agent's learned preferences are controllable (`docs/research/02-trends.md:110`). |
+| Browser/computer use | [Anthropic computer use](https://docs.anthropic.com/en/docs/build-with-claude/computer-use); [OpenAI tools](https://developers.openai.com/api/docs/guides/tools) | accessed 2026-06-26 | Not a first-line SocialFlow bet. The repo uses official APIs; browser automation should wait for a proven API gap and stronger sandboxing (`docs/research/02-trends.md:127`, `docs/research/04-feasibility.md:142`). |
+| Tool approvals, streaming, resumability | [OpenAI WebSockets](https://openai.com/index/speeding-up-agentic-workflows-with-websockets/); [Vercel AI SDK 7](https://vercel.com/blog/ai-sdk-7); [LangGraph overview](https://docs.langchain.com/oss/javascript/langgraph/overview) | 2026-06-16; 2026-06-25; accessed 2026-06-26 | Convert the run inspector into a live control room before adding conversational streaming (`docs/research/02-trends.md:144`). |
+| Tracing, evals, audit | [LangGraph overview](https://docs.langchain.com/oss/javascript/langgraph/overview); [GitHub Copilot coding agent](https://github.blog/ai-and-ml/github-copilot/whats-new-with-github-copilot-coding-agent/) | accessed 2026-06-26; 2026-02-26 | SocialFlow is strong here: LangSmith links, hash chain, and CI eval gate are already present (`docs/research/02-trends.md:161`). |
+| Governance and least privilege | [GitHub custom agents](https://docs.github.com/copilot/customizing-copilot/customizing-or-creating-agents/about-custom-agents); [Anthropic computer use](https://docs.anthropic.com/en/docs/build-with-claude/computer-use) | accessed 2026-06-26 | Keep agent capabilities, roles, tenant scoping, and approvals as product features, not hidden internals (`docs/research/02-trends.md:178`). |
 
----
+## 3. Reconciliation Across Inputs
 
-## 2. 2026 AI-agent trend radar
+### Ranked Themes by Frequency x Impact
 
-From [`02-trends.md`](research/02-trends.md). Maturity as of 2026-06-24. The single biggest shift: **the unit of agent work moved from "one model in a loop" to "a lead agent fanning out hundreds of isolated parallel subagents."**
+| Rank | Theme | Evidence across inputs | Impact | Decision |
+|---:|---|---|---:|---|
+| 1 | Governed background content operations | T1 identifies queues, agents, approvals, and run audit (`docs/research/01-repo-intelligence.md:31`, `docs/research/01-repo-intelligence.md:99`). T2 says delegated background agents and HITL approvals are current trends (`docs/research/02-trends.md:28`, `docs/research/02-trends.md:61`). T3 includes Run Doctor, Live Run Control Room, approval analytics, account health, and budget governor (`docs/research/03-feature-ideation.md:23`, `docs/research/03-feature-ideation.md:218`, `docs/research/03-feature-ideation.md:278`, `docs/research/03-feature-ideation.md:293`). T4 ranks several as quick wins (`docs/research/04-feasibility.md:51`). | High | Build first. |
+| 2 | Operational reliability before autonomy | T1 flags live-provider and platform asymmetry risks (`docs/research/01-repo-intelligence.md:109`). T3 proposes Run Doctor, Platform Constraint Coach, and Account Health (`docs/research/03-feature-ideation.md:23`, `docs/research/03-feature-ideation.md:248`, `docs/research/03-feature-ideation.md:278`). T4 ranks them 1, 2, and 5 (`docs/research/04-feasibility.md:24`). | High | Build first. |
+| 3 | Brand safety, memory, and compliance as differentiators | T1 shows brand profiles, guardrails, policy linter, review queue, disclosure ledger (`docs/research/01-repo-intelligence.md:31`). T2 highlights memory/governance (`docs/research/02-trends.md:110`, `docs/research/02-trends.md:178`). T3 proposes memory manager, consistency auditor, policy packs (`docs/research/03-feature-ideation.md:83`, `docs/research/03-feature-ideation.md:188`, `docs/research/03-feature-ideation.md:203`). | High | Build in first two releases. |
+| 4 | Research/generation loops with review | T1 shows Vega, Lyra, Castor, Tavily-optional research, and generated content (`docs/research/01-repo-intelligence.md:31`). T3 proposes Trend Watch, Campaign Simulation, Source-to-Campaign, Evergreen Recycler (`docs/research/03-feature-ideation.md:38`, `docs/research/03-feature-ideation.md:53`, `docs/research/03-feature-ideation.md:68`, `docs/research/03-feature-ideation.md:233`). T4 places several as next major bets (`docs/research/04-feasibility.md:105`). | High | Build after reliability/visibility. |
+| 5 | Integration surface area: MCP, A2A, webhooks | T2 says MCP/A2A are real trends (`docs/research/02-trends.md:78`, `docs/research/02-trends.md:95`). T1 finds MCP client and disabled A2A (`docs/research/01-repo-intelligence.md:31`). T3 proposes MCP server and webhooks (`docs/research/03-feature-ideation.md:158`, `docs/research/03-feature-ideation.md:308`). T4 rates them later/high-risk (`docs/research/04-feasibility.md:105`, `docs/research/04-feasibility.md:142`). | Medium-High | Defer until core trust surfaces are stronger. |
+| 6 | Metrics-driven optimization | T1 shows metrics polling, reports, posting windows, and recyclable winners (`docs/research/01-repo-intelligence.md:31`). T3 proposes bandit and evergreen (`docs/research/03-feature-ideation.md:128`, `docs/research/03-feature-ideation.md:233`). T4 warns metrics are sparse and Meta-skewed (`docs/research/04-feasibility.md:142`). | Medium | Start with recommendations, not automation. |
+| 7 | Campaign workspace/model | T3 proposes campaign objects (`docs/research/03-feature-ideation.md:143`). T4 ranks it XL and later due schema blast radius (`docs/research/04-feasibility.md:24`). | High long-term | Defer. |
 
-| Trend | Maturity | Primary source (URL · date) | What it means for SocialFlow |
-|---|---|---|---|
-| **Frontier models are agent-shaped** — parallel subagents, effort dials, context compaction built in (Opus 4.6 "agent teams"; Opus 4.8 "Dynamic Workflows: hundreds of parallel subagents") | Production (models GA) | [Opus 4.6](https://www.anthropic.com/news/claude-opus-4-6) · 2026-02-05 · [Opus 4.8](https://www.anthropic.com/news/claude-opus-4-8) · 2026-05-28 · [OpenAI changelog](https://developers.openai.com/api/docs/changelog) | **Effort dials** are a near-free cost lever (run Lyra critique at low effort, escalate brand-risky drafts to high). Validates parallel per-platform drafting the linear `orchestrator.ts` doesn't yet do. |
-| **LangGraph 1.0 GA + `deepagents` harness** — middleware, isolated subagents, offload-to-disk, DeltaChannel checkpointing | LangGraph GA; deepagents emerging | [LangChain 1.0](https://www.langchain.com/blog/langchain-langgraph-1dot0) · 2025-10-22 · [deepagents v0.6.11](https://github.com/langchain-ai/deepagents) · 2026-06-18 | SocialFlow is already on LangGraph 1.x. **Middleware** is the idiomatic home for the guardrails/capability/HITL hooks it hand-rolls in `lib/agent/guardrails/` and `lib/agents/castor/`. |
-| **Agent memory consolidation shipped** — Anthropic **Dreaming** (scheduled cross-session "postmortem") + **Outcomes** grader-agent evals | Dreaming = research preview; Outcomes = public beta | [Managed Agents writeup](https://www.developersdigest.tech/blog/claude-managed-agents-dreaming-outcomes-multi-agent) · announced 2026-05-06 | **Closes SocialFlow's two half-built loops**: a scheduled job that *curates* `brand_profiles.learnedMemory` from Rigel analytics (Dreaming), and a grader agent scoring drafts vs a per-tenant rubric (Outcomes ≈ the brand-safety eval). |
-| **Computer/browser use crossed the usefulness line** — GPT-5.4 native computer tool; Opus 4.8 84% Online-Mind2Web. But IG bans gray-market browser bots | Emerging; safe for read/QA only | [OpenAI changelog](https://developers.openai.com/api/docs/changelog) · 2026-03-05 · [Opus 4.8](https://www.anthropic.com/news/claude-opus-4-8) · [IG enforcement](https://autoadify.com/blog/ai-agents-social-media-2026) | **Keep publishing API-first** — now the *safe* path, not just reliable, and a selling point ("approved APIs, not bannable bots"). Browser-use is only for UI-gated *analytics/QA* reads, sandboxed, behind Castor. |
-| **Agent identity got a standard** — Okta Cross-App-Access (XAA) + Microsoft Entra Agent ID | Emerging (rolling out through Aug 2026) | [Okta XAA](https://www.okta.com/identity-101/cross-app-access-securing-ai-agent-and-app-to-app-connections/) · [Entra Agent ID](https://learn.microsoft.com/en-us/entra/agent-id/what-is-agent-id-platform) · 2026-06-16 | The enterprise unlock for SocialFlow's A2A endpoint: validate token issuers and let a tenant's Okta/Entra govern which of *their* agents may call SocialFlow. |
-| **Evals-as-CI** — LangSmith evals as a per-PR GitHub Actions merge gate w/ thresholds; trace-replay for model bumps | Production (documented pattern) | [LangSmith eval](https://www.langchain.com/langsmith/evaluation) · [CI recipe](https://markaicode.com/langsmith-cicd-automated-regression-testing/) · 2026-03-09 | SocialFlow has `evals/brand-safety/run.ts` + LangSmith but **no merge gate**. Wiring it makes "we never regress brand safety" a CI guarantee. |
-| **MCP "2.0" direction** — stateless core, Tasks-as-extension, elicitation replaces SSE; OpenAI Secure MCP Tunnel for private servers | Provisional (RC dated after cutoff) | [MCP RC](https://blog.modelcontextprotocol.io/posts/2026-07-28-release-candidate/) · [OpenAI Tunnel](https://developers.openai.com/api/docs/changelog) · 2026-05-19 | Stateless MCP scales cleanly behind the BullMQ worker fleet. **Hold on pinning to the RC** (finalizes 2026-07-28); current spec is 2025-11-25. |
-| **Agentic social tooling converged on "human decides, agent executes"** — Sprout Trellis, autonomous comment/DM "Engagement Autopilot," all human-gated, all official-API | Production (shipping competitors) | [Sprout Social](https://sproutsocial.com/insights/agentic-ai-for-social-media/) · 2026-02-19 | **Competitive parity gap:** the market moved to *agentic inbound engagement* (comment/DM triage + on-brand reply, surfaced for approval). SocialFlow's gate is table-stakes, not over-engineering — keep it default-on. |
-| **Anti-hype guardrail holds** — >40% of agentic-AI projects canceled by 2027; OpenAI Agent **Builder** wound down (gone Nov 30 2026), low-level runtimes are the safe bet | Strategy signal | [Gartner](https://www.gartner.com/en/newsroom/press-releases/2025-06-25-gartner-predicts-over-40-percent-of-agentic-ai-projects-will-be-canceled-by-end-of-2027) · 2025-06-25 | SocialFlow is on LangGraph/custom — right side of the deprecation. Roadmap discipline: ship **narrow, governed, deadline-driven** value, not autonomy theater. |
+### Conflicts and Decisions Needed
 
----
+| Conflict | Why it matters | Recommended resolution |
+|---|---|---|
+| MCP/A2A are hot trends, but T4 rates broad external agent access as later/hold. | External agents can access tenant content and trigger writes. Current repo has MCP client, disabled A2A, and no API-token/audit table (`lib/mcp/client.ts:5`, `app/api/a2a/route.ts:46`, `docs/MASTER_PLAN.md:305`). | Build internal trust surfaces first. Later, ship read-only MCP tools with scoped tokens and audit before write tools. Keep A2A disabled until PMF/security evidence improves. |
+| Reply Copilot is high-value but high-risk and Meta-limited. | Comment/reply support is implemented for Facebook/Instagram, not most connectors (`lib/platforms/facebook.ts:111`, `lib/platforms/instagram.ts:107`, `lib/platforms/x.ts:21`, `lib/platforms/linkedin.ts:21`). Auto-reply already refuses abuse/complaints (`worker/processors/reply.ts:45`). | Build a held Reply Copilot Inbox first, Meta-only, with no auto-send for complaints/abuse/high urgency. |
+| Metrics-driven bandit sounds strategic, but data is sparse and platform support is uneven. | Metrics polling only helps where connector capability supports metrics (`worker/processors/metrics-poll.ts:37`, `lib/platforms/facebook.ts:32`, `lib/platforms/instagram.ts:32`). | Start with "recommendations with confidence" from historical winners, not automatic allocation. |
+| Source-to-Campaign has strong creator value but source/copyright/SSRF risks. | Search is optional and URL fetching needs strict boundaries (`lib/agent/tools/web-search.ts:5`, `lib/agent/tools/web-search.ts:12`, `app/(dashboard)/create/actions.ts:51`). | Start with pasted text and explicit source metadata. Add URL fetching only after allowlist/SSRF/citation tests. |
+| Campaign Objects are strategically right but schema-wide. | They touch runs, posts, generated content, research, reports, and plans (`db/schema/agent-runs.ts:28`, `db/schema/posts.ts:13`, `db/schema/generated-content.ts:19`, `db/schema/research.ts:6`, `db/schema/reports.ts:18`, `db/schema/content-plans.ts:25`). | Defer until quick wins stabilize. In the interim, use run IDs, plan IDs, and source links for grouping. |
+| Browser/computer use is trendy but unsupported in repo. | No opened path showed browser/computer tooling; official API connectors already exist (`lib/platforms/types.ts:112`, `worker/processors/publish.ts:75`). | Do not build yet. Revisit only for a platform workflow that official APIs cannot support. |
 
-## 3. Reconciled themes (frequency × impact)
+## 4. Top 10 Ranked Features
 
-Themes extracted across the four sources and ranked by **frequency** (how many of the 4 streams independently raised it) × **impact**. A theme raised by all four with high impact is a much stronger signal than any single idea.
+Scoring: Impact, Confidence, Effort, Risk, Strategic Fit use 1-5 where 5 is high. Effort and Risk are inverted in priority calculation: lower effort/risk rank better.
 
-| # | Theme | Freq | Impact | Triangulated evidence |
-|---|---|---|---|---|
-| **T-1** | **Close the analytics loop (metrics ingestion)** | 4/4 | **Critical** | T1 (fetchMetrics unimplemented, metrics never written), T3 (C1 Pulse ★ "highest leverage gap"), T4 (Q1 top quick win, Eng 5/Val 5), T2 (observability/Outcomes). |
-| **T-2** | **Govern autonomy before extending it** (cost metering + eval-as-CI gate) | 4/4 | **High** | T1 (no cost tracking; eval not in CI), T3 (G1 Meter & Cap), T4 (Q2 cost telemetry + Q5 eval gate, both quick wins), T2 (cost packaging, Outcomes grader, evals-as-CI). |
-| **T-3** | **Make memory actually learn** (Dreaming-style curation; insights that explain *why*) | 4/4 | **High** | T1 (`learnedMemory` is a blob), T3 (C2 Rigel Narratives, A3 Hook Lab), T4 (M2/M4), T2 (Dreaming/Outcomes — the headline delta). |
-| **T-4** | **Light up the dormant supervisor** (self-healing + pre-flight routing) | 4/4 | **High** | T1 (supervisor defined-not-wired, extension point #3), T3 (F2 Run Doctor, B2 Sentinel), T4 (supervisor can override handoff; one-agent-per-run key blocker), T2 (supervisor/dynamic routing). |
-| **T-5** | **Deepen engagement to competitive parity** (intent/sentiment triage, DM, inbox) | 4/4 | **High** | T1 (auto-reply is keyword→template only), T3 (E1 Sirius Triage, E2 Closer), T4 (Q4 triage enrichment + the **prompt-injection correction**), T2 (autonomous engagement = the new battleground). |
-| **T-6** | **Compliance: from text-disclosure to provenance** | 4/4 | **High (contested)** | T1 (Aletheia built; no C2PA), T3 (D2 Provenance #2 pick, D1 Praxis Live), T4 (Q3 editable packs = quick win; D5 C2PA = "do not build yet"), T2 (disclosure cliff, EU AI Act Aug 2 2026). **See conflict C-1.** |
-| **T-7** | **Turn the composer into an autopilot** (cadence planning, campaigns, recycling) | 3/4 | **High** | T3 (A1 Cadence Architect #3, A2 Recycler), T4 (M1 Campaigns = major bet), T2 (Command Marketing, parallel subagents). |
-| **T-8** | **Activate tools (MCP) without over-building** | 4/4 | **Medium** | T1 (MCP never called), T3 (references), T4 (Q6 MCP node = quick win; D2 true ReAct = "do not build"), T2 (MCP 2.0, tool use). **See conflict C-4.** |
-| **T-9** | **Enterprise interop & agent identity** | 4/4 | **Medium** | T1 (A2A single-tenant), T3 (F1 A2A Delegation), T4 (D4 A2A marketplace = "do not build yet" pre-PMF), T2 (Okta XAA / Entra Agent ID). |
+| Rank | Feature | Impact | Confidence | Effort | Risk | Strategic Fit | Priority Rationale |
+|---:|---|---:|---:|---:|---:|---:|---|
+| 1 | Run Doctor Command Center | 5 | 5 | 2 | 2 | 5 | Directly addresses failed publishes with existing classifier, failed-target query, and dashboard surface. |
+| 2 | Platform Constraint Coach | 5 | 5 | 2 | 1 | 5 | Prevents avoidable publish failures by sharing existing platform validation with the composer. |
+| 3 | Social Account Health Agent | 5 | 4 | 3 | 2 | 5 | Reduces publish failures before they happen using account status/token metadata already present. |
+| 4 | Brand Memory Manager | 4 | 5 | 2 | 2 | 5 | Makes existing learned memory controllable and auditable. |
+| 5 | Cross-Platform Consistency Auditor | 4 | 4 | 3 | 2 | 5 | Strong use of current review/guardrail infrastructure. |
+| 6 | Live Agent Run Control Room | 4 | 4 | 3 | 3 | 5 | Turns existing run timeline/A2A stream pattern into user-facing operational clarity. |
+| 7 | Campaign Simulation Gate | 4 | 4 | 3 | 3 | 5 | Expands Castor from per-draft safety to campaign-level readiness. |
+| 8 | Scheduled Trend Watch Agent | 4 | 4 | 3 | 2 | 4 | Reuses Vega/research queues; valuable background-agent workflow. |
+| 9 | Evergreen Content Recycler 2.0 | 4 | 4 | 3 | 2 | 4 | Builds on existing recyclable winners and repurpose action. |
+| 10 | Agent Spend and Budget Governor | 3 | 4 | 3 | 2 | 5 | Protects margins and makes autonomous runs governable. |
 
-### Conflicts & decisions needed
+Not top 10 despite high interest:
 
-Where the streams disagree, the disagreement is the signal. Each is surfaced with a recommended resolution and reasoning — not silently resolved.
-
-**C-1 — C2PA / cryptographic media provenance: "build it #2" (T3) vs "do not build yet" (T4).**
-T3 ranks the Provenance Verifier as its #2 build-now feature, driven by the EU AI Act Art. 50 deadline (2026-08-02) and platform enforcement. T4 places C2PA in "do not build yet" (§D5): there is **no signing/watermark toolchain in the repo**, platform support for surviving manifests is immature/partly post-cutoff, and **text disclosure already satisfies the Art. 50 *text-content* requirement** — the heavy part was deliberately deferred to keep deps light.
-→ **Resolution: SPLIT the feature — do the cheap 80% now, defer the expensive 20%.**
-  - **Now (quick win, T-6):** make the disclosure/policy rule packs **editable per-org** and set each platform's **native AI-content flag** at publish (reuses `brand_profiles.disclosurePolicy` jsonb + the existing settings form + Atlas's `applyDisclosure`; no new toolchain — T4 §Q3). This covers the legal text-label requirement and the platform-flag requirement.
-  - **Research-later / fast-follow:** full **C2PA Content Credentials + SynthID embedding** on AI media, gated on (a) a regulated/enterprise customer that contractually requires verifiable *image* credentials, and (b) a per-platform pilot confirming manifests survive re-download.
-  - *Reasoning:* the binding legal obligation (text disclosure) is already met; cryptographic image provenance is net-new infra against immature platform support. Shipping the 20% now would be deadline-driven autonomy theater. Keep text-marking as the always-on baseline.
-
-**C-2 — Engagement triage: big feature (T3 E1) vs narrow quick win (T4 Q4) — and a security hole underneath both.**
-T3's Sirius Triage is a large feature (intent + sentiment + DM ingestion + an escalation inbox). T4's Q4 is a 3-nullable-column migration + one cheap LLM classification call, comment-only. Critically, T4 also flags a **prompt-injection surface both ignore**: AI auto-replies feed **raw, unbounded commenter text** into a prompt and post the result publicly (`worker/processors/reply.ts:120-137`, gated by `rule.useAi`) — the highest-value injection target in the codebase and, unlike web-search snippets, **not length-bounded**.
-→ **Resolution: phase it, and fold the security fix into phase 1.**
-  - **Phase 1 (P0, ships in the build-first wave):** the narrow Q4 enrichment (sentiment/intent/urgency columns + a grouped inbox read-out) **plus** harden `composeAiReply` — bound commenter-text length and quarantine it as data, never control. The injection fix is non-negotiable and ships *with* the first triage change, not later.
-  - **Phase 2 (P1):** DM ingestion, lead escalation, abuse suppression with audit (T3 E1 stretch + E2 Closer).
-  - *Reasoning:* the quick win delivers the competitive-parity value on rails that already exist, and refuses to expand the auto-reply blast radius while a known injection hole is open.
-
-**C-3 — Self-healing supervisor is blocked by the orchestrator's idempotency key.**
-T3 proposes Run Doctor (F2) and Sentinel (B2), both implementing the dormant supervisor. T2 pushes parallel-subagent fan-out. But T4 (§Architecture-fact 2) notes the idempotency key assumes **each agent runs at most once per run** (`orchestrator.ts:166-168`) — and a *bounded retry of a failed step re-invokes the same agent*, which would collide with its own stored step.
-→ **Resolution: wire the supervisor for bounded recovery first, but ship the per-step idempotency key as its explicit prerequisite (P0 within the Run Doctor work).** Parallel fan-out (re-running/forking the same agent for N platform variants) is **research-later** — it's a bigger change that also needs the per-step key plus a fan-in/merge step.
-  - *Reasoning:* recovery is the higher-confidence, in-architecture win and the canonical use of a seam the system was explicitly built for; doing it without the per-step key would double-act on retry.
-
-**C-4 — Tool use: activate MCP (T4 Q6) vs build a true tool-calling ReAct agent (T4 D2 "do not build").**
-T2 hypes tool-use/MCP; T1 notes MCP is plumbing-only; T4 says **activate MCP as a direct-call node** (quick win) but **do not** convert the deterministic node graph into a model-bound ReAct loop (unbounded latency/cost, undercuts the testable design).
-→ **Resolution: adopt the direct-call MCP node (research-later-adjacent, low priority); reject the ReAct rewrite** until a concrete product need that direct-call nodes can't satisfy appears, *and* cost-metering (T-2) + the eval gate are in place to catch regressions. *Reasoning:* keep the deterministic, testable architecture; add tools additively.
-
-**C-5 — Autopilot (T3 A1 Cadence Architect) vs runaway-cost risk (T4).**
-T3's Cadence Architect is the strongest upgrade driver; T4 warns there is **no cost metering**, and agentic planning loops multiply spend.
-→ **Resolution: gate autopilot behind cost telemetry (T-2 / Quaestor) landing first; ship planning with a hard per-tier slot cap + mandatory Castor approval (no auto-publish).** *Reasoning:* don't ship an unmetered spend amplifier.
-
----
-
-## 4. Top 10 feature recommendations (ranked)
-
-Scoring convention: **1–5, where 5 is always most favorable** (highest Impact, highest Confidence it works/is buildable, **lowest** Effort, **lowest** Risk, best Strategic Fit). Sorted by total, with dependencies and the strategic narrative (close the loop → govern → learn → engage → scale) breaking ties.
-
-| Rank | Feature (codename) | Impact | Conf | Effort¹ | Risk² | Fit | Σ | Depends on |
-|---|---|:--:|:--:|:--:|:--:|:--:|:--:|---|
-| **1** | **Pulse** — metrics-ingestion agent (close the loop) | 5 | 5 | 4 | 4 | 5 | **23** | — |
-| **2** | **Quaestor** — run cost & token telemetry | 4 | 4 | 4 | 5 | 5 | **22** | — |
-| **3** | **Vigil** — brand-safety eval as a CI merge gate | 4 | 4 | 4 | 5 | 5 | **22** | — |
-| **4** | **Rigel Narratives** — insights that explain *why* | 4 | 5 | 4 | 4 | 5 | **22** | Pulse (better, not required) |
-| **5** | **Run Doctor** — self-healing supervisor (+ per-step key) | 4 | 4 | 3 | 4 | 5 | **20** | per-step idempotency key |
-| **6** | **Sirius Triage v1** — comment intent/sentiment + injection fix | 4 | 4 | 3 | 3 | 5 | **19** | 1 migration |
-| **7** | **Praxis Live v1** — editable policy/disclosure packs + native AI flag | 4 | 4 | 4 | 4 | 5 | **21** | — |
-| **8** | **Chronos** — best-time-to-post optimizer | 4 | 3 | 3 | 4 | 4 | **18** | **Pulse** |
-| **9** | **Mensa** — Cadence Architect (autopilot calendar) | 5 | 3 | 2 | 3 | 4 | **17** | Quaestor (cost cap) |
-| **10** | **Evergreen Recycler** — winner repurposing | 4 | 3 | 3 | 3 | 4 | **17** | **Pulse** |
-
-¹ Effort: 5 = days on existing infra/no migration; 2 = new agent/table/UI. ² Risk: 5 = no new attack surface; 3 = injection/brand/quota exposure.
-
-*Ordering note:* Praxis Live (Σ21) is placed at #7 rather than #4 deliberately — it is a strong quick win, but T-1→T-4 (close-loop, govern, learn, self-heal) are the structural unlocks that everything else compounds on. #8–10 are the payoff features that **Pulse** makes possible; they are ranked below the enablers they depend on.
-
-**Honorable mentions (just below the line, → §7):** Sentinel (pre-flight health, B2 — folds into Run Doctor), MCP tool node (Q6), Hook Lab (A3), Conversation Closer (E2), Campaigns/Meridian (M1).
-
----
+- Reply Copilot Inbox: high user value, but high brand risk and Meta-only connector support.
+- SocialFlow MCP Server: strong trend fit, but external-agent data/action exposure is too risky before audit/scopes.
+- Client Approval Portal: strong agency value, but external access security deserves a separate design pass.
+- Campaign Objects: high long-term value, but broad schema and IA change.
 
 ## 5. Mini-PRDs
 
-Full PRDs for the build-first five (#1–5); compact PRD cards for #6–10. All sections per `product-management:write-spec`.
+### 1. Run Doctor Command Center
 
----
+User story:
 
-### PRD 1 — Pulse (metrics-ingestion agent) ★ foundational
+As a creator or agency operator, I want every failed publish target to explain what went wrong and what I can safely do next, so I can recover scheduled content without inspecting logs.
 
-**Problem.** SocialFlow publishes but is blind to outcomes. `post_targets.metrics`/`metricsUpdatedAt` exist and Rigel reads them, but nothing calls the connectors' declared `fetchMetrics()` — so engagement is always zero and **every** learning loop (Rigel, Chronos, Recycler, Hook Lab) runs on empty data (`lib/platforms/base.ts:52`, `lib/agents/rigel/aggregate.ts:13`; T3 §C1, T4 §Q1).
+Why now:
 
-**Why now.** It is the lowest-effort, highest-leverage change in the codebase (the columns, connector interface, and consumer all exist — only the writer is missing) and it is the hard dependency for 4 of the other 9 features.
+- The repo already lists failed targets (`lib/repos/posts.ts:134`) and classifies agent-step failures (`lib/agents/recovery.ts:35`).
+- T4 ranks this first because it is high value, low effort, and high architecture fit (`docs/research/04-feasibility.md:24`).
 
-**Goals.**
-- ≥95% of published `post_targets` have non-null `metrics` within 48h of publish.
-- Rigel's `topTopics` ranking changes when real metrics land (proves the loop is closed).
-- Zero new tables / zero migration for the MVP.
+Agent architecture:
 
-**Non-goals.** Cross-platform metric *normalization* (impressions vs views vs plays) beyond storing raw per-platform values (P1); a metrics *dashboard redesign* (reuse existing surfaces); historical backfill of pre-launch posts.
+- Add a recovery service that maps `post_targets.lastError`, account state, connector capability, and attempt count into classes: transient, account, media/constraint, policy/platform, fatal/unknown.
+- Keep it separate from actual retry execution. The agent recommends; server action performs.
+- Use existing `classifyFailure` patterns where possible (`lib/agents/recovery.ts:35`, `lib/agents/recovery.ts:53`).
 
-**Agent architecture.** A new repeatable BullMQ job `metrics-poll` registered per active account by **Sirius** alongside `registerCommentPoll` (`lib/agents/sirius/index.ts`). The processor walks recently-published targets, calls `connector.fetchMetrics(account, externalPostId)`, writes `metrics` + `metricsUpdatedAt`. **Agentic, not a dumb cron:** a maturity-curve schedule — poll a post frequently in its first 48h, taper, stop once values stabilize. Mirrors the proven idempotency/watermark design of `worker/processors/comment-poll.ts`.
+UX flow:
 
-**UX flow.** Real engagement column on `/dashboard`; per-post metrics on `/posts/[id]` and `/calendar` (the `externalUrl` already renders). No new approval surface.
+1. Dashboard "Needs attention" card lists failed targets with reason and confidence (`app/(dashboard)/dashboard/page.tsx:248`).
+2. User sees recommended action: retry, reconnect account, fix media, adjust platform constraints, or contact support.
+3. Safe retry button appears only for transient class.
+4. Link to run timeline and original post target.
 
-**Backend / data changes.** None to schema (writes existing columns). New `worker/processors/metrics-poll.ts`, `registerMetricsPoll()` in `lib/queue/jobs.ts`, a `metrics` `QueueName` in `lib/queue/queues.ts`, worker registration in `worker/index.ts`, and per-connector `fetchMetrics` implementations starting with Meta Graph insights (`lib/platforms/{facebook,instagram}.ts`).
+Backend/data changes:
 
-**Integrations.** Platform read APIs (Meta Graph, LinkedIn, TikTok, X, YouTube). Reuse the Postgres `rate_limits` pattern for per-platform read buckets.
+- MVP: no schema change. Use `post_targets.lastError`, `status`, `attempts`, `socialAccountId`, and account status (`db/schema/post-targets.ts:46`, `db/schema/post-targets.ts:48`, `db/schema/social-accounts.ts:30`).
+- Optional later: persist `failureClass` and `failureExplanation` for analytics.
 
-**Guardrails / approval.** Read-only against platforms (no publish capability — respects the `lib/agents/capabilities.ts` matrix). Failures are non-fatal and throttled; never burns publish retries.
+Integrations:
 
-**Observability / evals.** Emit poll success/failure + per-platform latency to the existing logger; surface "last metrics sync" on `/posts/[id]`. No LLM, so no eval needed.
+- Existing platform connectors and publish worker only.
 
-**Tests.** Unit-test the maturity-curve scheduler and the idempotent write (mirror `comment-poll.test.ts`); integration test that a published target gets `metrics` populated against a mocked connector.
+Guardrails/approval:
 
-**Success metrics.**
-- *Leading:* % published targets with non-null metrics @48h (target ≥95%); poll error rate (<5% per platform).
-- *Lagging:* activation of dependent features (Chronos/Recycler become buildable); Rigel report engagement fields non-zero for >90% of active tenants within 30 days.
+- Never retry account/policy/fatal failures without human action.
+- Check target ownership and failed status at action time.
+- Preserve schedule ledger and target idempotency behavior (`lib/queue/with-ledger.ts:1`, `worker/processors/publish.ts:125`).
 
-**Acceptance criteria.**
-- [ ] Given a published `post_target` with an `externalPostId`, when the poll runs, then `metrics` and `metricsUpdatedAt` are written and visible on `/posts/[id]`.
-- [ ] Given a platform read-API rate-limit error, when the poll runs, then the job backs off and does not mark the post failed.
-- [ ] Given a post older than the maturity window, when the poll runs, then it is skipped (no wasted API calls).
-- [ ] Given Sirius registers an account, then a `metrics-poll` scheduler exists exactly once (idempotent).
+Observability/evals:
 
-**Open questions.** (eng) Exact Meta Graph insights fields + rate tiers per plan? (data) Is `usage_metadata`-style metric availability consistent across connectors, or is per-connector mapping required (T4 self-check)?
+- Add recovery decision to run/target UI.
+- Emit structured log around retries.
+- Count failure classes on dashboard later.
 
----
+Tests:
 
-### PRD 2 — Quaestor (run cost & token telemetry)
+- Unit tests for classifier examples: 401/token/account, 429/timeout/transient, missing media/constraint, unknown/fatal.
+- Server-action tests for tenant scope and stale status.
+- Worker retry test that safe retry does not mutate non-failed targets.
 
-**Problem.** There is **no cost or token tracking anywhere** (no `cost`/`tokenUsage` columns; T4 §Q2). You cannot add spend caps, value-based pricing, or safe autopilot until you can first *measure* spend — and the upcoming agentic features (Mensa, Recycler) multiply LLM calls.
+Goals:
 
-**Why now.** It is the measurement half of FinOps, it is cheap (rides existing `agent_steps.summary` jsonb), and it unblocks the spend-cap enforcement (§7) that makes autopilot safe (conflict C-5).
+- Reduce unresolved failed targets.
+- Reduce repeat publish failures from preventable causes.
 
-**Goals.** Per-run token+cost estimate visible in the Lumen run inspector for ≥95% of runs; cost numbers within tolerance of the model bill before any cap is exposed; zero migration for MVP.
+Non-goals:
 
-**Non-goals.** Hard spend caps / budget enforcement (that's the major-bet follow-up, §7); outcome-based ("per on-brand post") billing (P2); prompt-caching rollout (P1, separable).
+- No autonomous repair of account credentials.
+- No browser automation.
 
-**Agent architecture.** A usage recorder at the one LLM chokepoint (`lib/llm/factory.ts`) capturing LangChain `usage_metadata`; the orchestrator stamps per-step token/cost into `agent_steps.summary` (`worker/processors/agent-step.ts`); a cost-model map (per-provider $/MTok) converts tokens→cents.
+Success metrics:
 
-**UX flow.** A "Cost" line in the `/runs/[runId]` timeline (extends `lib/runs/timeline.ts`); a per-run + month-to-date estimate on `/billing` Usage.
+- Failed targets triaged with class >= 95%.
+- Retry action success rate for transient failures.
+- Time from failure to user action.
 
-**Backend / data changes.** None for MVP (ride `agent_steps.summary` jsonb). New `lib/billing/cost-model.ts`. (Follow-up adds a `usage` cost metric + `spend_caps` table.)
+Acceptance criteria:
 
-**Integrations.** LangSmith usage (already wired, `lib/observability/langsmith.ts`); Anthropic prompt-caching as a P1 lever.
+- Every failed target on dashboard has a reason, recommended action, and trace link.
+- Retry button is hidden for account/policy/fatal failures.
+- Tests prove cross-tenant targets cannot be retried.
 
-**Guardrails / approval.** Read-out only; no behavior change. Cost attribution must be clearly labeled an *estimate* (Max-subscription-style "equivalent cost").
+### 2. Platform Constraint Coach
 
-**Observability / evals.** This *is* observability infra. Validate against a known week of real usage before exposing.
+User story:
 
-**Tests.** Unit-test the token→cost conversion and the per-step rollup; verify `usage_metadata` is parsed for the configured Gemini path (T4 flagged this is provider-dependent).
+As a creator composing for many platforms, I want the app to tell me before scheduling why a draft cannot publish on a platform, so I can fix the issue before a worker fails.
 
-**Success metrics.** *Leading:* % runs with a cost estimate (≥95%); cost-estimate error vs bill (<10%). *Lagging:* enables spend caps; margin visibility per tenant.
+Why now:
 
-**Acceptance criteria.**
-- [ ] Given a completed run, when I open `/runs/[runId]`, then I see total tokens and an estimated cost per step and per run.
-- [ ] Given the Gemini provider, when a node calls the model, then `usage_metadata` is captured or a clearly-flagged fallback estimate is used.
-- [ ] Given a month of runs, when I open `/billing`, then month-to-date estimated AI cost is shown.
+- Constraint checks already exist in server actions and connector capabilities (`app/(dashboard)/create/actions.ts:186`, `lib/platforms/types.ts:31`, `lib/platforms/constants.ts:13`).
+- This is the fastest way to reduce publish failure volume and support burden.
 
-**Open questions.** (data) Is `usage_metadata` populated for Gemini in `@langchain/google-genai`? (finance) Source-of-truth $/MTok table and refresh cadence?
+Agent architecture:
 
----
+- This is mostly deterministic, not LLM-heavy.
+- Add an optional AI rewrite suggestion only after deterministic validation returns issues.
 
-### PRD 3 — Vigil (brand-safety eval as a CI merge gate)
+UX flow:
 
-**Problem.** The labeled brand-safety dataset, metrics, and `recommendThreshold` exist (`evals/brand-safety/run.ts`, `lib/evals/brand-safety-metrics.ts`) but are **not wired into CI** (`.github/workflows/ci.yml` has no eval step; T4 §Q5). For an autonomous content system, silent guardrail drift is the most dangerous failure mode, and there is no regression gate on it.
+1. Composer validates selected platforms/accounts/media as the user edits.
+2. Variant tabs show constraint chips: missing image, video required, body too long, unsupported comments/metrics, unaudited private-only note.
+3. Schedule button stays disabled until blocking issues are resolved.
 
-**Why now.** It's a safety multiplier that must precede expanding autonomy (every later feature adds agent behavior), it reuses assets already in the repo, and 2026 best practice is exactly this (trend radar: evals-as-CI).
+Backend/data changes:
 
-**Goals.** Any PR that drops brand-voice / banned-term / platform-fit precision-recall below threshold fails CI; model-version bumps (`@langchain/anthropic`) are regression-tested before touching a real account.
+- Extract shared validation into a pure module used by `createPost` and the composer.
+- No schema change for MVP.
 
-**Non-goals.** A full eval *platform* / LangSmith dashboards (P2); evals for every agent (start with brand-safety, the highest-risk gate); replacing human review (the gate is additive to Castor/Praetor).
+Integrations:
 
-**Agent architecture.** A CI job runs a curated 20–50 example set through the candidate guardrail (`lib/agent/guardrails/model-judge.ts`) and `sys.exit(1)` below `PASS_THRESHOLD`. To keep the blocking gate cheap/deterministic, default to a **fixture/offline judge**; run the **live-LLM judge nightly** (needs a metered key).
+- Existing connector capability metadata only.
 
-**UX flow.** Developer-facing: a required GitHub check; failures annotate the PR with which metric regressed.
+Guardrails/approval:
 
-**Backend / data changes.** None. New `.github/workflows/` eval job + an offline-judge mode in `evals/brand-safety/run.ts`.
+- Server validation remains authoritative.
+- Client hints must use the same codes/messages as server validation.
 
-**Integrations.** GitHub Actions; optional LangSmith for nightly trace capture.
+Observability/evals:
 
-**Guardrails / approval.** N/A (it *is* a guardrail). Threshold guidance: start at 0.80, raise to just below observed average; structured-output checks at 0.95–1.00 (trend radar §6).
+- Track validation issue frequency by platform to inform Run Doctor and account health.
 
-**Observability / evals.** Trend the eval score over time; alert on nightly live-judge drift even when the offline gate passes.
+Tests:
 
-**Tests.** The eval harness is the test; add a meta-test that a deliberately-bad guardrail change fails the gate.
+- Unit tests for every platform's media/text constraints.
+- Server/client message parity tests.
+- Regression test for TikTok/YouTube video requirement and Instagram image-only MVP (`lib/platforms/tiktok.ts:24`, `lib/platforms/youtube.ts:24`, `lib/platforms/instagram.ts:21`).
 
-**Success metrics.** *Leading:* gate present on 100% of PRs touching `lib/agent/**`/`lib/agents/**`/`prompts`; ≥1 regression caught pre-merge in first quarter. *Lagging:* zero brand-safety incidents traced to an un-gated change.
+Goals:
 
-**Acceptance criteria.**
-- [ ] Given a PR that weakens the brand-safety judge, when CI runs, then the eval job fails and blocks merge.
-- [ ] Given a model-version bump, when CI runs, then the eval set is replayed and the score delta is reported.
-- [ ] Given no LLM key in CI, when the gate runs, then the offline-judge mode still produces a deterministic pass/fail.
+- Prevent failed jobs caused by known local constraints.
 
-**Open questions.** (eng) Offline-judge fidelity vs the live judge — acceptable gap? (ops) Who owns threshold updates as the dataset grows?
+Non-goals:
 
----
+- No provider API probing in MVP.
 
-### PRD 4 — Rigel Narratives (insights that explain *why*)
+Success metrics:
 
-**Problem.** Rigel produces counts (totalPublished, topTopics, runSuccessRate) but no decisions — users get numbers, not "short video on TikTok beat your LinkedIn text 4:1 this week; lean in" (`lib/agents/rigel/aggregate.ts`; T3 §C2).
+- Reduction in publish failures caused by media/text constraints.
+- Lower composer-to-schedule error rate.
 
-**Why now.** It converts the data Pulse unlocks into retention-driving value ("your weekly strategist"), and it's a low-risk extension of an existing terminal agent. Works on current report data immediately; far better once Pulse lands.
+Acceptance criteria:
 
-**Goals.** ≥50% of generated insights rated "useful," ~0% rated "wrong" (hallucinated stats); each insight links to a one-click follow-up run.
+- Blocking platform issues appear before submit.
+- Server action rejects the same invalid payload with the same issue code.
 
-**Non-goals.** Free-form chat over analytics (P2); predictive forecasting (P2); auto-acting on insights without human click (keep human-in-the-loop).
+### 3. Social Account Health Agent
 
-**Agent architecture.** A post-aggregate LLM step in `lib/agents/rigel/index.ts` (new `narrate.ts`) that reads the structured `ReportData` + week-over-week deltas and emits 3–5 grounded, actionable insights with a recommended next action; writes structured recommendations into `learnedMemory` for Lyra/Mensa to consume. Rigel keeps only `report` capability (read-only).
+User story:
 
-**UX flow.** "This week's insights" card on `/dashboard` with action buttons (e.g. "Recycle this winner →" kicks the relevant run); optional weekly email digest.
+As an operator, I want the app to warn me when a connected social account is likely to fail before content is scheduled, so I can reconnect or fix setup early.
 
-**Backend / data changes.** Extend `ReportData` with `insights[]` (or a `report_insights` table). No risky migration if stored in the existing `reports.data` jsonb.
+Why now:
 
-**Integrations.** None new; optional email send via existing worker patterns.
+- Social accounts store status, encrypted tokens, refresh tokens, expiry, scopes, metadata, and errors (`db/schema/social-accounts.ts:14`, `db/schema/social-accounts.ts:29`, `db/schema/social-accounts.ts:30`, `db/schema/social-accounts.ts:31`, `db/schema/social-accounts.ts:32`, `db/schema/social-accounts.ts:36`).
+- Token refresh jobs already run on a schedule (`lib/queue/jobs.ts:266`).
 
-**Guardrails / approval.** **Strictly ground on the structured report object — never free-form numbers** (hallucination guard); spot-check via the eval harness (Vigil).
+Agent architecture:
 
-**Observability / evals.** Add a small narrative-quality eval (grounded-in-data check); log insight click-through.
+- A deterministic health evaluator first.
+- Optional background worker produces health snapshots or dashboard findings.
 
-**Tests.** Unit-test that narratives only cite numbers present in `ReportData`; snapshot the prompt; offline-rate 10 historical reports.
+UX flow:
 
-**Success metrics.** *Leading:* insight useful-rate (≥50%), wrong-rate (~0%), click-through on "act on this." *Lagging:* retention lift among tenants who view insights weekly.
+1. Accounts page shows green/yellow/red badges.
+2. Dashboard "Needs attention" includes unhealthy accounts.
+3. Composer warns if selected account has missing scope, inactive status, expired token, missing TikTok/YouTube metadata, or Facebook seed metadata absent.
 
-**Acceptance criteria.**
-- [ ] Given a compiled report, when Rigel runs, then 3–5 insights are produced, each citing only figures present in `ReportData`.
-- [ ] Given an insight with a recommended action, when I click it, then the relevant pipeline run (e.g. recycle/plan) starts.
-- [ ] Given a report with zero engagement data (pre-Pulse), then insights degrade gracefully (volume/cadence only, no fabricated engagement).
+Backend/data changes:
 
-**Open questions.** (design) Email digest in v1 or fast-follow? (data) WoW deltas need ≥2 reports — cold-start copy?
+- MVP: no new table; compute health from existing fields.
+- Later: persist `account_health_findings` if trend and history matter.
 
----
+Integrations:
 
-### PRD 5 — Run Doctor (self-healing supervisor)
+- Existing OAuth refresh and connector registry.
+- Avoid live provider calls by default.
 
-**Problem.** When a run fails or stalls, recovery is manual; the reconcile sweep only cleans orphans. A transient model error, a bad payload, and a token problem need different responses, and the `supervisor` hook built for exactly this is a no-op (`orchestrator.ts:66,220`; T3 §F2).
+Guardrails/approval:
 
-**Why now.** It's the canonical use of a seam the system was explicitly designed around, a pure-internal reliability win (no new platform risk), and an SLA story for agency/enterprise tiers.
+- Do not refresh or reconnect without user action.
+- Avoid exposing token/scopes beyond safe names.
 
-**Goals.** A bounded, audited auto-recovery for classifiable failures; the human pause gate is never overridden; recovery actions appear in the integrity-chained run timeline.
+Observability/evals:
 
-**Non-goals.** Parallel subagent fan-out / re-running an agent for N variants (research-later — needs fan-in too); overriding Castor pauses (forbidden by design); unbounded retries.
+- Log health finding counts.
+- Correlate health findings to publish failures later.
 
-**Agent architecture.** Implement `OrchestratorDeps.supervisor` wired in `orchestrator.runtime.ts`. On a failed/looping step it classifies (transient → bounded retry w/ backoff; content-quality → re-route to Lyra refine; account/token → hold + surface fix-it (folds in Sentinel B2); hard error → escalate) and applies one bounded action under a **max-recovery budget**. **Prerequisite (P0, conflict C-3):** add a **per-step idempotency key** so a retry of the same agent doesn't collide with its stored `(runId, agent)` step (`orchestrator.ts:166-168`).
+Tests:
 
-**UX flow.** A "Recovery actions" lane in `/runs/[runId]` showing what the supervisor decided and why; a `/dashboard` "Runs needing attention" with one-click human override.
+- Unit tests for inactive, expired, missing refresh token, missing scope, missing metadata, and healthy cases.
+- UI test for account health badge rendering.
 
-**Backend / data changes.** Per-step key change in the step model; optional `recovery_actions` audit rows (or reuse `agent_steps.control` jsonb). Reuses the `hash`/`prevHash` chain for tamper-evident recovery audit.
+Goals:
 
-**Integrations.** None new; LangSmith trace already correlated by `runId`.
+- Fewer account-caused publish failures.
 
-**Guardrails / approval.** Never overrides a pause (human gate stands, already enforced); hard recovery budget prevents loops; every recovery action is written to the integrity chain; escalate after N attempts.
+Non-goals:
 
-**Observability / evals.** Replay historical failed runs offline to measure correct-vs-wrong recovery before enabling; alert on budget exhaustion.
+- No automatic OAuth reconnect.
+- No platform-review automation.
 
-**Tests.** Extend `orchestrator.test.ts` (already 17+ cases) with per-step-key idempotency, retry-doesn't-double-act, pause-not-overridden, budget-exhaustion-escalates.
+Success metrics:
 
-**Success metrics.** *Leading:* % classifiable failures auto-recovered correctly (offline ≥ target before enabling live); manual-intervention rate ↓. *Lagging:* failed-campaign rate ↓; agency-tier retention/SLA.
+- Account-caused failures per week.
+- Percentage of failures preceded by a health warning.
 
-**Acceptance criteria.**
-- [ ] Given a transient model error, when the step fails, then the supervisor retries with backoff up to the budget, then escalates.
-- [ ] Given the same agent retried in one run, when it re-dispatches, then the per-step key prevents a double-action.
-- [ ] Given a run in `awaiting_approval`, when the supervisor evaluates it, then it never resumes past the human gate.
-- [ ] Given any recovery action, when it executes, then it is recorded in the run's hash chain and visible in `/runs/[runId]`.
+Acceptance criteria:
 
-**Open questions.** (eng) Per-step key schema migration sequencing against the unapplied `0000–0024` stack? (product) Recovery budget defaults per plan tier?
+- Accounts page displays a health reason for every unhealthy account.
+- Composer warns before scheduling to unhealthy accounts.
 
----
+### 4. Brand Memory Manager
 
-### PRD 6 — Sirius Triage v1 (comment intent/sentiment + injection fix) — *card*
+User story:
 
-- **User story.** *As a brand manager, I want incoming comments classified by intent and sentiment so I can prioritize leads and complaints instead of drowning in canned replies.*
-- **Why now.** Autonomous comment/DM engagement is the competitive battleground (trend §8); the ingestion pipeline already exists; and it carries the fix for the **#1 injection hole** (conflict C-2).
-- **Agent architecture.** Add an LLM intent+sentiment classification step in `worker/processors/comment-poll.ts`; route only safe buckets (question/praise) to existing `reply.ts`; group everything in an inbox. **Harden `composeAiReply`**: bound commenter-text length, quarantine it as data (`worker/processors/reply.ts:120-137`).
-- **UX flow.** An "Engagement inbox" (extend `/auto-reply` Activity tab) grouped by intent with Accept/Edit/Send/Ignore; escalations badge the dashboard.
-- **Backend / data.** One additive migration: `intent`, `sentiment`, `urgency` nullable columns on `comment_events`.
-- **Guardrails / approval.** Never auto-engage negative/abuse buckets; high-risk buckets require approval; injection hardening is P0 and ships with this change.
-- **Observability / evals.** Label 200 historical `comment_events`; require ≥80% classifier agreement on safe buckets before enabling auto-reply for them.
-- **Goals / non-goals.** *Goal:* lead-aware triage on existing rails + closed injection hole. *Non-goal (P1):* DM ingestion, lead escalation/CRM, abuse audit (→ Conversation Closer).
-- **Success metrics.** Safe-bucket classifier agreement ≥80%; zero public replies containing injected instructions; lead-response time ↓.
-- **Acceptance.** [ ] commenter text is length-bounded before entering any prompt · [ ] each ingested comment gets intent/sentiment/urgency · [ ] only question/praise auto-reply; leads/complaints/abuse route to inbox/suppression.
+As a brand owner, I want to inspect, edit, and reset what the agent has learned about my brand, so future content stays intentional and explainable.
 
----
+Why now:
 
-### PRD 7 — Praxis Live v1 (editable policy/disclosure packs + native AI flag) — *card*
+- Brand profiles already store voice, banned terms, learned memory, policy rules, disclosure policy, and voice history (`db/schema/brand-profiles.ts:32`, `db/schema/brand-profiles.ts:36`, `db/schema/brand-profiles.ts:40`, `db/schema/brand-profiles.ts:42`, `db/schema/brand-profiles.ts:43`, `db/schema/brand-profiles.ts:44`).
+- T2 identifies memory/governance as a core 2026 agent trend (`docs/research/02-trends.md:110`).
 
-- **User story.** *As an org admin in a regulated market, I want to add my own banned-claim and required-disclaimer rules and have AI posts carry the platform's native AI-content flag, so I stay compliant without a code change.*
-- **Why now.** Compliance is the stated P0; per-jurisdiction/brand variance is the most-requested gap; this is the **de-risked half of conflict C-1** (text + native flag now; C2PA later).
-- **Agent architecture.** Make the Praxis linter read rules from `brand_profiles.disclosurePolicy` jsonb (already has a settings form) instead of the hardcoded array (`lib/compliance/policy-linter.ts`); set each platform's native AI-content flag in Atlas's `applyDisclosure` path.
-- **UX flow.** `/settings` disclosure-policy form gains editable rule rows + an "Embed native AI label" toggle + jurisdiction selector; `/compliance` shows per-post disclosure status.
-- **Backend / data.** No new table (ride existing jsonb); extend `disclosure_ledger` write to record `platformLabelApplied`.
-- **Guardrails / approval.** Keep human approval for any auto-published path; cite rule source; version rules (reuse `disclosure_ledger.policyVersion`).
-- **Observability / evals.** Per-post provenance status (text-labeled / native-flagged); ledger remains append-only audit.
-- **Goals / non-goals.** *Goal:* per-org editable rules + native platform AI flag. *Non-goal (→ §7):* C2PA/SynthID cryptographic media signing; autonomous policy-diff watcher (T3 D1 stretch).
-- **Success metrics.** % AI posts carrying a native platform flag where supported; admin self-serve rule edits (no eng ticket); zero Art. 50 text-disclosure gaps.
-- **Acceptance.** [ ] admin adds a banned-claim rule and Castor blocks a violating draft · [ ] AI post on a supporting platform carries the native AI flag · [ ] `disclosure_ledger` records label applied + policy version.
+Agent architecture:
 
----
+- Rigel can continue producing learned-memory suggestions.
+- Lyra consumes approved memory when generating drafts (`lib/agents/lyra/index.ts:51`).
+- Optional later: proposed memory updates require approval before writing.
 
-### PRD 8 — Chronos (best-time-to-post optimizer) — *card*
+UX flow:
 
-- **User story.** *As a creator, I want the agent to schedule each post when my audience is most active, so I stop guessing at post times.*
-- **Why now.** Direct engagement lift; publish jobs are already delay-scheduled; architecture-aligned (aggregation, no vector store). **Hard dependency: Pulse** (needs real `metrics`).
-- **Agent architecture.** A pure scorer `lib/scheduling/best-time.ts` learns per-tenant per-platform engagement-by-hour/weekday from `post_targets.publishedAt` + `metrics`; Atlas consults it when `scheduledAt` is absent (`lib/agents/atlas/index.ts`); a periodic job refreshes a `posting_windows` table.
-- **UX flow.** "Recommend a time" button + confidence note ("based on 38 past posts") in composer/calendar; a heatmap on `/dashboard`.
-- **Backend / data.** New `posting_windows` (clerkUserId, platform, dow, hour, score) or compute-on-read; reuses `posts.timezone`.
-- **Guardrails / approval.** Human can always override; cold-start blends with platform-wide priors and labels low confidence.
-- **Goals / non-goals.** *Goal:* per-tenant learned send-times with cap-aware slotting. *Non-goal:* cross-tenant benchmarking (privacy); paid-promotion timing.
-- **Success metrics.** Engagement lift of "recommended-window" vs "off-window" posts; recommendation acceptance rate.
-- **Acceptance.** [ ] with ≥N posts of history, recommended slots reflect the tenant's actual engagement peaks · [ ] new tenants get labeled platform-prior defaults · [ ] recommendations respect per-platform daily caps and timezone.
+1. Settings shows learned memory as editable cards.
+2. User can edit, clear, or restore previous versions.
+3. Run detail shows "memory used" summary.
 
----
+Backend/data changes:
 
-### PRD 9 — Mensa (Cadence Architect — autopilot calendar) — *card*
+- MVP: use existing `learnedMemory` and `voiceHistory`.
+- Later: structured memory entries with source report/run references.
 
-- **User story.** *As a small social team, I want to approve a two-week, multi-platform content plan in one click instead of filling a blank composer every day.*
-- **Why now.** The clearest "Command Marketing" embodiment and strongest upgrade driver; composes existing pipeline runs rather than rebuilding. **Gated by Quaestor** (cost cap) per conflict C-5.
-- **Agent architecture.** A new roster agent **Mensa** (capability `plan`) that reads the latest `reports` + `learnedMemory` (feed-forward exists, `orchestrator.ts:266`), pulls 1–2 Vega research fills, emits an N-slot plan, and on approval hands each slot to the existing Lyra→Castor→Atlas pipeline with a scheduled `runAt`. Sits *above* Orion (emits many runs).
-- **UX flow.** "Plan my next 2 weeks" on `/calendar` → editable draft calendar (reuse `CalendarGrid`) → one "Approve plan" enqueues the runs.
-- **Backend / data.** New `content_plans` (id, clerkUserId, periodStart, status, slots jsonb); new `/api/plans` route + action; add `Mensa` to `types.ts`/`capabilities.ts`/`registry.ts`.
-- **Guardrails / approval.** **Hard per-tier slot cap + mandatory Castor approval (no auto-publish)**; never bypasses cost caps (Quaestor).
-- **Goals / non-goals.** *Goal:* approve-able multi-platform plan that becomes scheduled runs. *Non-goal (P1):* weekly auto-rebalance from Rigel; gap-detection auto-fill.
-- **Success metrics.** Plan approve-rate; % slots surviving edits (T3 validation: <50% ⇒ quality not there); Pro→Premium upgrade lift.
-- **Acceptance.** [ ] generates a tier-capped plan from the last report · [ ] each approved slot becomes a scheduled pipeline run gated by Castor · [ ] plan generation is metered and refuses past the tenant's cost cap.
+Integrations:
 
----
+- No new external services.
 
-### PRD 10 — Evergreen Recycler (winner repurposing) — *card*
+Guardrails/approval:
 
-- **User story.** *As a creator, I want my best post re-cut for another platform and re-run months later, so my proven winners keep working.*
-- **Why now.** Strong retention/"more from content you already made" story. **Hard dependency: Pulse** (needs engagement to find winners).
-- **Agent architecture.** A daily `worker/processors/recycle.ts` scans top-engagement `post_targets`, filters by a freshness gap, and enqueues pipeline runs whose `steps[0]` is Lyra (skip Vega — already supported, `orchestrator.ts:95`) with a "re-angle for {platform}, freshen, don't duplicate" instruction → Castor.
-- **UX flow.** "Recyclable winners" card on `/dashboard` with "Repurpose →" pre-filling the review queue; optional auto-mode behind the auto-publish threshold.
-- **Backend / data.** New nullable `generated_content.derivedFromTargetId` for lineage/dedup; reuses `post_targets.metrics`, `posts.sourceContentId`.
-- **Guardrails / approval.** Minimum gap window + freshness re-critique to avoid duplicate-content penalties; Castor still gates.
-- **Goals / non-goals.** *Goal:* one-click repurpose of a proven winner. *Non-goal (P1):* fully autonomous weekly recycle; format-change re-cut (e.g. text→video brief).
-- **Success metrics.** "Would post" operator-rating of repurposed drafts (T3: >60% ⇒ build autonomous path); engagement of recycled vs original.
-- **Acceptance.** [ ] dashboard lists winners by real engagement percentile · [ ] "Repurpose" produces an on-brand re-angle for a platform the winner wasn't posted to · [ ] recycled drafts respect a minimum gap window and pass a freshness re-critique.
+- Only owner/admin can edit memory.
+- Show last modified date/user if schema adds history.
 
----
+Observability/evals:
 
-## 6. Build first — the exact first wave
+- Compare draft review holds before/after memory edits.
+- Add tests proving Lyra receives the saved memory.
 
-A coherent 5-feature wave that closes the loop and installs the safety rails, ordered by dependency. **Pulse is the keystone — do it first.**
+Tests:
 
-### Wave 1 (sequence)
-1. **Pulse** (PRD 1) → unblocks Chronos, Recycler, Hook Lab, and real Rigel data.
-2. **Quaestor** (PRD 2) → makes spend measurable; unblocks safe autopilot + spend caps.
-3. **Vigil** (PRD 3) → the eval gate that must precede any further autonomy.
-4. **Sirius Triage v1 incl. the injection fix** (PRD 6) → competitive parity + closes the #1 security hole.
-5. **Run Doctor** (PRD 5, with its per-step-key prerequisite) → reliability on the seam the system was built for.
+- Settings action validation.
+- Tenant scoping.
+- Lyra input construction includes learned notes.
 
-(Praxis Live v1, PRD 7, can run in parallel — it's independent and a strong compliance quick win.)
+Goals:
 
-### Exact first implementation tasks — Pulse (precise, in order)
-1. **Confirm `fetchMetrics` reality per connector.** Open each of `lib/platforms/{facebook,instagram,linkedin,tiktok,x,youtube,pinterest,discord}.ts` and confirm which override `fetchMetrics` vs inherit the throwing base (`lib/platforms/base.ts:52-57`) — T1 could not verify this connector-by-connector. *Read-only; resolves an open question before writing code.*
-2. **Implement `fetchMetrics` for Meta first** (`lib/platforms/facebook.ts`, `instagram.ts`) against Graph API insights; normalize into the existing `Record<string, number>` shape.
-3. **Add the queue + processor.** New `metrics` `QueueName` (`lib/queue/queues.ts:6-22`), `worker/processors/metrics-poll.ts` (mirror `comment-poll.ts` idempotency/watermark), register in `worker/index.ts`.
-4. **Add `registerMetricsPoll(socialAccountId)`** in `lib/queue/jobs.ts` (mirror `registerTokenRefresh`/`registerSeeding`, `:229-261`) with the maturity-curve cadence; have **Sirius** call it alongside `registerCommentPoll` (`lib/agents/sirius/index.ts`).
-5. **Surface the data:** add the engagement column to `/dashboard` and per-post metrics to `app/(dashboard)/posts/[id]/page.tsx`.
-6. **Tests:** unit-test the cadence scheduler + idempotent write; integration-test population against a mocked Meta connector.
-7. **Respect the constraints:** all of this runs on the **worker** (not a serverless route); the new work is additive and needs **no migration** (writes existing columns). Before the first live deploy, note that migrations `0000–0024` must be applied once (separate, tracked operational step — see §8).
+- Make agent memory trustworthy and user-controllable.
 
-**Definition of done for Wave 1:** real engagement data populates within 48h of publish (Pulse), every run shows an estimated cost (Quaestor), the brand-safety eval blocks regressions in CI (Vigil), comments are triaged and the auto-reply injection hole is closed (Sirius Triage), and classifiable run failures auto-recover within budget without overriding the human gate (Run Doctor).
+Non-goals:
 
----
+- No automatic cross-brand memory sharing.
 
-## 7. Research later
+Success metrics:
 
-Deferred deliberately — each needs a decision, a dependency, or a forcing function first. Revisit when the trigger fires.
+- Brand-safety hold rate.
+- User edits/approvals of memory suggestions.
+- Repeat generation satisfaction proxy: fewer reviewer edits.
 
-- **C2PA / SynthID cryptographic media provenance** (conflict C-1; T4 §D5). *Trigger:* a regulated/enterprise customer contractually requiring verifiable *image* credentials **and** a per-platform pilot proving manifests survive re-download. Text disclosure + native flag (PRD 7) is the baseline until then.
-- **Spend caps / budget governor** (the enforcement half of FinOps; T3 §G1, T4 §M3). *Trigger:* Quaestor (PRD 2) shipped and cost numbers validated against the bill. Then add per-tenant budgets at the two metered entry points, reusing the `usage`/rate-limit machinery.
-- **Campaigns as first-class objects ("Meridian")** (T4 §M1). *Trigger:* the analytics loop is closed (Pulse) so ROI/repurposing have data; then a multi-table `campaigns` migration + `campaignId` backfill + UI.
-- **Multi-brand workspaces ("Atrium")** (T4 §M5). *Trigger:* agency demand strong enough to justify the largest data-model change in the backlog (every `db/schema/*` + every repo + a brand switcher) — schedule as its own milestone with a reversible migration **after** the DB is live.
-- **Versioned Voice Card + exemplar retrieval ("Mnemosyne")** (T4 §M4). *Trigger:* a committed decision to add a vector capability (pgvector on Neon + embedding model + cost). Ship the versioning UI first; defer vectors.
-- **Semantic search / RAG over past content & comments** (T4 §D3). *Trigger:* a concrete retrieval use-case + the vector-store decision above. No embeddings/pgvector exist today.
-- **True tool-calling ReAct agent** (conflict C-4; T4 §D2). *Trigger:* a product need direct-call nodes can't satisfy, **plus** Quaestor + Vigil in place to bound cost and catch regressions. Until then keep deterministic nodes; add the **MCP direct-call node** (T4 §Q6) as the additive tool path.
-- **Parallel per-platform subagent fan-out / Dynamic Workflows** (trend §1; conflict C-3). *Trigger:* the per-step idempotency key (from Run Doctor) plus a fan-in/merge step; revisit once Opus 4.8 effort dials are wired as a cost lever.
-- **Productionized multi-tenant inbound A2A ("Legate") + agent-identity (Okta XAA / Entra Agent ID)** (T3 §F1, T4 §D4, trend §5). *Trigger:* a named enterprise partner; build a per-tenant credential→tenant auth model first (today's A2A is single-tenant, default-disabled — exposing it without this is a cross-tenant authz risk). Keep disabled pre-PMF.
-- **Dreaming-style memory consolidation job** (trend §3). *Trigger:* Pulse + Rigel Narratives shipped (so there's real signal to consolidate); then a scheduled job that curates `brand_profiles.learnedMemory` (winning formats, recurring banned-term hits, best windows) instead of letting it grow stale.
+Acceptance criteria:
 
----
+- User can view/edit/clear learned memory.
+- Next generation run uses the updated memory.
+- Unauthorized role cannot edit memory.
 
-## 8. Appendix
+### 5. Cross-Platform Consistency Auditor
 
-### Hard constraints every feature must respect (from T4)
-- **Two-lane execution:** `/api/generate` is capped at `maxDuration = 60` and runs the graph in-request (`app/api/generate/route.ts:16-17`); all long/multi-LLM work goes on the always-on BullMQ worker via a new queue + processor.
-- **Migrations `0000–0024` are generated, never applied** — the first live `drizzle-kit migrate` is itself an untested step; keep all new migrations additive + nullable.
-- **No vector store / no embeddings / no pgvector** — rules out RAG/semantic features until a deliberate vector decision.
-- **No LangGraph checkpointer** — intra-graph resilience is orchestrator idempotency only; "re-run from step" needs a checkpointer.
-- **Orchestrator one-agent-per-run key** (`orchestrator.ts:166-168`) — any retry/loop/fan-out of the same agent needs a per-step key first (prerequisite baked into Run Doctor).
-- **Prompt-injection surface:** AI auto-replies feed **raw, unbounded** commenter text into a public-posting prompt (`worker/processors/reply.ts:120-137`) — the highest-value target; fixed in Sirius Triage v1. Any new node ingesting external text inherits this risk — bound length, never let tool/comment output dictate control.
-- **Tenancy is app-enforced (`clerkUserId`), no RLS** — every new repo query must carry the tenant predicate.
-- **Secrets:** reuse `deriveSubKey(purpose)` (HKDF) off the validated `ENCRYPTION_KEY`; never store tokens/PII unencrypted.
-- **Next.js 16 breaking changes** (`AGENTS.md`) — read `node_modules/next/dist/docs/` before adding routes/actions; copy the in-repo route patterns.
+User story:
 
-### Source index
-- **T1 Repo Intelligence:** [`docs/research/01-repo-intelligence.md`](research/01-repo-intelligence.md)
-- **T2 Trends (URLs + dates):** [`docs/research/02-trends.md`](research/02-trends.md)
-- **T3 Feature Ideation (14 ideas):** [`docs/research/03-feature-ideation.md`](research/03-feature-ideation.md)
-- **T4 Feasibility & Risk (buckets + scores):** [`docs/research/04-feasibility.md`](research/04-feasibility.md)
-- Prior research extended by T2: [`ai-agent-trends-2026-06-22.md`](research/ai-agent-trends-2026-06-22.md), [`ai-agent-trends-2026-06-22-refresh.md`](research/ai-agent-trends-2026-06-22-refresh.md)
+As a marketer, I want the agent to catch contradictions and missing disclosures across platform variants, so campaigns do not publish inconsistent offers or claims.
 
-### Coverage / honesty notes
-- All four research files were written and read in full; none missing.
-- **T2** flagged two OpenAI model-launch pages returned HTTP 403 — GPT-5.x details are cited from the OpenAI API **changelog** (primary for dates/existence); capability superlatives labeled secondary. The MCP 2026-07-28 RC is post-cutoff/provisional — do not implement against it.
-- **T1/T4** could not verify per-connector `fetchMetrics` coverage or exercise anything at runtime (no live DB/Redis/LLM/social creds); all verdicts are code-verified, not behavior-verified. Pulse task #1 resolves the connector question before code is written.
+Why now:
 
-*Compiled 2026-06-24. Read-only synthesis of four cited research files; no code modified.*
+- Variants are already grouped by generated content/run, and review violations are persisted (`db/schema/generated-content.ts:69`, `lib/repos/content-reviews.ts:24`).
+- Castor already gates drafts before Atlas schedules (`lib/agents/castor/index.ts:94`, `lib/agents/atlas/index.ts:116`).
+
+Agent architecture:
+
+- Add comparison service after Lyra drafts and before Castor final decision.
+- Use deterministic checks for disclosure/URLs/dates/prices where possible; use LLM only for semantic contradictions.
+
+UX flow:
+
+1. Review queue shows campaign-level consistency findings.
+2. Variant editor highlights which platform differs.
+3. Reviewer can accept warning, edit the draft, or ask Lyra to revise.
+
+Backend/data changes:
+
+- MVP stores findings in existing `reviewViolations`.
+- Later add campaign-level summary if campaign object exists.
+
+Integrations:
+
+- LLM provider for semantic compare; no platform API.
+
+Guardrails/approval:
+
+- Block only clear contradictions/missing required disclosure.
+- Warn for soft tone differences.
+
+Observability/evals:
+
+- Count consistency findings by type.
+- Add fixtures for price/date/link/disclosure drift.
+
+Tests:
+
+- Table-driven compare tests.
+- Castor integration test that conflicting variants are held.
+
+Goals:
+
+- Reduce inconsistent multi-platform campaigns.
+
+Non-goals:
+
+- No engagement prediction.
+
+Success metrics:
+
+- Number of caught inconsistencies.
+- Reviewer override rate.
+- Reduction in post-publish edits/cancellations.
+
+Acceptance criteria:
+
+- Conflicting platform variants produce a review finding.
+- Findings are visible in review queue.
+- Accepted warning does not block approved drafts.
+
+### 6. Live Agent Run Control Room
+
+User story:
+
+As an operator, I want to watch an agent run progress live and understand what it is waiting on, so I can intervene without digging through logs.
+
+Why now:
+
+- Run pages, timeline builder, hash verification, and A2A SSE stream pattern already exist (`app/(dashboard)/runs/[runId]/page.tsx:24`, `lib/runs/timeline.ts:4`, `app/api/a2a/route.ts:142`).
+- T2 shows streaming/resumability is a current agent UX trend (`docs/research/02-trends.md:144`).
+
+Agent architecture:
+
+- No orchestration rewrite.
+- Add internal run-event SSE endpoint backed by `agent_runs` and `agent_steps`.
+
+UX flow:
+
+1. Run detail updates as steps start/complete/fail/pause.
+2. Pending approval cards deep-link to review queue.
+3. Cost/trace/integrity status are visible.
+
+Backend/data changes:
+
+- MVP: no schema change.
+- Later: event table for push-based streams.
+
+Integrations:
+
+- Existing LangSmith links when configured.
+
+Guardrails/approval:
+
+- Use tenant-scoped `getAgentRunForUser`.
+- Read-only MVP. Add resume/retry controls later with role checks.
+
+Observability/evals:
+
+- Track stream disconnects and polling interval.
+- Keep hash-chain validation visible.
+
+Tests:
+
+- SSE route rejects another tenant's run.
+- Timeline events render in chronological order.
+- Broken hash chain displays warning.
+
+Goals:
+
+- Improve trust in background agents.
+- Reduce support requests like "what is it doing?"
+
+Non-goals:
+
+- No conversational chat with the agent.
+
+Success metrics:
+
+- Run detail visits.
+- Time to resolve paused runs.
+- Reduced abandoned `awaiting_approval` runs.
+
+Acceptance criteria:
+
+- Owner can stream run step updates.
+- Unauthorized user receives 404/403.
+- Paused run shows exact reason and next action.
+
+### 7. Campaign Simulation Gate
+
+User story:
+
+As a creator, I want a final campaign-level readiness check before content leaves review, so I can catch strategic or policy issues that single-draft checks miss.
+
+Why now:
+
+- Castor already decides approve/hold and persists review results (`lib/agents/castor/index.ts:67`, `lib/repos/content-reviews.ts:24`).
+- Human approval is a major trend and an existing SocialFlow strength (`docs/research/02-trends.md:61`).
+
+Agent architecture:
+
+- Add a simulation/check agent or Castor sub-step that evaluates the whole draft bundle.
+- Output: campaign summary, top risks, variant-specific findings, recommendation.
+
+UX flow:
+
+1. Review queue shows campaign scorecard at top.
+2. Findings map to drafts.
+3. Reviewer can "revise risky drafts" or approve with warnings.
+
+Backend/data changes:
+
+- MVP: store campaign summary in agent step summary and per-draft findings in existing review fields.
+- Later: campaign object or review-summary table.
+
+Integrations:
+
+- LLM provider only.
+
+Guardrails/approval:
+
+- Treat simulation as advisory unless it finds deterministic block-level policy issues.
+- Do not auto-publish based only on simulation.
+
+Observability/evals:
+
+- Track simulation verdict vs reviewer outcome.
+- Add offline fixtures for known risk bundles.
+
+Tests:
+
+- Deterministic test for result shaping and mapping findings to draft ids.
+- Castor test that block-level simulation finding holds run.
+
+Goals:
+
+- Better pre-publish campaign quality.
+
+Non-goals:
+
+- No guaranteed engagement forecast.
+
+Success metrics:
+
+- Reviewer acceptance of simulation findings.
+- Reduced post-review edits.
+
+Acceptance criteria:
+
+- Campaign scorecard renders for multi-draft runs.
+- Findings link to affected drafts.
+- Review can proceed after allowed warning override.
+
+### 8. Scheduled Trend Watch Agent
+
+User story:
+
+As a creator, I want the app to keep watching my niche and suggest timely ideas, so I always have relevant content without starting manual research.
+
+Why now:
+
+- Vega research and research queue already exist (`lib/agents/vega/index.ts:40`, `worker/processors/research.ts:14`).
+- Search is already optionally wired through Tavily (`lib/agent/tools/web-search.ts:8`, `lib/agent/tools/web-search.ts:12`).
+
+Agent architecture:
+
+- Add saved watch config.
+- Worker schedules Vega runs for saved niches.
+- Dedupe ideas against generated content/research topic history.
+
+UX flow:
+
+1. Research page adds "Watches."
+2. User chooses niche, platforms, frequency, and source options.
+3. New ideas appear with "new since last run" and source snippets.
+
+Backend/data changes:
+
+- Add `research_watches` table or extend `research_topics` carefully.
+- Reuse `generated_content` idea rows.
+
+Integrations:
+
+- Tavily if configured; otherwise label "model-only" research.
+
+Guardrails/approval:
+
+- Ideas are drafts/recommendations, not publish actions.
+- Pro/Premium gating follows current research entitlement pattern (`app/(dashboard)/research/actions.ts:14`).
+
+Observability/evals:
+
+- Track watch run success/failure and idea acceptance.
+- Store search status/source count.
+
+Tests:
+
+- Watch scheduler creates exactly one run per period.
+- Retry does not duplicate ideas.
+- Missing Tavily key degrades visibly.
+
+Goals:
+
+- Increase idea supply and research engagement.
+
+Non-goals:
+
+- No automatic publishing from watches.
+
+Success metrics:
+
+- Ideas accepted or converted to drafts.
+- Watch retention.
+- Research run failure rate.
+
+Acceptance criteria:
+
+- User can create/pause/delete a watch.
+- Watch creates research topic and idea rows.
+- UI shows source status.
+
+### 9. Evergreen Content Recycler 2.0
+
+User story:
+
+As a social operator, I want the agent to identify old winning posts and refresh them safely, so high-performing content keeps working without repeating itself.
+
+Why now:
+
+- The repo already lists recyclable winners older than 30 days and has a repurpose action (`lib/repos/posts.ts:361`, `app/(dashboard)/dashboard/actions.ts:10`).
+- Generated content can point back to source targets (`db/schema/generated-content.ts:76`).
+
+Agent architecture:
+
+- Expand current repurpose action into a workflow that uses metrics, source content, brand memory, and optional trend context.
+
+UX flow:
+
+1. Dashboard shows top recyclable winners.
+2. User clicks "Create refresh campaign."
+3. Agent drafts variants and routes through review.
+
+Backend/data changes:
+
+- MVP: no schema change; keep `derivedFromTargetId`.
+- Later: evergreen schedule preferences.
+
+Integrations:
+
+- Existing metrics and LLM.
+
+Guardrails/approval:
+
+- Enforce freshness window and similarity check.
+- Always route refreshed drafts through review.
+
+Observability/evals:
+
+- Compare refreshed post performance to source.
+- Track duplicate/similarity hold rate.
+
+Tests:
+
+- Reject too-new target.
+- Store `derivedFromTargetId`.
+- Similarity checker holds near-duplicates.
+
+Goals:
+
+- More output from proven content.
+
+Non-goals:
+
+- No automatic repost without review.
+
+Success metrics:
+
+- Refreshed drafts scheduled.
+- Engagement lift vs account baseline.
+- Duplicate content warnings.
+
+Acceptance criteria:
+
+- Winner card can generate refreshed drafts.
+- Drafts are linked to source target.
+- Review queue receives refreshed variants.
+
+### 10. Agent Spend and Budget Governor
+
+User story:
+
+As an owner/admin, I want to cap or pause expensive agent runs, so automated content workflows do not exceed budget expectations.
+
+Why now:
+
+- Usage capture, cost estimation, and run cost aggregation already exist (`lib/llm/usage.ts:57`, `lib/billing/cost-model.ts:46`, `lib/repos/agent-runs.ts:183`).
+- T2 identifies governance and observability as production-agent expectations (`docs/research/02-trends.md:161`, `docs/research/02-trends.md:178`).
+
+Agent architecture:
+
+- Budget guard wraps model-invoking steps.
+- If a predicted or actual threshold is exceeded, pause run and require approval or cheaper mode.
+
+UX flow:
+
+1. Run start form shows estimated budget for selected template/platform count.
+2. Run detail shows actual spend by step.
+3. If budget exceeded, run pauses with approve/stop options.
+
+Backend/data changes:
+
+- MVP: per-run budget in `AgentRunPlan`.
+- Later: account/brand monthly budgets and alert thresholds.
+
+Integrations:
+
+- LLM provider cost model only.
+
+Guardrails/approval:
+
+- Costs are estimates, never billed amounts.
+- Only owner/admin can raise budget.
+
+Observability/evals:
+
+- Track estimate vs actual.
+- Alert on unknown model/rate fallback.
+
+Tests:
+
+- Fake usage exceeds budget and prevents next enqueue.
+- Unknown model uses fallback and displays estimate.
+- Non-admin cannot approve budget increase.
+
+Goals:
+
+- Protect margin and user trust.
+
+Non-goals:
+
+- No payment/billing-provider changes in MVP.
+
+Success metrics:
+
+- Runs paused before overspend.
+- Estimate error rate.
+- Admin budget override rate.
+
+Acceptance criteria:
+
+- Run can declare budget.
+- Budget crossing pauses before next costly step.
+- UI clearly says estimate, not charge.
+
+## 6. Build First
+
+Build first as a tight reliability/governance slice, not a new autonomous feature:
+
+1. Extract platform constraint validation.
+   - Create a shared pure validation module used by `app/(dashboard)/create/actions.ts:186` and composer UI.
+   - Add table-driven tests for every connector capability from `lib/platforms/types.ts:31` and `lib/platforms/constants.ts:13`.
+
+2. Add Run Doctor classifier for publish targets.
+   - Extend or wrap `lib/agents/recovery.ts:35` with publish-target classes.
+   - Use `post_targets.lastError`, `attempts`, `status`, and account status (`db/schema/post-targets.ts:46`, `db/schema/post-targets.ts:48`, `db/schema/social-accounts.ts:30`).
+   - Add tests mirroring `lib/agents/recovery.test.ts:6`.
+
+3. Add dashboard triage UI.
+   - Replace the current failed-target list area with reason/action cards in `app/(dashboard)/dashboard/page.tsx:248`.
+   - Link to run detail where available.
+
+4. Add safe retry action.
+   - Server action must re-check owner, target status, failure class, and attempts before enqueueing.
+   - Do not retry account/policy/fatal failures.
+
+5. Add account health evaluator.
+   - Compute local health from `social_accounts` fields first.
+   - Show badges on accounts page (`app/(dashboard)/accounts/page.tsx:35`) and composer warnings.
+
+6. Verification gates.
+   - Run `npm run lint`, `npm run typecheck`, `npm run test`, and targeted new tests.
+   - Do not require live provider credentials for this first slice.
+
+Expected first deliverable:
+
+- A user can open the dashboard, see why each failed publish is blocked, fix or retry safely, and see account/platform constraints before scheduling new content.
+
+## 7. Research Later
+
+Defer these until the first slice is shipped and live-provider behavior is better understood:
+
+- SocialFlow MCP Server: design read-only tools, scoped tokens, audit table, and revocation before implementation.
+- Public A2A integrations: keep disabled until tenant trust boundaries and buyer demand are validated.
+- Reply Copilot Inbox: design Meta-only held-reply workflow first; never relax abuse/complaint auto-reply block without a separate review.
+- Source-to-Campaign Repurposer: research copyright/source citation model and SSRF-safe fetching before URL ingest.
+- Metrics-Driven Variant Bandit: collect sample-size evidence and start with recommendations before auto-allocation.
+- Client Approval Portal: design external token/expiry/email-binding/audit model.
+- Campaign Objects: write a schema/IA migration plan because it touches many core tables.
+- Browser/computer-use workflows: revisit only if a specific platform workflow cannot be achieved through official APIs.
+- C2PA/SynthID or deep AI-disclosure automation: master plan already notes disclosure-policy deadlines and deferral decisions (`docs/MASTER_PLAN.md:309`); this needs a compliance-specific design pass.
+
+## Final Self-Check
+
+- The roadmap is grounded in T1 repo intelligence, T2 primary-source trends, T3 feature ideas, and T4 feasibility ranking.
+- Every top feature ties to existing repo files and avoids code changes.
+- The plan favors buildable, governed agent workflows over generic chatbot features.
+- External sources include URL plus date or access date.
