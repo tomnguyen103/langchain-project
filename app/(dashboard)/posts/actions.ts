@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/current-role";
 import { consumeQuota, releaseQuotaForPeriod } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { decidePublishTargetRecovery } from "@/lib/agents/recovery";
@@ -38,6 +39,7 @@ function revalidate(postId: string) {
 /** Cancel a scheduled target: remove its job and return it to an unscheduled state. */
 export async function cancelTarget(targetId: string) {
   const userId = await requireUserId();
+  await requireRole("creator");
   const { target, post } = await loadOwnedTarget(targetId, userId);
   if (target.status !== "queued" && target.status !== "pending") {
     throw new Error("Only scheduled targets can be canceled.");
@@ -77,6 +79,7 @@ export async function cancelTarget(targetId: string) {
 /** Retry a failed target immediately. */
 export async function retryTarget(targetId: string) {
   const userId = await requireUserId();
+  await requireRole("creator");
   const { target, post } = await loadOwnedTarget(targetId, userId);
   if (target.status !== "failed") {
     throw new Error("Only failed targets can be retried.");
@@ -138,6 +141,7 @@ export async function duplicatePost(
   postId: string,
 ): Promise<{ postId: string }> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const post = await getPostWithTargets(postId, userId);
   if (!post) throw new Error("Post not found.");
 
@@ -165,6 +169,7 @@ export async function duplicatePost(
 /** Pull back engagement metrics for each published target of a post. */
 export async function refreshPostMetrics(postId: string): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const post = await getPostWithTargets(postId, userId);
   if (!post) throw new Error("Post not found.");
 
@@ -196,6 +201,7 @@ export async function refreshPostMetrics(postId: string): Promise<void> {
 /** Reschedule every not-yet-published target of a post to a new time. */
 export async function reschedulePost(postId: string, scheduledAtIso: string) {
   const userId = await requireUserId();
+  await requireRole("creator");
   const post = await getPostWithTargets(postId, userId);
   if (!post) throw new Error("Post not found.");
 

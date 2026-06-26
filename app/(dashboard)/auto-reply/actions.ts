@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { MatchType, Platform, ReplyCopilotDraft } from "@/db/schema";
+import { requireRole } from "@/lib/auth/current-role";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import {
@@ -128,6 +129,7 @@ function parseRule(input: RuleFormInput) {
 
 export async function createRuleAction(input: RuleFormInput): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const limits = await getPlanLimits();
   if (!limits.autoReply) {
     throw new Error("Auto-reply is a Pro feature. Upgrade to use it.");
@@ -151,6 +153,7 @@ export async function toggleRuleAction(
   enabled: boolean,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const rule = await getUserRule(id, userId);
   if (!rule) throw new Error("Rule not found.");
   await updateRule(id, userId, { enabled });
@@ -159,12 +162,14 @@ export async function toggleRuleAction(
 
 export async function deleteRuleAction(id: string): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   await deleteRule(id, userId);
   revalidatePath("/auto-reply");
 }
 
 export async function prepareReplyCopilotDraftsAction(): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const limits = await getPlanLimits();
   if (!limits.autoReply) {
     throw new Error("Auto-reply is a Pro feature. Upgrade to use it.");
@@ -203,6 +208,7 @@ export async function saveReplyCopilotDraftAction(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const item = await requireReplyDraft(formData, userId);
   if (item.draft.status === "sent" || item.draft.status === "dismissed") {
     throw new Error("This draft is closed.");
@@ -221,6 +227,7 @@ export async function dismissReplyCopilotDraftAction(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const item = await requireReplyDraft(formData, userId);
   if (item.draft.status === "sent") throw new Error("This draft was sent.");
 
@@ -237,6 +244,7 @@ export async function sendReplyCopilotDraftAction(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const item = await requireReplyDraft(formData, userId);
   const { draft, comment, account } = item;
 

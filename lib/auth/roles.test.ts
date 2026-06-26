@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { canApprove, canCreate, canManageTeam, hasRole, isRole } from "./roles";
+import { roleForMissingMembership } from "./roles";
 
 describe("roles", () => {
   it("ranks the hierarchy (higher role satisfies lower requirement)", () => {
@@ -37,5 +38,12 @@ describe("roles", () => {
     assert.equal(isRole("approver"), true);
     assert.equal(isRole("superuser"), false);
     assert.equal(isRole(""), false);
+  });
+
+  it("falls unassigned org members back to least privilege", () => {
+    assert.equal(roleForMissingMembership("org:admin"), "admin");
+    assert.equal(roleForMissingMembership("org:member"), "viewer");
+    assert.equal(roleForMissingMembership(null), "viewer");
+    assert.equal(roleForMissingMembership("unknown"), "viewer");
   });
 });

@@ -14,10 +14,25 @@ jobs:
   build:
     name: Lint · Typecheck · Build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: socialflow
+          POSTGRES_PASSWORD: socialflow
+          POSTGRES_DB: socialflow_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U socialflow -d socialflow_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       # Build without real secrets — see lib/env.ts.
       SKIP_ENV_VALIDATION: "true"
-      DATABASE_URL: "postgresql://user:pass@localhost:5432/db"
+      DATABASE_URL: "postgresql://socialflow:socialflow@localhost:5432/socialflow_test"
+      DB_DRIVER: "node-postgres"
       REDIS_URL: "redis://localhost:6379"
       # Valid-format placeholder (points to a non-existent instance) so ClerkProvider builds.
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_Y2xlcmsuZXhhbXBsZS5jb20k"
@@ -58,8 +73,17 @@ jobs:
         # Fails if the committed Drizzle migrations are inconsistent.
         run: npx drizzle-kit check
 
+      - name: Provision test database schema
+        # The integration database is throwaway; push the current checked schema
+        # instead of replaying historical migrations that include superseded
+        # branch-generated duplicates.
+        run: npm run db:push -- --force
+
       - name: Test
         run: npm run test
+
+      - name: Integration tests
+        run: npm run test:integration
 
       - name: Brand-safety gate
         # Deterministic, key-free regression gate (Vigil): banned-term/PII examples

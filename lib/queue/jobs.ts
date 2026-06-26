@@ -164,6 +164,18 @@ export async function enqueueAgentStep(opts: {
   return jobId;
 }
 
+export async function cancelAgentStep(
+  runId: string,
+  agent: AgentName,
+): Promise<void> {
+  const jobId = agentStepJobId(runId, agent);
+  const job = await getQueue(QueueName.AgentStep).getJob(jobId);
+  if (job) {
+    await job.remove();
+  }
+  await deleteSchedule(QueueName.AgentStep, jobId);
+}
+
 export type CommentPollJobData = { socialAccountId: string };
 export type CommentReplyJobData = { commentEventId: string };
 

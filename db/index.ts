@@ -5,6 +5,8 @@ import {
   drizzle as drizzleServerless,
   type NeonDatabase,
 } from "drizzle-orm/neon-serverless";
+import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
+import { Pool as PgPool } from "pg";
 
 import { env } from "@/lib/env";
 import * as schema from "./schema";
@@ -18,6 +20,8 @@ import * as schema from "./schema";
  *   BullMQ worker issues many sequential queries per job (e.g. comment-poll:
  *   watermark + ingest + update per comment); a persistent connection avoids
  *   paying an HTTPS handshake on every one.
+ * - **CI/local integration (`DB_DRIVER=node-postgres`):** a local Postgres
+ *   driver for throwaway databases that cannot be reached through Neon.
  *
  * Repos import `db` and are driver-agnostic — they use only the shared query
  * builder. The one cross-driver wrinkle (atomic multi-statement writes) is
@@ -26,10 +30,17 @@ import * as schema from "./schema";
 type AppDatabase = NeonHttpDatabase<typeof schema>;
 
 const usesPool = env.DB_DRIVER === "pool";
+const usesNodePostgres = env.DB_DRIVER === "node-postgres";
 
 let pool: Pool | undefined;
+let pgPool: PgPool | undefined;
 
 function createDb(): AppDatabase {
+  if (usesNodePostgres) {
+    pgPool = new PgPool({ connectionString: env.DATABASE_URL });
+    return drizzleNodePostgres(pgPool, { schema }) as unknown as AppDatabase;
+  }
+
   if (usesPool) {
     // The WebSocket constructor (Node) is provided by the worker entry
     // (worker/load-env.ts) before this runs; the app never reaches this branch.
@@ -61,8 +72,10 @@ export { schema };
 export async function runAtomicWrite<
   T extends readonly [BatchItem<"pg">, ...BatchItem<"pg">[]],
 >(build: (exec: AppDatabase) => T): Promise<BatchResponse<T>> {
-  if (usesPool) {
-    return (db as unknown as NeonDatabase<typeof schema>).transaction(
+  if (usesPool || usesNodePostgres) {
+    return (
+      db as unknown as Pick<NeonDatabase<typeof schema>, "transaction">
+    ).transaction(
       async (tx) => {
         const queries = build(tx as unknown as AppDatabase);
         const results: unknown[] = [];
@@ -79,4 +92,5 @@ export async function runAtomicWrite<
 /** Close the worker's connection pool on shutdown. No-op for the HTTP driver. */
 export async function closeDbPool(): Promise<void> {
   if (pool) await pool.end();
+  if (pgPool) await pgPool.end();
 }

@@ -2,18 +2,23 @@ import { auth } from "@clerk/nextjs/server";
 
 import { getMembershipRole } from "@/lib/repos/memberships";
 
-import { DEFAULT_ROLE, hasRole, type Role } from "./roles";
+import {
+  DEFAULT_ROLE,
+  hasRole,
+  roleForMissingMembership,
+  type Role,
+} from "./roles";
 
 /**
- * The caller's workspace role. Solo users (no active org) and org members with
- * no explicit membership row fall back to DEFAULT_ROLE, so existing single-user
- * flows keep full access; an admin narrows roles from the team page.
+ * The caller's workspace role. Solo users (no active org) keep owner access.
+ * Active-org users without an explicit membership row fall back to Clerk's org
+ * role when it maps cleanly, otherwise viewer.
  */
 export async function getCurrentRole(): Promise<Role> {
-  const { userId, orgId } = await auth();
+  const { userId, orgId, orgRole } = await auth();
   if (!userId) throw new Error("Unauthorized");
   if (!orgId) return DEFAULT_ROLE;
-  return (await getMembershipRole(orgId, userId)) ?? DEFAULT_ROLE;
+  return (await getMembershipRole(orgId, userId)) ?? roleForMissingMembership(orgRole);
 }
 
 /** Throw unless the caller's role meets or exceeds `required`. Returns the role. */

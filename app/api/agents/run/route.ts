@@ -2,20 +2,19 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { platformEnum, type Platform } from "@/db/schema";
-import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import {
+  AgentRunForbiddenError,
+  AgentRunRateLimitedError,
+  QuotaExceededError,
+  startMeteredAgentRun,
+} from "@/lib/agents/metered-run";
 import {
   buildRunBudget,
   estimateAgentRunCostUsd,
 } from "@/lib/billing/agent-budget";
-import {
-  consumeQuota,
-  getPlanLimits,
-  QuotaExceededError,
-  releaseQuota,
-} from "@/lib/billing/entitlements";
+import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { env } from "@/lib/env";
-import { rateLimit } from "@/lib/rate-limit";
 
 // Orion + the agent pipeline touch BullMQ/Redis + the LangGraph engine, so this
 // must run on the Node.js runtime (not edge).
@@ -63,40 +62,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Autonomous runs bundle niche research + AI generation — a Pro+ feature,
   // gated identically to the /research action and metered like /api/generate.
-  const limits = await getPlanLimits();
-  if (!limits.research) {
-    return NextResponse.json(
-      { error: "Autonomous runs are a Pro feature. Upgrade to use them." },
-      { status: 403 },
-    );
-  }
-
-  if (!(await rateLimit(`agents-run:${clerkUserId}`, 10, 60_000))) {
-    return NextResponse.json(
-      { error: "Too many requests. Please try again shortly." },
-      { status: 429 },
-    );
-  }
-
   try {
-    await consumeQuota(clerkUserId, "ai_generations");
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      return NextResponse.json({ error: error.message }, { status: 429 });
-    }
-    throw error;
-  }
-
-  try {
-    const { runId } = await orchestrator.startRun({
+    const { runId } = await startMeteredAgentRun({
       clerkUserId,
       plan: { niche: parsed.data.niche, platforms, budget },
+      limits: await getPlanLimits(),
+      rateLimitBucket: `agents-run:${clerkUserId}`,
     });
     return NextResponse.json({ runId });
   } catch (error) {
-    // Refund the unit so a failed start doesn't burn the user's allowance.
-    // releaseQuota reports its own failures (no silent swallow).
-    await releaseQuota(clerkUserId, "ai_generations");
+    if (error instanceof AgentRunForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    if (
+      error instanceof AgentRunRateLimitedError ||
+      error instanceof QuotaExceededError
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 429 });
+    }
     throw error;
   }
 }

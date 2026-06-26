@@ -1,3 +1,9 @@
+import {
+  MEDIA_UPLOAD_FOLDER,
+  imageKitUploadChecks,
+  validateMediaUpload,
+} from "@/lib/media/validation";
+
 export type ImageKitUploadResult = {
   fileId: string;
   url: string;
@@ -13,11 +19,18 @@ export type ImageKitUploadResult = {
 export async function uploadToImageKit(
   file: File,
 ): Promise<ImageKitUploadResult> {
-  const authRes = await fetch("/api/imagekit/auth");
+  validateMediaUpload({ mimeType: file.type, size: file.size });
+  const authParams = new URLSearchParams({
+    mimeType: file.type,
+    size: String(file.size),
+  });
+  const authRes = await fetch(`/api/imagekit/auth?${authParams}`);
   if (!authRes.ok) {
-    throw new Error("Could not authorize upload");
+    const err = await authRes.json().catch(() => null);
+    throw new Error(err?.error ?? "Could not authorize upload");
   }
-  const { token, expire, signature, publicKey } = await authRes.json();
+  const { token, expire, signature, publicKey, folder, checks } =
+    await authRes.json();
 
   const form = new FormData();
   form.append("file", file);
@@ -27,7 +40,8 @@ export async function uploadToImageKit(
   form.append("expire", String(expire));
   form.append("signature", signature);
   form.append("useUniqueFileName", "true");
-  form.append("folder", "/socialflow");
+  form.append("folder", folder ?? MEDIA_UPLOAD_FOLDER);
+  form.append("checks", checks ?? imageKitUploadChecks());
 
   const res = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
     method: "POST",

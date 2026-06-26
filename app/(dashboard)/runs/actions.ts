@@ -10,6 +10,12 @@ import {
 } from "@/lib/agents/run-templates";
 import { AgentName } from "@/lib/agents/types";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import {
+  AgentRunForbiddenError,
+  AgentRunRateLimitedError,
+  QuotaExceededError,
+  startMeteredAgentRun,
+} from "@/lib/agents/metered-run";
 import { requireRole } from "@/lib/auth/current-role";
 import {
   approveRunBudget,
@@ -18,12 +24,7 @@ import {
   isBudgetPauseStep,
   stepCostUsd,
 } from "@/lib/billing/agent-budget";
-import {
-  consumeQuota,
-  getPlanLimits,
-  QuotaExceededError,
-  releaseQuota,
-} from "@/lib/billing/entitlements";
+import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { env } from "@/lib/env";
 import {
@@ -60,14 +61,10 @@ export async function startAgentRunAction(input: {
   budgetUsd: number;
 }): Promise<{ runId: string }> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const parsed = StartRunInput.safeParse(input);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message ?? "Invalid run.");
-  }
-
-  const limits = await getPlanLimits();
-  if (!limits.research) {
-    throw new Error("Autonomous runs are a Pro feature. Upgrade to use them.");
   }
 
   const platforms = assertPlatforms(parsed.data.platforms);
@@ -88,24 +85,23 @@ export async function startAgentRunAction(input: {
   });
 
   try {
-    await consumeQuota(userId, "ai_generations");
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      throw new Error(error.message);
-    }
-    throw error;
-  }
-
-  try {
-    const { runId } = await orchestrator.startRun({
+    const { runId } = await startMeteredAgentRun({
       clerkUserId: userId,
       plan: runTemplate.plan,
       firstStep: runTemplate.firstStep,
+      limits: await getPlanLimits(),
+      rateLimitBucket: `agents-run:${userId}`,
     });
     revalidatePath("/runs");
     return { runId };
   } catch (error) {
-    await releaseQuota(userId, "ai_generations");
+    if (
+      error instanceof AgentRunForbiddenError ||
+      error instanceof AgentRunRateLimitedError ||
+      error instanceof QuotaExceededError
+    ) {
+      throw new Error(error.message);
+    }
     throw error;
   }
 }

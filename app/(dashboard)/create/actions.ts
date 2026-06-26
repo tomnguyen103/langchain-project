@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 
 import type { MediaType, NewPostTarget, Platform } from "@/db/schema";
+import { requireRole } from "@/lib/auth/current-role";
 import { consumeQuota, getCurrentPlan } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { env } from "@/lib/env";
 import { buildTransformUrl, getVariantSpec } from "@/lib/imagekit/transform";
 import { isAllowedMediaUrl } from "@/lib/imagekit/url";
+import { deriveMediaType, validateMediaUpload } from "@/lib/media/validation";
 import {
   firstBlockingIssue,
   validatePublishRequest,
@@ -35,12 +37,6 @@ export type SavedMedia = {
   type: MediaType;
 };
 
-function deriveType(mimeType?: string): MediaType {
-  if (mimeType?.startsWith("video/")) return "video";
-  if (mimeType === "image/gif") return "gif";
-  return "image";
-}
-
 /** The trusted ImageKit host (e.g. "ik.imagekit.io") for media-URL validation. */
 function imageKitHost(): string | null {
   try {
@@ -60,6 +56,8 @@ export async function saveUploadedMedia(input: {
   mimeType?: string;
 }): Promise<SavedMedia> {
   const userId = await requireUserId();
+  await requireRole("creator");
+  validateMediaUpload({ mimeType: input.mimeType, size: input.size });
   // SSRF guard: only persist media URLs on the trusted ImageKit host — the
   // publish path later fetches these server-side (e.g. YouTube uploads).
   const host = imageKitHost();
@@ -73,7 +71,7 @@ export async function saveUploadedMedia(input: {
   }
   const asset = await createMediaAsset({
     clerkUserId: userId,
-    type: deriveType(input.mimeType),
+    type: deriveMediaType(input.mimeType),
     imagekitFileId: input.fileId,
     url: input.url,
     thumbnailUrl: input.thumbnailUrl ?? null,
@@ -100,6 +98,7 @@ export async function generateMediaVariants(
   specKeys: string[],
 ): Promise<SavedMedia[]> {
   const userId = await requireUserId();
+  await requireRole("creator");
 
   const source = await getMediaAsset(assetId);
   if (!source || source.clerkUserId !== userId) {
@@ -160,6 +159,7 @@ export async function createPost(
   input: CreatePostInput,
 ): Promise<{ postId: string }> {
   const userId = await requireUserId();
+  await requireRole("creator");
 
   if (input.accountIds.length === 0) {
     throw new Error("Select at least one account to publish to.");

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { requireRole } from "@/lib/auth/current-role";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { requireUserId } from "@/lib/clerk";
 import { unregisterCommentPoll, unregisterMetricsPoll } from "@/lib/queue/jobs";
@@ -20,6 +21,7 @@ const DISCORD_WEBHOOK_RE =
 
 export async function disconnectAccount(formData: FormData) {
   const userId = await requireUserId();
+  await requireRole("creator");
   const id = formData.get("id");
   if (typeof id !== "string" || id.length === 0) return;
 
@@ -40,6 +42,7 @@ export async function disconnectAccount(formData: FormData) {
 /** Connect a Discord channel via a pasted incoming-webhook URL (no OAuth). */
 export async function connectDiscordWebhook(formData: FormData): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const url = (formData.get("webhookUrl") ?? "").toString().trim();
   const match = DISCORD_WEBHOOK_RE.exec(url);
   if (!match) {

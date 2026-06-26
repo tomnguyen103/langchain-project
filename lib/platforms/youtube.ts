@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { SocialAccount } from "@/db/schema";
 
 import { env } from "@/lib/env";
+import { MAX_VIDEO_BYTES, validateMediaUpload } from "@/lib/media/validation";
 import { decrypt } from "@/lib/utils/crypto";
 import { AbstractConnector } from "./base";
 import { PLATFORM_META } from "./constants";
@@ -37,6 +38,12 @@ class YouTubeConnector extends AbstractConnector {
     if (!video) {
       throw new Error("YouTube requires a video to publish.");
     }
+    if (video.bytes != null) {
+      validateMediaUpload({
+        mimeType: video.mimeType ?? "video/mp4",
+        size: video.bytes,
+      });
+    }
 
     const videoRes = await fetch(video.url, {
       signal: AbortSignal.timeout(60_000),
@@ -47,7 +54,12 @@ class YouTubeConnector extends AbstractConnector {
     if (!videoRes.ok) {
       throw new Error(`Couldn't fetch video to upload (${videoRes.status})`);
     }
-    const bytes = Buffer.from(await videoRes.arrayBuffer());
+    const contentLength = Number(videoRes.headers.get("content-length") ?? NaN);
+    if (Number.isFinite(contentLength) && contentLength > MAX_VIDEO_BYTES) {
+      throw new Error("YouTube video is too large to publish safely.");
+    }
+    const bytes = await readResponseBuffer(videoRes, MAX_VIDEO_BYTES);
+    validateMediaUpload({ mimeType: video.mimeType ?? "video/mp4", size: bytes.length });
 
     const boundary = `socialflow_${randomUUID()}`;
     const metadata = JSON.stringify({
@@ -133,6 +145,34 @@ class YouTubeConnector extends AbstractConnector {
       scopes: token.scope ? token.scope.split(" ") : undefined,
     };
   }
+}
+
+async function readResponseBuffer(
+  response: Response,
+  maxBytes: number,
+): Promise<Buffer> {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > maxBytes) {
+      throw new Error("YouTube video is too large to publish safely.");
+    }
+    return buffer;
+  }
+
+  const chunks: Buffer[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error("YouTube video is too large to publish safely.");
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total);
 }
 
 export const youtubeConnector = new YouTubeConnector();

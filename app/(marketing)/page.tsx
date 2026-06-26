@@ -100,42 +100,11 @@ const steps = [
   },
 ];
 
-// Stages a post moves through — drives the hero's illustrative pipeline.
-const pipeline = [
-  {
-    icon: Search,
-    title: "Research the niche",
-    detail: "The agent gathers what's trending and worth saying.",
-  },
-  {
-    icon: Wand2,
-    title: "Draft in your voice",
-    detail: "Platform-tailored captions and posts, ready to approve.",
-  },
-  {
-    icon: CalendarClock,
-    title: "Schedule the queue",
-    detail: "Up to seven posts a day, timed to land.",
-  },
-  {
-    icon: Send,
-    title: "Publish & reply",
-    detail: "Posts go live automatically; comments get answered.",
-  },
-];
-
 export default function LandingPage() {
   return (
     <>
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 -top-40 -z-10 flex justify-center"
-        >
-          <div className="bg-primary/20 size-[40rem] rounded-full blur-3xl" />
-        </div>
-
         <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 lg:grid-cols-2 lg:py-28">
           <div>
             <Badge variant="secondary" className="mb-5">
@@ -165,32 +134,80 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Agent pipeline — an honest illustration of the stages a post
-              moves through, not a faked product screenshot with invented data. */}
-          <div className="bg-primary/5 ring-primary/10 rounded-2xl p-6 ring-1 sm:p-8">
-            <ol aria-label="How the agent works">
-              {pipeline.map((stage, i) => {
-                const last = i === pipeline.length - 1;
-                return (
-                  <li key={stage.title} className="flex gap-4">
-                    <div className="flex flex-col items-center">
-                      <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm">
-                        <stage.icon className="size-5" />
+          {/* Product workflow preview based on the live dashboard surfaces. */}
+          <div
+            className="overflow-hidden rounded-2xl border bg-background shadow-xl shadow-primary/10"
+            aria-label="SocialFlow product workflow preview"
+          >
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-lg">
+                  <Sparkles className="size-4" aria-hidden />
+                </span>
+                <span className="font-semibold">SocialFlow</span>
+              </div>
+              <Badge variant="secondary">Run live</Badge>
+            </div>
+            <div className="grid md:grid-cols-[1.2fr_0.8fr]">
+              <div className="space-y-4 border-b p-5 md:border-r md:border-b-0">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Composer</p>
+                    <p className="text-muted-foreground text-xs">
+                      3 platform variants ready
+                    </p>
+                  </div>
+                  <Badge variant="outline">Brand safe</Badge>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-sm leading-6">
+                    Turn your best customer question into a practical launch
+                    tip, then tailor the hook for each channel.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {["Instagram", "LinkedIn", "YouTube"].map((platform) => (
+                      <span
+                        key={platform}
+                        className="rounded-full border bg-background px-2.5 py-1 text-xs font-medium"
+                      >
+                        {platform}
                       </span>
-                      {!last && (
-                        <span aria-hidden className="bg-border my-1.5 w-px flex-1" />
-                      )}
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  {[
+                    ["12", "Queued"],
+                    ["4", "Needs review"],
+                    ["97%", "Policy pass"],
+                  ].map(([value, label]) => (
+                    <div key={label} className="rounded-lg border p-3">
+                      <div className="text-base font-semibold">{value}</div>
+                      <div className="text-muted-foreground">{label}</div>
                     </div>
-                    <div className={last ? "pt-2" : "pb-7 pt-2"}>
-                      <div className="font-medium">{stage.title}</div>
-                      <p className="text-muted-foreground mt-0.5 text-sm text-pretty">
-                        {stage.detail}
-                      </p>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-4 p-5">
+                <p className="text-sm font-medium">Run timeline</p>
+                {[
+                  ["Research", "Trends gathered"],
+                  ["Draft", "Variants generated"],
+                  ["Review", "Approved"],
+                  ["Publish", "Scheduled"],
+                ].map(([label, detail]) => (
+                  <div key={label} className="flex gap-3">
+                    <span className="bg-primary/10 text-primary mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full">
+                      <Check className="size-3.5" aria-hidden />
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium">{label}</p>
+                      <p className="text-muted-foreground text-xs">{detail}</p>
                     </div>
-                  </li>
-                );
-              })}
-            </ol>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>

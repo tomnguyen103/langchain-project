@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { platformEnum, type Platform } from "@/db/schema";
 import { generateApprovalToken } from "@/lib/approval-links/tokens";
 import { AgentName } from "@/lib/agents/types";
-import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import { startMeteredAgentRun } from "@/lib/agents/metered-run";
+import { requireRole } from "@/lib/auth/current-role";
 import {
   buildRunBudget,
   estimateAgentRunCostUsd,
@@ -43,6 +44,7 @@ function platformsFromForm(formData: FormData): Platform[] {
 
 export async function createCampaignAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const name = String(formData.get("name") ?? "").trim();
   const brief = String(formData.get("brief") ?? "").trim();
   const platforms = platformsFromForm(formData);
@@ -67,6 +69,7 @@ export async function createCampaignFromTemplateAction(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const templateKey = String(formData.get("templateKey") ?? "");
   const accounts = await listSocialAccounts(userId);
   const availablePlatforms = [
@@ -105,6 +108,7 @@ export async function createCampaignFromTemplateAction(
 
 export async function addCampaignSourceAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const campaignId = String(formData.get("campaignId") ?? "");
   const campaign = await getUserCampaign(campaignId, userId);
   if (!campaign) throw new Error("Campaign not found.");
@@ -138,6 +142,7 @@ export async function startCampaignSourceRunAction(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const limits = await getPlanLimits();
   if (!limits.research) {
     throw new Error("Campaign repurposing is a Pro feature. Upgrade to use it.");
@@ -166,7 +171,7 @@ export async function startCampaignSourceRunAction(
     provider: env.LLM_PROVIDER,
   });
 
-  const { runId } = await orchestrator.startRun({
+  const { runId } = await startMeteredAgentRun({
     clerkUserId: userId,
     plan: {
       niche: topic,
@@ -179,6 +184,8 @@ export async function startCampaignSourceRunAction(
       agent: AgentName.Lyra,
       payload: { topic, platforms },
     },
+    limits,
+    rateLimitBucket: `campaign-source-run:${userId}`,
   });
   await enqueueWebhookEvent({
     clerkUserId: userId,
@@ -193,6 +200,7 @@ export async function createCampaignExperimentAction(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const campaignId = String(formData.get("campaignId") ?? "");
   const campaign = await getUserCampaign(campaignId, userId);
   if (!campaign) throw new Error("Campaign not found.");
@@ -216,6 +224,7 @@ export async function createCampaignApprovalLinkAction(input: {
   email: string;
 }): Promise<{ url: string }> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const campaign = await getUserCampaign(input.campaignId, userId);
   if (!campaign) throw new Error("Campaign not found.");
   const email = input.email.trim().toLowerCase();
@@ -238,6 +247,7 @@ export async function createAttributionLinkAction(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const campaignId = String(formData.get("campaignId") ?? "");
   const campaign = await getUserCampaign(campaignId, userId);
   if (!campaign) throw new Error("Campaign not found.");
@@ -268,6 +278,7 @@ export async function createCompetitorWatchAction(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const competitorName = String(formData.get("competitorName") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
   if (!competitorName) throw new Error("Name the competitor.");

@@ -33,7 +33,7 @@ export function Topbar({
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="bg-background/80 sticky top-0 z-30 flex h-16 items-center gap-3 border-b px-4 backdrop-blur lg:px-8">
+    <header className="bg-background/80 sticky top-0 z-30 flex h-16 items-center gap-2 border-b px-3 backdrop-blur sm:gap-3 sm:px-4 lg:px-8">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button
@@ -61,19 +61,29 @@ export function Topbar({
           <div className="py-4">
             <DashboardNav onNavigate={() => setOpen(false)} />
           </div>
+          <div className="space-y-3 border-t px-4 py-4 sm:hidden">
+            <BrandSwitcher
+              brands={brands}
+              currentBrandId={currentBrandId}
+              onChanged={() => setOpen(false)}
+            />
+            <QuotaBadge plan={plan} />
+          </div>
         </SheetContent>
       </Sheet>
 
       <Link
         href="/dashboard"
-        className="flex items-center gap-2 font-semibold lg:hidden"
+        className="min-w-0 truncate font-semibold lg:hidden"
       >
         SocialFlow
       </Link>
 
       <div className="flex-1" />
-      <BrandSwitcher brands={brands} currentBrandId={currentBrandId} />
-      <QuotaBadge plan={plan} />
+      <div className="hidden items-center gap-3 sm:flex">
+        <BrandSwitcher brands={brands} currentBrandId={currentBrandId} />
+        <QuotaBadge plan={plan} />
+      </div>
       <ThemeToggle />
       <UserButton />
     </header>

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { AgentName } from "@/lib/agents/types";
 import { platformEnum, type Platform } from "@/db/schema";
-import { orchestrator } from "@/lib/agents/orchestrator.runtime";
+import { startMeteredAgentRun } from "@/lib/agents/metered-run";
+import { requireRole } from "@/lib/auth/current-role";
 import {
   buildRunBudget,
   estimateAgentRunCostUsd,
@@ -27,6 +28,7 @@ const PLATFORMS = new Set<string>(platformEnum.enumValues);
  */
 export async function repurposePost(formData: FormData): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
 
   const limits = await getPlanLimits();
   if (!limits.research) {
@@ -54,7 +56,7 @@ export async function repurposePost(formData: FormData): Promise<void> {
   const platformLabel = PLATFORM_META[target.platform]?.label ?? target.platform;
   const topic = `Re-angle and refresh for ${platformLabel}. Do not duplicate — find a new hook or angle. Original post:\n\n${target.body}`;
 
-  await orchestrator.startRun({
+  await startMeteredAgentRun({
     clerkUserId: userId,
     plan: {
       niche: topic,
@@ -70,6 +72,7 @@ export async function repurposePost(formData: FormData): Promise<void> {
         derivedFromTargetId: target.id,
       },
     },
+    limits,
   });
 }
 
@@ -77,6 +80,7 @@ export async function saveEvergreenAutomation(
   formData: FormData,
 ): Promise<void> {
   const userId = await requireUserId();
+  await requireRole("creator");
   const limits = await getPlanLimits();
   if (!limits.research) {
     throw new Error("Evergreen automation is a Pro feature. Upgrade to use it.");

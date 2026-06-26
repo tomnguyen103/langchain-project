@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
+import { getCurrentRole } from "@/lib/auth/current-role";
+import { canCreate } from "@/lib/auth/roles";
 import { getPlanLimits } from "@/lib/billing/entitlements";
 import { getProvider } from "@/lib/oauth/registry";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
@@ -33,6 +35,10 @@ export async function GET(
 
   if (!provider) {
     return NextResponse.redirect(accountsUrl({ error: "unknown_provider" }));
+  }
+
+  if (!canCreate(await getCurrentRole())) {
+    return NextResponse.redirect(accountsUrl({ error: "permission" }));
   }
 
   const code = req.nextUrl.searchParams.get("code");
