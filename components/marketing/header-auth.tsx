@@ -3,43 +3,47 @@
 import Link from "next/link";
 import { useAuth, UserButton } from "@clerk/nextjs";
 
-import { Button } from "@/components/ui/button";
+import { ArrowOut } from "./icons";
 
 /**
- * Auth-aware header buttons. Kept as a client component (via useAuth) so the
- * surrounding marketing pages can stay statically rendered.
+ * Auth-aware header actions, styled to the marketing brand. Kept as a client
+ * component (via useAuth) so the surrounding pages stay statically rendered.
  */
 export function HeaderAuth() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) {
-    return <div className="h-8 w-[5.5rem]" aria-hidden />;
+    return <div className="h-9 w-[7rem]" aria-hidden />;
   }
 
   if (isSignedIn) {
     return (
-      <>
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/dashboard">Dashboard</Link>
-        </Button>
+      <div className="flex items-center gap-3">
+        <Link href="/dashboard" className="m-btn">
+          Dashboard
+          <span className="m-btn__icon">
+            <ArrowOut />
+          </span>
+        </Link>
         <UserButton />
-      </>
+      </div>
     );
   }
 
   return (
-    <>
-      <Button
-        asChild
-        variant="ghost"
-        size="sm"
-        className="hidden sm:inline-flex"
+    <div className="flex items-center gap-1.5">
+      <Link
+        href="/sign-in"
+        className="hidden rounded-full px-4 py-2 text-sm font-medium text-graphite transition-colors hover:text-ink sm:inline-flex"
       >
-        <Link href="/sign-in">Sign in</Link>
-      </Button>
-      <Button asChild size="sm">
-        <Link href="/sign-up">Get started</Link>
-      </Button>
-    </>
+        Sign in
+      </Link>
+      <Link href="/sign-up" className="m-btn">
+        Start free
+        <span className="m-btn__icon">
+          <ArrowOut />
+        </span>
+      </Link>
+    </div>
   );
 }

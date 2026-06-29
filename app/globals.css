@@ -54,6 +54,32 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.541 0.243 293.009);
+
+  /* ── Marketing brand: "Ink & Porcelain" (light) ──────────────────────────
+     Monochrome editorial system. Color is functional only: ember = "live",
+     and platform hues appear solely where real platforms are named. */
+  --m-surface: #f4f2ec; /* porcelain — warm bone, calmer than the cream cliché */
+  --m-surface-2: #efece4; /* raised band */
+  --m-text: #15141b; /* ink — near-black, faint indigo undertone */
+  --m-muted: #56535e; /* graphite — AA on porcelain */
+  --m-faint: #6e6b75; /* tertiary captions — still ≥4.5:1 on porcelain */
+  --m-hairline: color-mix(in oklab, #15141b 12%, transparent);
+  --m-hairline-strong: color-mix(in oklab, #15141b 22%, transparent);
+
+  /* Inverted "console" panel — dark in light mode (the signature contrast). */
+  --m-panel: #15141b;
+  --m-panel-2: #1c1b24;
+  --m-panel-text: #f4f2ec;
+  --m-panel-muted: #a6a2ae;
+  --m-panel-hairline: color-mix(in oklab, #f4f2ec 12%, transparent);
+
+  /* Ember signal — used sparingly. -strong passes AA as text on porcelain. */
+  --m-ember: #c2703d;
+  --m-ember-strong: #97461e;
+
+  /* Primary action — ink fill on light; flips to porcelain on dark. */
+  --m-btn-bg: #15141b;
+  --m-btn-text: #f6f4ef;
 }
 
 .dark {
@@ -92,6 +118,30 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.621 0.214 293.009);
+
+  /* ── Marketing brand: "Ink & Porcelain" (dark) ───────────────────────────
+     The whole page becomes the operator console. Porcelain text on deep ink;
+     panels lift to a slightly raised ink so they still read as surfaces. */
+  --m-surface: #100f15; /* deep ink base */
+  --m-surface-2: #16151d; /* raised band */
+  --m-text: #f1efe9; /* porcelain text */
+  --m-muted: #a7a3af; /* muted porcelain — AA on deep ink */
+  --m-faint: #8c8896; /* tertiary — still ≥4.5:1 on deep ink */
+  --m-hairline: color-mix(in oklab, #f1efe9 12%, transparent);
+  --m-hairline-strong: color-mix(in oklab, #f1efe9 22%, transparent);
+
+  --m-panel: #1a1922; /* console lifts above the page */
+  --m-panel-2: #211f2a;
+  --m-panel-text: #f1efe9;
+  --m-panel-muted: #a7a3af;
+  --m-panel-hairline: color-mix(in oklab, #f1efe9 12%, transparent);
+
+  --m-ember: #d98a52; /* a touch brighter to hold on dark */
+  --m-ember-strong: #e3a06b; /* readable ember text on dark */
+
+  /* Primary action flips: porcelain fill on dark for max contrast. */
+  --m-btn-bg: #f1efe9;
+  --m-btn-text: #15141b;
 }
 
 @theme inline {
@@ -134,6 +184,29 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-fraunces);
+
+  /* Marketing brand colors — semantic tokens that flip between light/dark.
+     Map raw `--m-*` aliases (defined in :root / .dark) so `bg-surface`,
+     `text-ink`, `border-hairline`, etc. work as Tailwind utilities. */
+  --color-surface: var(--m-surface);
+  --color-surface-2: var(--m-surface-2);
+  --color-ink: var(--m-text);
+  --color-graphite: var(--m-muted);
+  --color-faint: var(--m-faint);
+  --color-hairline: var(--m-hairline);
+  --color-hairline-strong: var(--m-hairline-strong);
+  --color-panel: var(--m-panel);
+  --color-panel-2: var(--m-panel-2);
+  --color-panel-ink: var(--m-panel-text);
+  --color-panel-muted: var(--m-panel-muted);
+  --color-panel-hairline: var(--m-panel-hairline);
+  --color-ember: var(--m-ember);
+  --color-ember-strong: var(--m-ember-strong);
+  --color-on-ink: var(--m-btn-bg);
+  --color-on-ink-text: var(--m-btn-text);
+
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @layer base {
@@ -143,4 +216,303 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Marketing surface — "The autonomous studio"
+   Editorial ink-and-porcelain system for the public site. Scoped under
+   .marketing-scope so the app/dashboard keep the shadcn tokens untouched.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.marketing-scope {
+  background: var(--m-surface);
+  color: var(--m-text);
+  font-feature-settings: "ss01", "cv01";
+  -webkit-font-smoothing: antialiased;
+}
+.marketing-scope ::selection {
+  background: color-mix(in oklab, var(--m-ember) 28%, transparent);
+  color: var(--m-text);
+}
+
+/* Visible keyboard focus across the marketing surface. Outlines follow
+   border-radius in modern engines, so this reads cleanly on the pills. */
+.marketing-scope a:focus-visible,
+.marketing-scope button:focus-visible {
+  outline: 2px solid var(--m-text);
+  outline-offset: 3px;
+  border-radius: 0.5rem;
+}
+/* On the dark console, focus against ink uses the ember signal. */
+.marketing-scope .m-console a:focus-visible,
+.marketing-scope .m-console button:focus-visible,
+.marketing-scope [data-tone="panel"] a:focus-visible {
+  outline-color: var(--m-ember);
+}
+
+@layer components {
+  /* Editorial display type — Fraunces, tight optical leading. */
+  .m-display {
+    font-family: var(--font-serif), Georgia, serif;
+    font-weight: 380;
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  .m-display em {
+    font-style: italic;
+    font-weight: 380;
+  }
+  .m-serif {
+    font-family: var(--font-serif), Georgia, serif;
+  }
+
+  /* Mono micro-label / eyebrow. */
+  .m-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--m-muted);
+  }
+  .m-eyebrow::before {
+    content: "";
+    width: 1.5rem;
+    height: 1px;
+    background: var(--m-hairline-strong);
+  }
+  .m-eyebrow--bare::before {
+    display: none;
+  }
+  .m-index {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.08em;
+    color: var(--m-ember-strong);
+  }
+  .m-tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Hairline rule. */
+  .m-rule {
+    height: 1px;
+    width: 100%;
+    background: var(--m-hairline);
+  }
+
+  /* Primary CTA — ink pill with a nested "button-in-button" arrow. */
+  .m-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.6875rem 0.75rem 0.6875rem 1.375rem;
+    border-radius: 9999px;
+    background: var(--m-btn-bg);
+    color: var(--m-btn-text);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+      transform 0.4s var(--ease-spring),
+      box-shadow 0.5s var(--ease-spring),
+      background 0.3s ease;
+  }
+  .m-btn:hover {
+    box-shadow: 0 16px 34px -16px color-mix(in oklab, var(--m-text) 55%, transparent);
+  }
+  .m-btn:active {
+    transform: scale(0.98);
+  }
+  .m-btn__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--m-btn-text) 18%, transparent);
+    transition: transform 0.4s var(--ease-spring);
+  }
+  .m-btn:hover .m-btn__icon {
+    transform: translate(2px, -1px);
+  }
+
+  /* Secondary CTA — hairline ghost. */
+  .m-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6875rem 1.25rem;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--m-text);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1;
+    box-shadow: inset 0 0 0 1px var(--m-hairline-strong);
+    transition:
+      box-shadow 0.3s ease,
+      background 0.3s ease,
+      transform 0.4s var(--ease-spring);
+  }
+  .m-btn-ghost:hover {
+    background: color-mix(in oklab, var(--m-text) 5%, transparent);
+    box-shadow: inset 0 0 0 1px var(--m-text);
+  }
+  .m-btn-ghost:active {
+    transform: scale(0.98);
+  }
+
+  /* Animated text link underline (ember). */
+  .m-link {
+    position: relative;
+    color: inherit;
+  }
+  .m-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    height: 1px;
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: right;
+    background: currentcolor;
+    transition: transform 0.4s var(--ease-spring);
+  }
+  .m-link:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+
+  /* Double-bezel: outer machined shell around the console. */
+  .m-bezel {
+    padding: 0.5rem;
+    border-radius: 2rem;
+    background: color-mix(in oklab, var(--m-text) 4%, transparent);
+    box-shadow: inset 0 0 0 1px var(--m-hairline);
+  }
+
+  /* The dark operator console — the signature inverted surface. */
+  .m-console {
+    border-radius: 1.5rem;
+    background:
+      radial-gradient(
+        120% 100% at 100% 0%,
+        color-mix(in oklab, var(--m-ember) 10%, transparent),
+        transparent 42%
+      ),
+      var(--m-panel);
+    color: var(--m-panel-text);
+    box-shadow:
+      inset 0 1px 0 0 color-mix(in oklab, #ffffff 9%, transparent),
+      0 50px 90px -50px rgba(7, 7, 11, 0.55);
+  }
+
+  /* Live signal — a single pulsing ember dot. */
+  .m-live-dot {
+    position: relative;
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background: var(--m-ember);
+  }
+  .m-live-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--m-ember) 65%, transparent);
+  }
+
+  /* Platform marquee — the calm "always-running" pulse. */
+  .m-marquee {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 10%,
+      #000 90%,
+      transparent
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent,
+      #000 10%,
+      #000 90%,
+      transparent
+    );
+  }
+  .m-marquee__track {
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    will-change: transform;
+  }
+}
+
+/* Scroll-reveal — heavy fade-up + deblur. Visible immediately when the user
+   prefers reduced motion; hidden-then-animated otherwise. */
+.m-reveal {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .m-reveal {
+    opacity: 0;
+    transform: translateY(22px);
+    filter: blur(6px);
+    transition:
+      opacity 0.8s var(--ease-spring),
+      transform 0.8s var(--ease-spring),
+      filter 0.8s var(--ease-spring);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .m-reveal.is-visible {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+  .m-live-dot::after {
+    animation: m-pulse 2.4s var(--ease-spring) infinite;
+  }
+  .m-marquee__track {
+    animation: m-marquee 46s linear infinite;
+  }
+  .m-marquee:hover .m-marquee__track {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes m-pulse {
+  to {
+    box-shadow: 0 0 0 9px transparent;
+  }
+}
+@keyframes m-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Fixed, ultra-subtle film grain for a physical "printed" depth. */
+.m-grain {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.025;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.dark .m-grain {
+  mix-blend-mode: screen;
+  opacity: 0.018;
 }

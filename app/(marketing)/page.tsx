@@ -1,16 +1,12 @@
 import Link from "next/link";
 import {
-  ArrowRight,
-  Bot,
+  Activity,
   CalendarClock,
-  Check,
-  Clock,
-  MessageSquare,
-  Search,
+  LayoutGrid,
+  MessageCircle,
+  PenLine,
+  Radar,
   Send,
-  Sparkles,
-  TrendingUp,
-  Wand2,
 } from "lucide-react";
 import {
   FaDiscord,
@@ -23,14 +19,8 @@ import {
   FaYoutube,
 } from "react-icons/fa6";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Reveal } from "@/components/marketing/reveal";
+import { ArrowOut } from "@/components/marketing/icons";
 
 const platforms = [
   { name: "Instagram", Icon: FaInstagram },
@@ -45,297 +35,472 @@ const platforms = [
 
 const features = [
   {
-    icon: Search,
+    index: "01",
+    icon: Radar,
     title: "Niche research agent",
     description:
-      "Point it at a topic and a LangGraph agent gathers what's trending and worth saying.",
+      "Point it at a topic and a LangGraph agent reads the room — what's trending, what's been said, and what's actually worth saying.",
+    span: "lg:col-span-3",
   },
   {
-    icon: Bot,
-    title: "AI content generation",
+    index: "02",
+    icon: PenLine,
+    title: "Content drafted in your voice",
     description:
-      "Captions, posts, ideas and platform-tailored variations, drafted in your voice.",
+      "Captions, posts, hooks and platform-tailored variations — written the way you'd write them, not the way a robot would.",
+    span: "lg:col-span-3",
   },
   {
-    icon: Send,
-    title: "Every platform, one composer",
+    index: "03",
+    icon: LayoutGrid,
+    title: "One composer, every platform",
     description:
-      "Write once, tailor per platform, publish natively to all eight from a single screen.",
+      "Write once, tailor per channel, publish natively to all eight.",
+    span: "lg:col-span-2",
   },
   {
+    index: "04",
     icon: CalendarClock,
-    title: "Smart scheduling",
+    title: "Scheduling that fires itself",
     description:
-      "Queue up to 7 posts a day. The worker fires each one at exactly the right time.",
+      "Queue up to seven posts a day. The worker ships each at the right moment.",
+    span: "lg:col-span-2",
   },
   {
-    icon: MessageSquare,
-    title: "Auto comment-reply",
+    index: "05",
+    icon: MessageCircle,
+    title: "Replies on autopilot",
     description:
-      "Reply to comments by keyword, templated or AI-composed, without lifting a finger.",
+      "Answer comments by keyword — templated or AI-composed — hands free.",
+    span: "lg:col-span-2",
   },
   {
-    icon: TrendingUp,
-    title: "Calendar & insights",
+    index: "06",
+    icon: Activity,
+    title: "Calendar & signal",
     description:
-      "See everything scheduled at a glance and track what's actually landing.",
+      "See everything scheduled at a glance, and track what's actually landing.",
+    span: "lg:col-span-6",
+    wide: true,
   },
 ];
 
 const steps = [
   {
-    icon: Search,
+    index: "01",
+    icon: Radar,
     title: "Research",
     description: "Drop a niche. The agent digests what's worth posting about.",
+    detail: "Trends gathered",
   },
   {
-    icon: Wand2,
+    index: "02",
+    icon: PenLine,
     title: "Generate",
     description: "AI drafts platform-tailored content you can tweak and approve.",
+    detail: "Variants ready",
   },
   {
-    icon: Clock,
-    title: "Schedule & publish",
-    description: "Pick times, hit go, and posts go live automatically.",
+    index: "03",
+    icon: CalendarClock,
+    title: "Schedule",
+    description: "Pick times — or let it choose. The queue handles the rest.",
+    detail: "Queued",
   },
+  {
+    index: "04",
+    icon: Send,
+    title: "Publish",
+    description: "Posts go live automatically, natively, on every channel.",
+    detail: "Shipped",
+  },
+];
+
+const proof = [
+  { value: "7", unit: "/day", label: "Posts shipped automatically" },
+  { value: "8", unit: "platforms", label: "Native publishing, one composer" },
+  { value: "100", unit: "%", label: "Brand-checked before anything ships" },
 ];
 
 export default function LandingPage() {
   return (
     <>
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-6 py-20 lg:grid-cols-2 lg:py-28">
-          <div>
-            <Badge variant="secondary" className="mb-5">
-              <Sparkles className="size-3" /> Powered by LangGraph
-            </Badge>
-            <h1 className="text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-              Automate your social presence,{" "}
-              <span className="text-primary">without the burnout.</span>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-48 right-[-12%] h-[44rem] w-[44rem] rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle, color-mix(in oklab, var(--m-ember) 14%, transparent), transparent 68%)",
+          }}
+        />
+        <div className="mx-auto w-full max-w-6xl px-6 pt-16 pb-20 sm:pt-24 lg:pt-28 lg:pb-28">
+          <Reveal>
+            <p className="m-eyebrow">Autonomous social studio</p>
+          </Reveal>
+          <Reveal delay={60}>
+            <h1 className="m-display mt-6 max-w-4xl text-[2.75rem] leading-[1.02] sm:text-6xl lg:text-7xl">
+              Set the strategy. The agent runs <em>everything else.</em>
             </h1>
-            <p className="text-muted-foreground mt-5 text-lg text-pretty">
-              SocialFlow&apos;s agent researches your niche, drafts content in
-              your voice, and publishes across eight platforms on schedule. You
-              set the strategy — it does the busywork.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button asChild size="lg">
-                <Link href="/sign-up">
-                  Start free <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/#how">See how it works</Link>
-              </Button>
-            </div>
-            <p className="text-muted-foreground mt-4 text-sm">
-              No credit card required · Connect your first account in minutes.
-            </p>
-          </div>
+          </Reveal>
 
-          {/* Product workflow preview based on the live dashboard surfaces. */}
-          <div
-            className="overflow-hidden rounded-2xl border bg-background shadow-xl shadow-primary/10"
-            aria-label="SocialFlow product workflow preview"
-          >
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-lg">
-                  <Sparkles className="size-4" aria-hidden />
-                </span>
-                <span className="font-semibold">SocialFlow</span>
+          <div className="mt-12 grid items-end gap-12 lg:mt-16 lg:grid-cols-12">
+            <Reveal as="div" delay={120} className="lg:col-span-5">
+              <p className="max-w-md text-lg leading-relaxed text-graphite">
+                SocialFlow researches your niche, drafts posts in your voice, and
+                publishes across eight platforms on schedule — a studio that
+                works while you don&apos;t.
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Link href="/sign-up" className="m-btn">
+                  Start free
+                  <span className="m-btn__icon">
+                    <ArrowOut />
+                  </span>
+                </Link>
+                <Link href="/#how" className="m-btn-ghost">
+                  See how it works
+                </Link>
               </div>
-              <Badge variant="secondary">Run live</Badge>
-            </div>
-            <div className="grid md:grid-cols-[1.2fr_0.8fr]">
-              <div className="space-y-4 border-b p-5 md:border-r md:border-b-0">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium">Composer</p>
-                    <p className="text-muted-foreground text-xs">
-                      3 platform variants ready
-                    </p>
-                  </div>
-                  <Badge variant="outline">Brand safe</Badge>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-4">
-                  <p className="text-sm leading-6">
-                    Turn your best customer question into a practical launch
-                    tip, then tailor the hook for each channel.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {["Instagram", "LinkedIn", "YouTube"].map((platform) => (
-                      <span
-                        key={platform}
-                        className="rounded-full border bg-background px-2.5 py-1 text-xs font-medium"
-                      >
-                        {platform}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  {[
-                    ["12", "Queued"],
-                    ["4", "Needs review"],
-                    ["97%", "Policy pass"],
-                  ].map(([value, label]) => (
-                    <div key={label} className="rounded-lg border p-3">
-                      <div className="text-base font-semibold">{value}</div>
-                      <div className="text-muted-foreground">{label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-4 p-5">
-                <p className="text-sm font-medium">Run timeline</p>
-                {[
-                  ["Research", "Trends gathered"],
-                  ["Draft", "Variants generated"],
-                  ["Review", "Approved"],
-                  ["Publish", "Scheduled"],
-                ].map(([label, detail]) => (
-                  <div key={label} className="flex gap-3">
-                    <span className="bg-primary/10 text-primary mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full">
-                      <Check className="size-3.5" aria-hidden />
-                    </span>
-                    <div>
-                      <p className="text-sm font-medium">{label}</p>
-                      <p className="text-muted-foreground text-xs">{detail}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+              <p className="m-eyebrow m-eyebrow--bare mt-6 text-faint">
+                No card required · Live in minutes
+              </p>
+            </Reveal>
+
+            {/* The live console — signature inverted surface. */}
+            <Reveal as="div" delay={200} className="lg:col-span-7">
+              <RunConsole />
+            </Reveal>
           </div>
         </div>
       </section>
 
-      {/* Platform strip */}
-      <section className="border-y">
-        <div className="mx-auto w-full max-w-6xl px-6 py-8">
-          <p className="text-muted-foreground mb-4 text-center text-sm">
-            Publish natively to the platforms that matter
+      {/* ── Platform marquee ─────────────────────────────────────────────── */}
+      <section className="border-y border-hairline py-7">
+        <div className="mx-auto mb-5 w-full max-w-6xl px-6">
+          <p className="m-eyebrow m-eyebrow--bare text-faint">
+            Publishes natively to the platforms that matter
           </p>
-          <div className="text-muted-foreground flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
-            {platforms.map(({ name, Icon }) => (
-              <span key={name} className="flex items-center gap-2 text-sm font-medium">
-                <Icon size={18} aria-hidden />
-                {name}
+        </div>
+        {/* The visual track duplicates the list for a seamless loop; it's
+            decorative, so it's hidden from assistive tech and the real list is
+            exposed once via sr-only. */}
+        <ul className="sr-only">
+          {platforms.map(({ name }) => (
+            <li key={name}>{name}</li>
+          ))}
+        </ul>
+        <div className="m-marquee" aria-hidden>
+          <div className="m-marquee__track">
+            {[...platforms, ...platforms].map(({ name, Icon }, i) => (
+              <span
+                key={`${name}-${i}`}
+                className="flex shrink-0 items-center gap-2.5 pr-12 text-graphite"
+              >
+                <Icon size={18} />
+                <span className="text-sm font-medium tracking-tight">{name}</span>
               </span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section id="features" className="mx-auto w-full max-w-6xl px-6 py-20">
-        <div className="mx-auto max-w-2xl text-center">
-          <Badge variant="outline" className="mb-4">
-            Features
-          </Badge>
-          <h2 className="text-3xl font-semibold tracking-tight">
-            One agent for the whole content engine
-          </h2>
-          <p className="text-muted-foreground mt-3 text-lg">
-            From the first idea to the published post and the reply underneath
-            it.
-          </p>
+      {/* ── Features ─────────────────────────────────────────────────────── */}
+      <section id="features" className="mx-auto w-full max-w-6xl px-6 py-24 lg:py-32">
+        <div className="grid gap-8 lg:grid-cols-12 lg:items-end">
+          <Reveal as="div" className="lg:col-span-7">
+            <p className="m-eyebrow">The content engine</p>
+            <h2 className="m-display mt-5 text-4xl sm:text-5xl">
+              One agent for the whole engine.
+            </h2>
+          </Reveal>
+          <Reveal as="p" delay={80} className="text-graphite lg:col-span-5 lg:pb-2">
+            From the first idea to the published post — and the reply underneath
+            it. Each capability is a stage the agent runs on its own.
+          </Reveal>
         </div>
 
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
-            <Card key={feature.title}>
-              <CardHeader>
-                <span className="bg-accent text-primary flex size-10 items-center justify-center rounded-lg">
-                  <feature.icon className="size-5" />
-                </span>
-                <CardTitle className="mt-3">{feature.title}</CardTitle>
-                <CardDescription>{feature.description}</CardDescription>
-              </CardHeader>
-            </Card>
+        <div className="mt-14 grid gap-px overflow-hidden rounded-[1.5rem] bg-hairline ring-1 ring-hairline lg:grid-cols-6">
+          {features.map((feature, i) => (
+            <Reveal
+              as="div"
+              key={feature.index}
+              delay={i * 60}
+              className={feature.span}
+            >
+              <article
+                className={`group flex h-full flex-col bg-surface p-7 transition-colors duration-500 hover:bg-surface-2 lg:p-8 ${
+                  feature.wide ? "lg:flex-row lg:items-center lg:gap-10" : ""
+                }`}
+              >
+                <div className={feature.wide ? "lg:max-w-md" : ""}>
+                  <div className="flex items-center justify-between">
+                    <feature.icon
+                      className="size-6 text-ink"
+                      strokeWidth={1.25}
+                      aria-hidden
+                    />
+                    <span className="m-index text-xs">{feature.index}</span>
+                  </div>
+                  <h3 className="m-serif mt-5 text-xl text-ink">{feature.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-graphite">
+                    {feature.description}
+                  </p>
+                </div>
+                {feature.wide && (
+                  <div
+                    aria-hidden
+                    className="mt-6 flex flex-1 items-end gap-1.5 lg:mt-0"
+                  >
+                    {[34, 52, 41, 68, 47, 78, 60].map((h, idx) => (
+                      <span
+                        key={idx}
+                        className="flex-1 rounded-sm bg-[color-mix(in_oklab,var(--m-text)_12%,transparent)] transition-colors duration-500 group-hover:bg-[color-mix(in_oklab,var(--m-ember)_55%,transparent)]"
+                        style={{ height: `${h}px` }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </article>
+            </Reveal>
           ))}
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how" className="bg-muted/30 border-y">
-        <div className="mx-auto w-full max-w-6xl px-6 py-20">
-          <div className="mx-auto max-w-2xl text-center">
-            <Badge variant="outline" className="mb-4">
-              How it works
-            </Badge>
-            <h2 className="text-3xl font-semibold tracking-tight">
-              Three steps from niche to live
+      {/* ── How it works ─────────────────────────────────────────────────── */}
+      <section id="how" className="border-y border-hairline bg-surface-2">
+        <div className="mx-auto w-full max-w-6xl px-6 py-24 lg:py-32">
+          <Reveal>
+            <p className="m-eyebrow">How it works</p>
+            <h2 className="m-display mt-5 max-w-2xl text-4xl sm:text-5xl">
+              Four moves from niche to live.
             </h2>
-          </div>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
-            {steps.map((step) => (
-              <div key={step.title} className="relative">
-                <div className="bg-card rounded-xl border p-6">
-                  <span className="bg-primary text-primary-foreground flex size-10 items-center justify-center rounded-lg">
-                    <step.icon className="size-5" />
-                  </span>
-                  <h3 className="mt-4 text-lg font-semibold">{step.title}</h3>
-                  <p className="text-muted-foreground mt-1 text-sm">
+          </Reveal>
+
+          <ol className="mt-16 grid gap-px overflow-hidden bg-hairline lg:grid-cols-4">
+            {steps.map((step, i) => (
+              <Reveal as="li" key={step.index} delay={i * 80} className="bg-surface-2">
+                <div className="relative h-full p-7 lg:p-8">
+                  <div className="flex items-baseline gap-3">
+                    <span className="m-serif text-5xl text-ink">{step.index}</span>
+                    {i === steps.length - 1 && (
+                      <span className="m-live-dot translate-y-[-6px]" aria-hidden />
+                    )}
+                  </div>
+                  <step.icon
+                    className="mt-6 size-6 text-ink"
+                    strokeWidth={1.25}
+                    aria-hidden
+                  />
+                  <h3 className="m-serif mt-4 text-xl text-ink">{step.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-graphite">
                     {step.description}
                   </p>
+                  <p className="m-eyebrow m-eyebrow--bare mt-6 text-faint">
+                    {step.detail}
+                  </p>
                 </div>
+              </Reveal>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* ── Proof band (the machine at work) ─────────────────────────────── */}
+      <section id="proof" className="relative bg-panel text-panel-ink">
+        <div className="mx-auto w-full max-w-6xl px-6 py-24 lg:py-32">
+          <div className="grid gap-12 lg:grid-cols-12 lg:items-end">
+            <Reveal as="div" className="lg:col-span-7">
+              <p className="m-eyebrow m-eyebrow--bare text-panel-muted">
+                <span className="m-live-dot" aria-hidden /> Why it works
+              </p>
+              <p className="m-display mt-6 text-3xl leading-tight text-panel-ink sm:text-4xl">
+                It doesn&apos;t just schedule. It runs the whole loop —{" "}
+                <em>research, draft, check, publish</em> — every day, on every
+                channel.
+              </p>
+            </Reveal>
+            <Reveal as="div" delay={120} className="lg:col-span-5">
+              <dl className="divide-y divide-panel-hairline border-y border-panel-hairline">
+                {proof.map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex items-center justify-between gap-6 py-5"
+                  >
+                    <dt className="max-w-[12rem] text-sm leading-snug text-panel-muted">
+                      {stat.label}
+                    </dt>
+                    <dd className="m-tabular m-serif shrink-0 text-3xl text-panel-ink">
+                      {stat.value}
+                      <span className="ml-0.5 align-baseline text-base text-ember">
+                        {stat.unit}
+                      </span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </Reveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Final CTA ────────────────────────────────────────────────────── */}
+      <section className="relative overflow-hidden">
+        <div className="mx-auto w-full max-w-6xl px-6 py-28 lg:py-36">
+          <div className="m-rule" />
+          <div className="grid gap-10 py-14 lg:grid-cols-12 lg:items-center lg:py-16">
+            <Reveal as="div" className="lg:col-span-8">
+              <h2 className="m-display text-4xl sm:text-5xl lg:text-6xl">
+                Spend your time on strategy, <em>not scheduling.</em>
+              </h2>
+              <p className="mt-5 max-w-lg text-lg text-graphite">
+                Let the agent handle research, generation, and publishing — every
+                day, on every platform.
+              </p>
+            </Reveal>
+            <Reveal as="div" delay={120} className="lg:col-span-4 lg:justify-self-end">
+              <Link href="/sign-up" className="m-btn">
+                Start free
+                <span className="m-btn__icon">
+                  <ArrowOut />
+                </span>
+              </Link>
+              <ul className="mt-6 space-y-2.5 text-sm text-graphite">
+                {["No card required", "Cancel anytime", "Your accounts, your data"].map(
+                  (item) => (
+                    <li key={item} className="flex items-center gap-2.5">
+                      <span className="size-1 rounded-full bg-ember" aria-hidden />
+                      {item}
+                    </li>
+                  ),
+                )}
+              </ul>
+            </Reveal>
+          </div>
+          <div className="m-rule" />
+        </div>
+      </section>
+    </>
+  );
+}
+
+/* ── The live run console ───────────────────────────────────────────────────
+   The brand's signature surface: a deep-ink operator panel embedded in the
+   light editorial page, framed by a machined double bezel. */
+function RunConsole() {
+  return (
+    <div className="m-bezel">
+      <div className="m-console overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-panel-hairline px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="m-live-dot" aria-hidden />
+            <span className="font-mono text-[0.7rem] tracking-[0.18em] text-panel-muted uppercase">
+              Run live · #4821
+            </span>
+          </div>
+          <span className="rounded-full px-2.5 py-1 font-mono text-[0.65rem] tracking-[0.16em] text-ember uppercase ring-1 ring-panel-hairline">
+            Brand safe
+          </span>
+        </div>
+
+        <div className="grid sm:grid-cols-[1.25fr_0.75fr]">
+          {/* Composer */}
+          <div className="space-y-4 border-b border-panel-hairline p-5 sm:border-r sm:border-b-0">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-panel-ink">Composer</p>
+              <span className="font-mono text-[0.7rem] text-panel-muted">
+                3 variants
+              </span>
+            </div>
+            <p className="text-sm leading-relaxed text-panel-muted">
+              Turn your best customer question into a practical launch tip — then
+              tailor the hook for each channel.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {["Instagram", "LinkedIn", "YouTube"].map((p) => (
+                <span
+                  key={p}
+                  className="rounded-full px-2.5 py-1 font-mono text-[0.7rem] text-panel-ink ring-1 ring-panel-hairline"
+                >
+                  {p}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Run timeline */}
+          <div className="space-y-3.5 p-5">
+            <p className="font-mono text-[0.7rem] tracking-[0.16em] text-panel-muted uppercase">
+              Pipeline
+            </p>
+            {[
+              ["Research", true],
+              ["Draft", true],
+              ["Review", true],
+              ["Publish", false],
+            ].map(([label, done], i) => (
+              <div key={label as string} className="flex items-center gap-3">
+                <span
+                  className={`flex size-5 shrink-0 items-center justify-center rounded-full ${
+                    done
+                      ? "bg-[color-mix(in_oklab,var(--m-panel-text)_14%,transparent)]"
+                      : "ring-1 ring-ember"
+                  }`}
+                  aria-hidden
+                >
+                  {done ? (
+                    <svg viewBox="0 0 12 12" className="size-3" fill="none">
+                      <path
+                        d="M2.5 6.5L5 9L9.5 3.5"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-panel-ink"
+                      />
+                    </svg>
+                  ) : (
+                    <span className="size-1.5 rounded-full bg-ember" />
+                  )}
+                </span>
+                <span
+                  className={`text-sm ${
+                    done ? "text-panel-ink" : "font-medium text-ember"
+                  }`}
+                >
+                  {label}
+                </span>
+                {i === 3 && (
+                  <span className="ml-auto font-mono text-[0.65rem] text-panel-muted">
+                    queued
+                  </span>
+                )}
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* Stats */}
-      <section className="mx-auto w-full max-w-6xl px-6 py-20">
-        <div className="grid gap-8 rounded-2xl border p-10 sm:grid-cols-3">
+        {/* Metrics */}
+        <div className="grid grid-cols-3 border-t border-panel-hairline">
           {[
-            { value: "7", label: "posts a day, automated" },
-            { value: "8", label: "platforms, one composer" },
-            { value: "0", label: "hours of manual posting" },
-          ].map((stat) => (
-            <div key={stat.label} className="text-center">
-              <div className="text-primary text-4xl font-semibold">
-                {stat.value}
-              </div>
-              <div className="text-muted-foreground mt-1 text-sm">
-                {stat.label}
+            ["12", "Queued"],
+            ["4", "In review"],
+            ["97%", "Policy pass"],
+          ].map(([value, label], i) => (
+            <div
+              key={label}
+              className={`px-5 py-4 ${i > 0 ? "border-l border-panel-hairline" : ""}`}
+            >
+              <div className="m-tabular m-serif text-2xl text-panel-ink">{value}</div>
+              <div className="mt-0.5 font-mono text-[0.65rem] tracking-[0.12em] text-panel-muted uppercase">
+                {label}
               </div>
             </div>
           ))}
         </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="mx-auto w-full max-w-6xl px-6 pb-24">
-        <div className="bg-primary text-primary-foreground relative overflow-hidden rounded-2xl px-8 py-14 text-center">
-          <h2 className="text-3xl font-semibold tracking-tight text-balance">
-            Spend your time on strategy, not scheduling.
-          </h2>
-          <p className="mt-3 text-pretty opacity-90">
-            Let the agent handle research, generation, and publishing, every
-            day, on every platform.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Button asChild size="lg" variant="secondary">
-              <Link href="/sign-up">
-                Start free <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-          </div>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm opacity-90">
-            {["No card required", "Cancel anytime", "Your accounts, your data"].map(
-              (item) => (
-                <span key={item} className="flex items-center gap-1.5">
-                  <Check className="size-4" /> {item}
-                </span>
-              ),
-            )}
-          </div>
-        </div>
-      </section>
-    </>
+      </div>
+    </div>
   );
 }
