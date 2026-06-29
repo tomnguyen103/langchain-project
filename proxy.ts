@@ -7,6 +7,14 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/pricing",
   "/legal(.*)",
+  // Public brand/metadata images (favicon, app icon, social share cards). These
+  // are dynamic routes with no file extension, so the static-file skip in the
+  // matcher below doesn't catch them — without this, Clerk would redirect
+  // browsers and social crawlers to sign-in and the assets would never load.
+  "/icon(.*)",
+  "/apple-icon(.*)",
+  "/opengraph-image(.*)",
+  "/twitter-image(.*)",
   // Health probes (liveness + queue depth) for uptime monitors. The queue
   // endpoint self-enforces HEALTH_CHECK_TOKEN / a session — see its route.
   "/api/health(.*)",

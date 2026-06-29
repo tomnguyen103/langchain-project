@@ -4,10 +4,15 @@ export const alt = "SocialFlow: AI Social Content Automation";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// Branded social-share card. Satori (the next/og engine) supports a CSS subset:
-// hex/rgb colors only (no oklch), and every element with children needs an
-// explicit display. Hierarchy comes from size + color contrast (the bundled
-// font is single-weight), which reads as an intentional, premium look.
+// Branded social-share card, matching the "Ink & Porcelain" marketing brand.
+// Satori (the next/og engine) supports a CSS subset: hex/rgb colors only (no
+// oklch / color-mix), and every element with children needs an explicit display.
+// The orbit mark is drawn with positioned divs; hierarchy comes from size + color.
+const INK = "#15141b";
+const PORCELAIN = "#f4f2ec";
+const MUTED = "#a6a2ae";
+const EMBER = "#c2703d";
+
 export default function Image() {
   return new ImageResponse(
     (
@@ -18,12 +23,12 @@ export default function Image() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#0a0a0b",
+          background: INK,
           padding: "80px",
           position: "relative",
         }}
       >
-        {/* Violet brand glow */}
+        {/* Ember signal glow */}
         <div
           style={{
             position: "absolute",
@@ -32,56 +37,83 @@ export default function Image() {
             width: 720,
             height: 720,
             display: "flex",
-            background:
-              "radial-gradient(circle, rgba(139,92,246,0.45), rgba(10,10,11,0) 70%)",
+            background: `radial-gradient(circle, rgba(194,112,61,0.40), rgba(21,20,27,0) 70%)`,
           }}
         />
 
-        {/* Wordmark */}
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+        {/* Wordmark with the orbit mark */}
+        <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
           <div
             style={{
-              width: 88,
-              height: 88,
-              borderRadius: 22,
+              position: "relative",
+              width: 72,
+              height: 72,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              background: "linear-gradient(135deg, #a78bfa, #7c3aed)",
-              color: "white",
-              fontSize: 52,
             }}
           >
-            S
+            <div
+              style={{
+                width: 66,
+                height: 66,
+                borderRadius: 9999,
+                border: `3px solid ${PORCELAIN}`,
+                display: "flex",
+                opacity: 0.85,
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                width: 16,
+                height: 16,
+                borderRadius: 9999,
+                background: PORCELAIN,
+                display: "flex",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: 4,
+                right: 4,
+                width: 18,
+                height: 18,
+                borderRadius: 9999,
+                background: EMBER,
+                display: "flex",
+              }}
+            />
           </div>
-          <div style={{ color: "#fafafa", fontSize: 40, letterSpacing: -1 }}>
+          <div style={{ color: PORCELAIN, fontSize: 38, letterSpacing: -0.5 }}>
             SocialFlow
           </div>
         </div>
 
         {/* Headline */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div
             style={{
-              color: "#fafafa",
-              fontSize: 78,
-              lineHeight: 1.05,
+              color: PORCELAIN,
+              fontSize: 76,
+              lineHeight: 1.04,
               letterSpacing: -2,
-              maxWidth: 940,
+              maxWidth: 980,
             }}
           >
-            AI social content, from idea to published.
+            Set the strategy. The agent runs everything else.
           </div>
           <div
             style={{
-              color: "#a1a1aa",
-              fontSize: 34,
+              color: MUTED,
+              fontSize: 32,
               lineHeight: 1.3,
-              maxWidth: 880,
+              maxWidth: 900,
             }}
           >
-            Research niches, generate platform-tailored posts, then schedule and
-            auto-publish everywhere.
+            Research niches, draft posts in your voice, then schedule and
+            auto-publish across eight platforms.
           </div>
         </div>
 
@@ -93,11 +125,11 @@ export default function Image() {
               height: 6,
               borderRadius: 3,
               display: "flex",
-              background: "#8b5cf6",
+              background: EMBER,
             }}
           />
-          <div style={{ color: "#71717a", fontSize: 26 }}>
-            Facebook · Instagram · LinkedIn · TikTok · X · YouTube
+          <div style={{ color: "#71717a", fontSize: 25 }}>
+            Instagram · YouTube · TikTok · LinkedIn · Facebook · X
           </div>
         </div>
       </div>
