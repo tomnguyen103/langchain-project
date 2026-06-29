@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -16,6 +17,7 @@ const NAV = [
 ];
 
 export function SiteHeader() {
+  const { isSignedIn } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -26,16 +28,22 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Lock body scroll + close on Escape while the mobile menu is open.
+  // Lock body scroll + close on Escape while the mobile menu is open. Also close
+  // if the viewport grows past `md` (rotate/resize) — otherwise the menu hides
+  // via CSS but `open` stays true and the body stays locked unscrollable.
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const desktop = window.matchMedia("(min-width: 768px)");
+    const onBreakpoint = (e: MediaQueryListEvent) => e.matches && setOpen(false);
     window.addEventListener("keydown", onKey);
+    desktop.addEventListener("change", onBreakpoint);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
+      desktop.removeEventListener("change", onBreakpoint);
     };
   }, [open]);
 
@@ -140,19 +148,38 @@ export function SiteHeader() {
             )}
             style={{ transitionDelay: open ? "340ms" : "0ms" }}
           >
-            <Link href="/sign-up" onClick={() => setOpen(false)} className="m-btn">
-              Start free
-              <span className="m-btn__icon">
-                <ArrowOut />
-              </span>
-            </Link>
-            <Link
-              href="/sign-in"
-              onClick={() => setOpen(false)}
-              className="text-sm font-medium text-graphite"
-            >
-              Sign in
-            </Link>
+            {isSignedIn ? (
+              <Link
+                href="/dashboard"
+                onClick={() => setOpen(false)}
+                className="m-btn"
+              >
+                Go to dashboard
+                <span className="m-btn__icon">
+                  <ArrowOut />
+                </span>
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/sign-up"
+                  onClick={() => setOpen(false)}
+                  className="m-btn"
+                >
+                  Start free
+                  <span className="m-btn__icon">
+                    <ArrowOut />
+                  </span>
+                </Link>
+                <Link
+                  href="/sign-in"
+                  onClick={() => setOpen(false)}
+                  className="text-sm font-medium text-graphite"
+                >
+                  Sign in
+                </Link>
+              </>
+            )}
             <span className="ml-auto">
               <ThemeToggle />
             </span>

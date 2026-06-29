@@ -8,6 +8,11 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="marketing-scope relative flex min-h-dvh flex-col">
+      {/* Reveal animations are progressive enhancement — if JS is off, scroll
+          reveals can't fire, so keep their content fully visible. */}
+      <noscript>
+        <style>{`.m-reveal{opacity:1!important;transform:none!important;filter:none!important}`}</style>
+      </noscript>
       <div className="m-grain" aria-hidden />
       <a
         href="#main-content"

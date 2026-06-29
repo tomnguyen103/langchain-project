@@ -33,6 +33,14 @@ export function Reveal({
     const node = ref.current;
     if (!node || visible) return;
 
+    // If the observer can't run, reveal on the next frame so content is never
+    // stuck hidden. The JS-disabled case is handled by a <noscript> override in
+    // the marketing layout.
+    if (typeof IntersectionObserver === "undefined") {
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {

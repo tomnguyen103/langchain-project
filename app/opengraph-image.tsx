@@ -128,8 +128,9 @@ export default function Image() {
               background: EMBER,
             }}
           />
-          <div style={{ color: "#71717a", fontSize: 25 }}>
-            Instagram · YouTube · TikTok · LinkedIn · Facebook · X
+          <div style={{ color: "#71717a", fontSize: 22 }}>
+            Instagram · YouTube · TikTok · LinkedIn · Facebook · Pinterest ·
+            Discord · X
           </div>
         </div>
       </div>

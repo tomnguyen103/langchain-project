@@ -41,7 +41,6 @@ const features = [
     description:
       "Point it at a topic and a LangGraph agent reads the room — what's trending, what's been said, and what's actually worth saying.",
     span: "lg:col-span-3",
-    featured: true,
   },
   {
     index: "02",
