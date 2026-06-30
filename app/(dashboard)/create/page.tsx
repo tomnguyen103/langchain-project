@@ -3,6 +3,7 @@ import { evaluateAccountHealth } from "@/lib/accounts/health";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import type { AccountView } from "@/components/accounts/account-card";
 import { Composer } from "@/components/composer/composer";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default async function CreatePage({
   searchParams,
@@ -31,10 +32,11 @@ export default async function CreatePage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Create</h1>
-      <p className="text-muted-foreground mt-1">
-        Compose a post, pick platforms, and schedule it.
-      </p>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Create"
+        description="Compose a post, pick platforms, and schedule it."
+      />
       <div className="mt-6">
         <Composer accounts={views} initialTopic={sp.topic} />
       </div>
