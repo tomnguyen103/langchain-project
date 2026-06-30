@@ -24,7 +24,7 @@ export default async function DashboardLayout({
       >
         Skip to main content
       </a>
-      <Sidebar />
+      <Sidebar plan={plan} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar plan={plan} brands={brands} currentBrandId={currentBrandId} />
         <main

@@ -8,52 +8,58 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  Design system — "SocialFlow" premium SaaS theme.
-  Neutral base + a refined violet primary (creativity + AI).
-  Tailwind v4 is CSS-first: tokens live here, not in a tailwind.config.ts.
+  Design system — SocialFlow "Operator's Console".
+  The app shares the marketing "Ink & Porcelain" brand (porcelain canvas, ink
+  type, a single ember signal) but tuned for a dense productivity tool: tighter
+  radius, hairline borders, an ink sidebar rail. Tailwind v4 is CSS-first —
+  tokens live here, not in a tailwind.config.ts. Marketing keeps its own `--m-*`
+  tokens scoped to `.marketing-scope` below.
 */
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.5rem;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --background: #f4f2ec; /* porcelain canvas */
+  --foreground: #15141b; /* ink */
+  --card: #fbfaf7; /* raised, warm near-white */
+  --card-foreground: #15141b;
+  --popover: #fbfaf7;
+  --popover-foreground: #15141b;
 
-  --primary: oklch(0.541 0.243 293.009);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  /* 0.53 (not the shadcn default 0.556) so muted text clears WCAG AA 4.5:1 even
-     on --muted/--secondary/--accent surfaces (e.g. the landing platform pills +
-     section captions), where 0.556 dipped to ~4.34:1. Passes on white too. */
-  --muted-foreground: oklch(0.53 0 0);
-  --accent: oklch(0.967 0.02 293.009);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --primary: #15141b; /* ink — premium primary action */
+  --primary-foreground: #f6f4ef;
+  --secondary: #edeae2;
+  --secondary-foreground: #15141b;
+  --muted: #ece9e1;
+  --muted-foreground: #56535e; /* graphite — AA on porcelain */
+  --accent: #e9e5dc; /* subtle hover surface */
+  --accent-foreground: #15141b;
+  --destructive: #b23b2d;
 
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.541 0.243 293.009);
+  --success: #3b6d4f;
+  --success-foreground: #f6f4ef;
+  --warning: #b07a2e;
+  --warning-foreground: #15141b;
 
-  --chart-1: oklch(0.541 0.243 293.009);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --border: color-mix(in oklab, #15141b 12%, transparent);
+  --input: color-mix(in oklab, #15141b 16%, transparent);
+  --ring: #c2703d; /* ember focus signal */
 
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.541 0.243 293.009);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.541 0.243 293.009);
+  --chart-1: #c2703d;
+  --chart-2: #15141b;
+  --chart-3: #56535e;
+  --chart-4: #3b6d4f;
+  --chart-5: #b07a2e;
+
+  /* The signature dark ink rail against the porcelain canvas. */
+  --sidebar: #15141b;
+  --sidebar-foreground: #efede7;
+  --sidebar-primary: #c2703d;
+  --sidebar-primary-foreground: #15141b;
+  --sidebar-accent: #22212b; /* raised ink — hover/active row */
+  --sidebar-accent-foreground: #f1efe9;
+  --sidebar-border: color-mix(in oklab, #f1efe9 10%, transparent);
+  --sidebar-ring: #c2703d;
 
   /* ── Marketing brand: "Ink & Porcelain" (light) ──────────────────────────
      Monochrome editorial system. Color is functional only: ember = "live",
@@ -83,41 +89,46 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --background: #100f15; /* deep ink canvas */
+  --foreground: #f1efe9; /* porcelain */
+  --card: #17161f; /* raised */
+  --card-foreground: #f1efe9;
+  --popover: #1a1922;
+  --popover-foreground: #f1efe9;
 
-  --primary: oklch(0.621 0.214 293.009);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.302 0.04 293.009);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --primary: #f1efe9; /* porcelain — flips for contrast on dark */
+  --primary-foreground: #15141b;
+  --secondary: #22212b;
+  --secondary-foreground: #f1efe9;
+  --muted: #1e1d26;
+  --muted-foreground: #a7a3af;
+  --accent: #24232e;
+  --accent-foreground: #f1efe9;
+  --destructive: #c9503e;
 
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.621 0.214 293.009);
+  --success: #6fa083;
+  --success-foreground: #15141b;
+  --warning: #d2a24e;
+  --warning-foreground: #15141b;
 
-  --chart-1: oklch(0.621 0.214 293.009);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --border: color-mix(in oklab, #f1efe9 12%, transparent);
+  --input: color-mix(in oklab, #f1efe9 16%, transparent);
+  --ring: #d98a52; /* brighter ember on dark */
 
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.621 0.214 293.009);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.621 0.214 293.009);
+  --chart-1: #d98a52;
+  --chart-2: #f1efe9;
+  --chart-3: #a7a3af;
+  --chart-4: #6fa083;
+  --chart-5: #d2a24e;
+
+  --sidebar: #16151d; /* rail lifts above the deep-ink canvas */
+  --sidebar-foreground: #efede7;
+  --sidebar-primary: #d98a52;
+  --sidebar-primary-foreground: #15141b;
+  --sidebar-accent: #22212b;
+  --sidebar-accent-foreground: #f1efe9;
+  --sidebar-border: color-mix(in oklab, #f1efe9 10%, transparent);
+  --sidebar-ring: #d98a52;
 
   /* ── Marketing brand: "Ink & Porcelain" (dark) ───────────────────────────
      The whole page becomes the operator console. Porcelain text on deep ink;
@@ -165,6 +176,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
