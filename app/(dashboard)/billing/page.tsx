@@ -7,6 +7,7 @@ import { sumRunCostUsd } from "@/lib/repos/agent-runs";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/shared/page-header";
 
 function UsageBar({
   label,
@@ -60,8 +61,11 @@ export default async function BillingPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
-      <p className="text-muted-foreground mt-1">Manage your plan and usage.</p>
+      <PageHeader
+        eyebrow="Settings"
+        title="Billing"
+        description="Manage your plan and usage."
+      />
 
       <Tabs defaultValue="plan" className="mt-6">
         <TabsList>

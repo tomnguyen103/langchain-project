@@ -8,6 +8,7 @@ import {
   Circle,
   Heart,
   MessageCircle,
+  PenSquare,
   Plug,
   RotateCw,
   Sparkles,
@@ -33,6 +34,8 @@ import { listRules } from "@/lib/repos/replies";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
 import { repurposePost, saveEvergreenAutomation } from "./actions";
 
@@ -126,14 +129,19 @@ export default async function OverviewPage() {
   return (
     <div className="space-y-6">
       <OnboardingWizard show={accounts.length === 0 && !onboardingComplete} />
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Welcome back, {name}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Your content engine at a glance.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Overview"
+        title={`Welcome back, ${name}`}
+        description="Your content engine at a glance."
+        actions={
+          <Button asChild size="sm">
+            <Link href="/create">
+              <PenSquare className="size-4" />
+              New post
+            </Link>
+          </Button>
+        }
+      />
 
       {!onboardingComplete && (
         <Card>
@@ -168,18 +176,13 @@ export default async function OverviewPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         {stats.map((s) => (
-          <Card key={s.label}>
-            <CardContent className="flex items-center gap-3 py-5">
-              <s.icon aria-hidden className="text-muted-foreground size-5" />
-              <div>
-                <div className="text-2xl font-semibold">{s.value}</div>
-                <div className="text-muted-foreground text-xs">{s.label}</div>
-                {s.hint && (
-                  <div className="text-muted-foreground text-xs">{s.hint}</div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            key={s.label}
+            label={s.label}
+            value={s.value}
+            icon={s.icon}
+            hint={s.hint}
+          />
         ))}
       </div>
 

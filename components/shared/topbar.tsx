@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, Sparkles } from "lucide-react";
+import { Menu } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
 
 import type { Brand } from "@/db/schema";
 import type { PlanId } from "@/lib/billing/plans";
 import { BrandSwitcher } from "@/components/brands/brand-switcher";
+import { Logo } from "@/components/marketing/logo";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -45,23 +46,23 @@ export function Topbar({
             <Menu className="size-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-72 p-0">
-          <SheetHeader className="h-16 justify-center border-b px-6">
-            <SheetTitle className="flex items-center gap-2">
-              <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-lg">
-                <Sparkles className="size-4" />
-              </span>
-              SocialFlow
+        <SheetContent
+          side="left"
+          className="bg-sidebar text-sidebar-foreground border-sidebar-border w-72 p-0"
+        >
+          <SheetHeader className="border-sidebar-border h-16 justify-center border-b px-5">
+            <SheetTitle className="text-sidebar-foreground">
+              <Logo />
             </SheetTitle>
             {/* Satisfies Radix's aria-describedby; visually hidden. */}
             <SheetDescription className="sr-only">
               Main navigation menu
             </SheetDescription>
           </SheetHeader>
-          <div className="py-4">
+          <div className="py-5">
             <DashboardNav onNavigate={() => setOpen(false)} />
           </div>
-          <div className="space-y-3 border-t px-4 py-4 sm:hidden">
+          <div className="border-sidebar-border space-y-3 border-t px-4 py-4 sm:hidden">
             <BrandSwitcher
               brands={brands}
               currentBrandId={currentBrandId}
@@ -74,9 +75,10 @@ export function Topbar({
 
       <Link
         href="/dashboard"
-        className="min-w-0 truncate font-semibold lg:hidden"
+        className="lg:hidden"
+        aria-label="SocialFlow dashboard"
       >
-        SocialFlow
+        <Logo />
       </Link>
 
       <div className="flex-1" />

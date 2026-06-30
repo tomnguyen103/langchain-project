@@ -1,3 +1,6 @@
+import { EmptyState } from "./empty-state";
+import { PageHeader } from "./page-header";
+
 export function PagePlaceholder({
   title,
   description,
@@ -8,12 +11,12 @@ export function PagePlaceholder({
   note?: string;
 }) {
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      <p className="text-muted-foreground mt-1">{description}</p>
-      <div className="text-muted-foreground mt-8 rounded-xl border border-dashed p-12 text-center text-sm">
-        {note ?? "Coming soon."}
-      </div>
+    <div className="space-y-8">
+      <PageHeader title={title} description={description} />
+      <EmptyState
+        title="Coming soon"
+        description={note ?? "This area is being built."}
+      />
     </div>
   );
 }
