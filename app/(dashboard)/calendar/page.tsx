@@ -6,6 +6,7 @@ import { listContentPlans } from "@/lib/repos/content-plans";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/shared/page-header";
 import type { CalendarPost } from "@/components/calendar/types";
 import { generatePlan } from "./actions";
 
@@ -37,19 +38,18 @@ export default async function CalendarPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Calendar</h1>
-          <p className="text-muted-foreground mt-1">
-            Everything you&apos;ve scheduled and published.
-          </p>
-        </div>
-        <form action={generatePlan}>
-          <Button type="submit" variant="outline" size="sm">
-            Plan 2 weeks
-          </Button>
-        </form>
-      </div>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Calendar"
+        description="Everything you've scheduled and published."
+        actions={
+          <form action={generatePlan}>
+            <Button type="submit" variant="outline" size="sm">
+              Plan 2 weeks
+            </Button>
+          </form>
+        }
+      />
 
       {draftPlans.length > 0 && (
         <div className="mt-4 space-y-2">

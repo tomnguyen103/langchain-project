@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/shared/page-header";
 import {
   dismissReplyCopilotDraftAction,
   prepareReplyCopilotDraftsAction,
@@ -61,12 +62,11 @@ const intentVariant: Record<
 
 function Heading() {
   return (
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Auto-reply</h1>
-      <p className="text-muted-foreground mt-1">
-        Reply to comments automatically by keyword, templated or AI-composed.
-      </p>
-    </div>
+    <PageHeader
+      eyebrow="Channels"
+      title="Auto-reply"
+      description="Reply to comments automatically by keyword, templated or AI-composed."
+    />
   );
 }
 

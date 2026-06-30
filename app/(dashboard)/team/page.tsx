@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { getCurrentRole } from "@/lib/auth/current-role";
 import { canManageTeam } from "@/lib/auth/roles";
 import { getOrgId } from "@/lib/clerk";
@@ -14,14 +15,17 @@ export default async function TeamPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Team</h1>
-        <p className="text-muted-foreground text-sm">
-          Workspace roles gate sensitive actions — only an approver or above can
-          clear the review queue. Your role:{" "}
-          <Badge variant="secondary">{role}</Badge>
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Settings"
+        title="Team"
+        description="Workspace roles gate sensitive actions — only an approver or above can clear the review queue."
+        actions={
+          <>
+            <span className="text-muted-foreground text-sm">Your role:</span>
+            <Badge variant="secondary">{role}</Badge>
+          </>
+        }
+      />
 
       {!orgId ? (
         <Card>

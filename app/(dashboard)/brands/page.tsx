@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { requireUserId } from "@/lib/clerk";
 import { listBrandsForUser } from "@/lib/repos/brands";
 
@@ -11,13 +12,11 @@ export default async function BrandsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Brands</h1>
-        <p className="text-muted-foreground text-sm">
-          Manage brand workspaces. Each brand is an independent content namespace
-          — accounts, posts, and AI runs can be scoped per brand.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Settings"
+        title="Brands"
+        description="Manage brand workspaces. Each brand is an independent content namespace — accounts, posts, and AI runs can be scoped per brand."
+      />
 
       <Card>
         <CardContent className="space-y-3 py-4">

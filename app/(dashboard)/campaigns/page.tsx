@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PageHeader } from "@/components/shared/page-header";
 import { requireUserId } from "@/lib/clerk";
 import { recommendCampaignExperiments } from "@/lib/campaigns/recommendations";
 import { CAMPAIGN_TEMPLATES } from "@/lib/campaigns/templates";
@@ -50,12 +51,11 @@ export default async function CampaignsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Campaigns</h1>
-        <p className="text-muted-foreground text-sm">
-          Briefs, source material, and source-to-draft campaign runs.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Campaigns"
+        description="Briefs, source material, and source-to-draft campaign runs."
+      />
 
       <Card>
         <CardHeader>

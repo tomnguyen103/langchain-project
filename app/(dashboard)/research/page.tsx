@@ -7,6 +7,7 @@ import { listSocialAccounts } from "@/lib/repos/accounts";
 import { listResearchTopics } from "@/lib/repos/research";
 import { listResearchWatches } from "@/lib/repos/research-watches";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PageHeader } from "@/components/shared/page-header";
 import { IdeaCard } from "@/components/research/idea-card";
 import { ResearchForm } from "@/components/research/research-form";
 import { TopicList, type TopicView } from "@/components/research/topic-list";
@@ -64,10 +65,11 @@ export default async function ResearchPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Research &amp; ideas</h1>
-      <p className="text-muted-foreground mt-1">
-        Drop a niche and let the agent research and generate content ideas.
-      </p>
+      <PageHeader
+        eyebrow="Channels"
+        title="Research & ideas"
+        description="Drop a niche and let the agent research and generate content ideas."
+      />
 
       <Tabs defaultValue="topics" className="mt-6">
         <TabsList>

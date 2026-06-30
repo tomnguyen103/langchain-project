@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { requireUserId } from "@/lib/clerk";
 import { topicsFromLearnedMemory } from "@/lib/brand/learned-notes";
 import { formatOrgPolicyRules } from "@/lib/compliance/org-policy";
@@ -93,13 +94,11 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-10 p-4 sm:p-6">
       <section className="space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Brand safety</h1>
-          <p className="text-muted-foreground text-sm">
-            Set your brand voice and guardrails. The review agent (Castor) uses
-            these to score every draft before it&apos;s scheduled.
-          </p>
-        </header>
+        <PageHeader
+          eyebrow="Settings"
+          title="Brand safety"
+          description="Set your brand voice and guardrails. The review agent (Castor) uses these to score every draft before it's scheduled."
+        />
         <BrandProfileForm
           initial={{
             voice: profile.voice,
