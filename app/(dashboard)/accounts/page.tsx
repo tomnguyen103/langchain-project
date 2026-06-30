@@ -9,6 +9,7 @@ import {
 import { ConnectButton } from "@/components/accounts/connect-button";
 import { DiscordConnectForm } from "@/components/accounts/discord-connect-form";
 import { OAuthResultToast } from "@/components/accounts/oauth-result-toast";
+import { PageHeader } from "@/components/shared/page-header";
 
 export default async function AccountsPage({
   searchParams,
@@ -54,17 +55,12 @@ export default async function AccountsPage({
         error={firstValue(sp.error)}
       />
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Connected accounts
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Connect the platforms you want to publish to.
-          </p>
-        </div>
-        {views.length > 0 && connectButtons}
-      </div>
+      <PageHeader
+        eyebrow="Channels"
+        title="Connected accounts"
+        description="Connect the platforms you want to publish to."
+        actions={views.length > 0 ? connectButtons : undefined}
+      />
 
       <div className="mt-6 max-w-xl">
         <DiscordConnectForm />

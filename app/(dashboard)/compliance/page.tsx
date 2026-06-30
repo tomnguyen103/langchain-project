@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { requireUserId } from "@/lib/clerk";
 import { listDisclosures } from "@/lib/repos/disclosure-ledger";
 
@@ -12,20 +13,19 @@ export default async function CompliancePage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Compliance ledger
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          An audit of AI-content disclosure applied when the agent published —
-          evidence for platform and regional rules (EU AI Act Art. 50, CA SB
-          942). Configure it in{" "}
-          <Link href="/settings" className="underline">
-            Settings
+      <PageHeader
+        eyebrow="Governance"
+        title="Compliance ledger"
+        description="An audit of AI-content disclosure applied when the agent published — evidence for platform and regional rules (EU AI Act Art. 50, CA SB 942)."
+        actions={
+          <Link
+            href="/settings"
+            className="text-muted-foreground hover:text-foreground text-sm underline"
+          >
+            Configure
           </Link>
-          .
-        </p>
-      </header>
+        }
+      />
 
       {entries.length === 0 ? (
         <Card>

@@ -2,6 +2,7 @@ import { format } from "date-fns";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { requireUserId } from "@/lib/clerk";
 import { getQualityReport } from "@/lib/repos/quality";
 
@@ -36,13 +37,11 @@ export default async function QualityPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Content Quality</h1>
-        <p className="text-muted-foreground text-sm">
-          Brand-safety metrics from the Vigil/Vetus gate — verdicts, scores, and
-          flagged drafts that need attention.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Governance"
+        title="Content Quality"
+        description="Brand-safety metrics from the Vigil/Vetus gate — verdicts, scores, and flagged drafts that need attention."
+      />
 
       {/* Verdict breakdown */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

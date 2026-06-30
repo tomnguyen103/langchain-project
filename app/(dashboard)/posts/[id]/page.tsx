@@ -22,6 +22,7 @@ export default async function PostPage({
 
   const view: PostDetailView = {
     id: post.id,
+    title: post.title,
     status: post.status,
     scheduledAt: post.scheduledAt?.toISOString() ?? null,
     baseBody: post.baseBody,

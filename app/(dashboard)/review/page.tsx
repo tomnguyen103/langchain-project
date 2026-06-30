@@ -3,6 +3,7 @@ import {
   listPendingReviews,
   type PendingReview,
 } from "@/lib/repos/content-reviews";
+import { PageHeader } from "@/components/shared/page-header";
 
 import { ReviewQueue } from "./review-queue";
 
@@ -23,12 +24,11 @@ export default async function ReviewPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Review queue</h1>
-        <p className="text-muted-foreground mt-1">
-          Drafts the brand-safety agent held for your approval before publishing.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Governance"
+        title="Review queue"
+        description="Drafts the brand-safety agent held for your approval before publishing."
+      />
       <ReviewQueue runs={runs} />
     </div>
   );

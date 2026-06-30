@@ -32,12 +32,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/shared/page-header";
 import { isFutureDate, toDatetimeLocalValue } from "@/lib/utils/schedule";
 
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
 export type PostDetailView = {
   id: string;
+  title: string | null;
   status: string;
   scheduledAt: string | null;
   baseBody: string;
@@ -138,36 +140,37 @@ export function PostDetail({ post }: { post: PostDetailView }) {
             <ArrowLeft className="size-4" /> Calendar
           </Link>
         </Button>
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold tracking-tight">Post</h1>
-            <Badge variant={statusVariant[post.status] ?? "outline"}>
-              {label(post.status)}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1">
-            {hasPublished && (
+        <PageHeader
+          eyebrow="Workspace"
+          title={post.title ?? "Untitled post"}
+          actions={
+            <>
+              <Badge variant={statusVariant[post.status] ?? "outline"}>
+                {label(post.status)}
+              </Badge>
+              {hasPublished && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() =>
+                    run(() => refreshPostMetrics(post.id), "Metrics updated.")
+                  }
+                >
+                  <BarChart3 className="size-4" /> Metrics
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 disabled={pending}
-                onClick={() =>
-                  run(() => refreshPostMetrics(post.id), "Metrics updated.")
-                }
+                onClick={duplicate}
               >
-                <BarChart3 className="size-4" /> Metrics
+                <Copy className="size-4" /> Duplicate
               </Button>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={duplicate}
-            >
-              <Copy className="size-4" /> Duplicate
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
       </div>
 
       {hasPending && (

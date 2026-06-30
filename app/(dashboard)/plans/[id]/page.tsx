@@ -6,6 +6,7 @@ import { getContentPlan } from "@/lib/repos/content-plans";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import type { PlanSlot } from "@/db/schema";
 import { approvePlan } from "./actions";
 
@@ -24,16 +25,14 @@ export default async function PlanReviewPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Content plan
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {new Date(plan.periodStart).toLocaleDateString()} –{" "}
-          {new Date(plan.periodEnd).toLocaleDateString()} ·{" "}
+      <PageHeader
+        eyebrow="Workspace"
+        title="Content plan"
+        description={`${new Date(plan.periodStart).toLocaleDateString()} – ${new Date(plan.periodEnd).toLocaleDateString()}`}
+        actions={
           <Badge variant={isDraft ? "secondary" : "default"}>{plan.status}</Badge>
-        </p>
-      </div>
+        }
+      />
 
       <Card>
         <CardHeader>

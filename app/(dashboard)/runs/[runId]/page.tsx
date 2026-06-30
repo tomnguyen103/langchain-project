@@ -13,6 +13,7 @@ import { approveRunBudgetAction } from "@/app/(dashboard)/runs/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { runStatusBadge } from "@/components/runs/run-meta";
 import { RunLiveStatus } from "@/components/runs/run-live-status";
 import { StepList } from "@/components/runs/step-list";
@@ -78,12 +79,11 @@ export default async function RunPage({
       </Link>
 
       <header className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {niche ?? "Agent run"}
-          </h1>
-          <Badge variant={status.variant}>{status.label}</Badge>
-        </div>
+        <PageHeader
+          eyebrow="Governance"
+          title={niche ?? "Agent run"}
+          actions={<Badge variant={status.variant}>{status.label}</Badge>}
+        />
 
         <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           <span className="font-mono">{run.runId}</span>

@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { agentLabel, runStatusBadge } from "@/components/runs/run-meta";
 import { StartRunForm } from "@/components/runs/start-run-form";
 import { requireUserId } from "@/lib/clerk";
@@ -32,14 +33,11 @@ export default async function RunsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Agent runs</h1>
-        <p className="text-muted-foreground text-sm">
-          Every autonomous pipeline run, end to end. Open one to see what each
-          agent did, how long it took, and verify the run wasn&rsquo;t tampered
-          with.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Governance"
+        title="Agent runs"
+        description="Every autonomous pipeline run, end to end. Open one to see what each agent did, how long it took, and verify the run wasn't tampered with."
+      />
 
       <StartRunForm
         platforms={startPlatforms}
