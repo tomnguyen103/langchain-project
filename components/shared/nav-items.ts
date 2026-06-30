@@ -20,6 +20,8 @@ import {
 export type NavItem = { href: string; label: string; icon: LucideIcon };
 export type NavGroup = { label: string; items: NavItem[] };
 
+// Navigation is consumed as groups (see DashboardNav); there is no flat export.
+
 /**
  * Sidebar navigation, grouped by job-to-be-done. The mono group labels and the
  * grouping give the 15 destinations a scannable hierarchy.
@@ -61,6 +63,3 @@ export const navGroups: NavGroup[] = [
     ],
   },
 ];
-
-/** Flat list, derived from the groups (kept for any non-grouped consumers). */
-export const navItems: NavItem[] = navGroups.flatMap((g) => g.items);

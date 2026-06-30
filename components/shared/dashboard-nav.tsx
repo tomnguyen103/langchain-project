@@ -13,7 +13,7 @@ export function DashboardNav({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="flex flex-col gap-6 px-3">
       {navGroups.map((group) => (
         <div key={group.label} className="flex flex-col gap-1">
-          <p className="text-sidebar-foreground/45 px-3 pb-1 font-mono text-[0.625rem] font-medium tracking-[0.18em] uppercase">
+          <p className="text-sidebar-foreground/55 px-3 pb-1 font-mono text-[0.625rem] font-medium tracking-[0.18em] uppercase">
             {group.label}
           </p>
           {group.items.map((item) => {
