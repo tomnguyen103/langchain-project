@@ -39,6 +39,7 @@ type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
 export type PostDetailView = {
   id: string;
+  title: string | null;
   status: string;
   scheduledAt: string | null;
   baseBody: string;
@@ -141,7 +142,7 @@ export function PostDetail({ post }: { post: PostDetailView }) {
         </Button>
         <PageHeader
           eyebrow="Workspace"
-          title="Post"
+          title={post.title ?? "Untitled post"}
           actions={
             <>
               <Badge variant={statusVariant[post.status] ?? "outline"}>
