@@ -1,3 +1,5 @@
+import { Plug } from "lucide-react";
+
 import { requireUserId } from "@/lib/clerk";
 import { evaluateAccountHealth } from "@/lib/accounts/health";
 import { listConnectableProviders } from "@/lib/oauth/registry";
@@ -9,6 +11,7 @@ import {
 import { ConnectButton } from "@/components/accounts/connect-button";
 import { DiscordConnectForm } from "@/components/accounts/discord-connect-form";
 import { OAuthResultToast } from "@/components/accounts/oauth-result-toast";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 
 export default async function AccountsPage({
@@ -67,18 +70,19 @@ export default async function AccountsPage({
       </div>
 
       {views.length === 0 ? (
-        <div className="mt-8 rounded-xl border border-dashed p-12 text-center">
-          <p className="font-medium">No accounts connected yet</p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Connect a platform to start publishing. Instagram needs a
-            Business/Creator account linked to a Facebook Page.
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            {providers.map((p) => (
-              <ConnectButton key={p.id} id={p.id} label={p.label} />
-            ))}
-          </div>
-        </div>
+        <EmptyState
+          className="mt-8"
+          icon={Plug}
+          title="No accounts connected yet"
+          description="Connect a platform to start publishing. Instagram needs a Business/Creator account linked to a Facebook Page."
+          action={
+            <div className="flex flex-wrap justify-center gap-2">
+              {providers.map((p) => (
+                <ConnectButton key={p.id} id={p.id} label={p.label} />
+              ))}
+            </div>
+          }
+        />
       ) : (
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
           {views.map((view) => (

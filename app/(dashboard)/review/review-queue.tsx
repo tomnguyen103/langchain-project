@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Inbox } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PlatformPreview } from "@/components/composer/platform-preview";
 import type { PendingReview } from "@/lib/repos/content-reviews";
 import {
@@ -457,15 +459,11 @@ function RunCard({ runId, drafts }: RunGroup) {
 export function ReviewQueue({ runs }: { runs: RunGroup[] }) {
   if (runs.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-10 text-center">
-          <p className="font-medium">Nothing to review</p>
-          <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-            When the agent holds a draft that needs a human check, it shows up
-            here.
-          </p>
-        </CardContent>
-      </Card>
+      <EmptyState
+        icon={Inbox}
+        title="Nothing to review"
+        description="When the agent holds a draft that needs a human check, it shows up here."
+      />
     );
   }
 

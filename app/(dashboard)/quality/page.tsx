@@ -1,8 +1,20 @@
 import { format } from "date-fns";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Eye,
+  ShieldAlert,
+  ShieldCheck,
+  Timer,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatCard } from "@/components/shared/stat-card";
 import { requireUserId } from "@/lib/clerk";
 import { getQualityReport } from "@/lib/repos/quality";
 
@@ -45,124 +57,44 @@ export default async function QualityPage() {
 
       {/* Verdict breakdown */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Pass
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{report.verdictCounts.pass}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Review
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{report.verdictCounts.review}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Block
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{report.verdictCounts.block}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Pending
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{report.verdictCounts.pending}</p>
-          </CardContent>
-        </Card>
+        <StatCard label="Pass" value={report.verdictCounts.pass} icon={CheckCircle2} />
+        <StatCard label="Review" value={report.verdictCounts.review} icon={Eye} />
+        <StatCard label="Block" value={report.verdictCounts.block} icon={ShieldAlert} />
+        <StatCard label="Pending" value={report.verdictCounts.pending} icon={Clock} />
       </div>
 
       {/* Avg score + held count */}
       <div className="grid grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Avg safety score
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{formatScore(report.avgScore)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Held for review
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{report.statusCounts.held}</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Avg safety score"
+          value={formatScore(report.avgScore)}
+          icon={ShieldCheck}
+        />
+        <StatCard label="Held for review" value={report.statusCounts.held} icon={Clock} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Avg review time
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">
-              {formatHours(report.approvalAnalytics.avgReviewHours)}
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              SLA: {report.approvalAnalytics.slaHours}h
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Within SLA
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">
-              {report.approvalAnalytics.withinSla}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Breached
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">
-              {report.approvalAnalytics.breached}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">
-              Open breaches
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">
-              {report.approvalAnalytics.openBreaches}
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Avg review time"
+          value={formatHours(report.approvalAnalytics.avgReviewHours)}
+          icon={Timer}
+          hint={`SLA: ${report.approvalAnalytics.slaHours}h`}
+        />
+        <StatCard
+          label="Within SLA"
+          value={report.approvalAnalytics.withinSla}
+          icon={CheckCircle2}
+        />
+        <StatCard
+          label="Breached"
+          value={report.approvalAnalytics.breached}
+          icon={AlertTriangle}
+        />
+        <StatCard
+          label="Open breaches"
+          value={report.approvalAnalytics.openBreaches}
+          icon={AlertCircle}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -233,15 +165,11 @@ export default async function QualityPage() {
       <div className="space-y-2">
         <h2 className="text-base font-semibold">Flagged content</h2>
         {report.flagged.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center">
-              <p className="font-medium">No flagged content</p>
-              <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-                Items with a &ldquo;review&rdquo; or &ldquo;block&rdquo; verdict, or
-                held for human approval, will appear here.
-              </p>
-            </CardContent>
-          </Card>
+          <EmptyState
+            icon={ShieldCheck}
+            title="No flagged content"
+            description='Items with a "review" or "block" verdict, or held for human approval, will appear here.'
+          />
         ) : (
           <Card>
             <CardContent className="p-0">

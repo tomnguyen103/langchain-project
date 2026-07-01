@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Workflow } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { agentLabel, runStatusBadge } from "@/components/runs/run-meta";
 import { StartRunForm } from "@/components/runs/start-run-form";
@@ -45,15 +46,11 @@ export default async function RunsPage() {
       />
 
       {runs.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="font-medium">No runs yet</p>
-            <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-              When you start an agent run, it appears here with a full,
-              verifiable timeline of every step.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Workflow}
+          title="No runs yet"
+          description="When you start an agent run, it appears here with a full, verifiable timeline of every step."
+        />
       ) : (
         <Card>
           <CardContent className="p-0">
