@@ -2,6 +2,7 @@ import type { JobsOptions } from "bullmq";
 
 import { AgentName } from "@/lib/agents/types";
 import { deleteSchedule, recordSchedule } from "@/lib/repos/schedules";
+import type { ExtractedComment } from "@/lib/webhooks/comments";
 import { clearFinishedJob } from "./clear-finished-job";
 import {
   agentStepJobId,
@@ -461,6 +462,32 @@ export async function enqueueCommentReplies(
       opts: replyJobOpts(commentEventId),
     })),
   );
+}
+
+export type CommentWebhookJobData = {
+  provider: string;
+  comments: ExtractedComment[];
+};
+
+/**
+ * Defer an inbound platform comment-webhook payload to the worker instead of
+ * handling it in-request: the route's job is to authenticate the delivery and
+ * hand it off fast, since Meta can disable a subscription that responds
+ * slowly. No deterministic job id here (unlike enqueuePublish/enqueueReply) —
+ * there's no natural per-delivery identity to dedupe on, and the actual
+ * correctness guard is downstream (ingestComment's dedupe, shared with
+ * polling), so a duplicate enqueue is a harmless no-op rather than a bug to
+ * prevent at the queue layer.
+ */
+export async function enqueueCommentWebhook(
+  provider: string,
+  comments: ExtractedComment[],
+): Promise<void> {
+  if (comments.length === 0) return;
+  await getQueue(QueueName.CommentWebhook).add("comment-webhook", {
+    provider,
+    comments,
+  } satisfies CommentWebhookJobData);
 }
 
 // ---------------------------------------------------------------------------

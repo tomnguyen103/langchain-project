@@ -1,7 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-import { getAgentRunForUser, listStepsForRun } from "@/lib/repos/agent-runs";
+import {
+  getAgentRunForUser,
+  getRunActivitySignal,
+  listStepsForRun,
+} from "@/lib/repos/agent-runs";
 import { buildRunLiveSnapshot } from "@/lib/runs/live";
 
 export const runtime = "nodejs";
@@ -31,6 +35,14 @@ export async function GET(
   const stream = new ReadableStream({
     async start(controller) {
       let lastVersion = "";
+      // Cheap gate in front of the full step fetch: an aggregate over
+      // agent_steps (count + max(updatedAt)) is far cheaper than fetching
+      // every step's full row (input/summary/handoff/control JSONB), and is
+      // sufficient to detect "a new step arrived" since steps are append-only
+      // (recordAgentStep only inserts). `lastVersion` above stays the
+      // authoritative emit-gate — this only skips the expensive fetch when
+      // nothing could possibly have changed.
+      let lastActivityKey = "";
 
       const emit = (event: string, data: unknown) => {
         controller.enqueue(
@@ -54,14 +66,26 @@ export async function GET(
             return;
           }
 
-          const steps = await listStepsForRun(runId);
-          const snapshot = buildRunLiveSnapshot(run, steps);
-          if (snapshot.version !== lastVersion) {
-            lastVersion = snapshot.version;
-            emit("snapshot", snapshot);
-            if (snapshot.final) {
-              controller.close();
-              return;
+          const activity = await getRunActivitySignal(runId);
+          const activityKey = [
+            run.updatedAt.toISOString(),
+            activity.stepCount,
+            activity.latestStepUpdatedAt?.toISOString() ?? "none",
+          ].join(":");
+
+          if (activityKey !== lastActivityKey) {
+            lastActivityKey = activityKey;
+            const steps = await listStepsForRun(runId);
+            const snapshot = buildRunLiveSnapshot(run, steps);
+            if (snapshot.version !== lastVersion) {
+              lastVersion = snapshot.version;
+              emit("snapshot", snapshot);
+              if (snapshot.final) {
+                controller.close();
+                return;
+              }
+            } else {
+              controller.enqueue(encoder.encode(": keepalive\n\n"));
             }
           } else {
             controller.enqueue(encoder.encode(": keepalive\n\n"));

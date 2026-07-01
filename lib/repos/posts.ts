@@ -11,6 +11,7 @@ import {
   isNotNull,
   lte,
   notExists,
+  sql,
 } from "drizzle-orm";
 
 import { db, runAtomicWrite } from "@/db";
@@ -77,6 +78,12 @@ export async function getPostWithTargets(
   return { ...rows[0].post, targets };
 }
 
+// Defensive cap: a heavy scheduler's full-history/no-range call shouldn't be
+// able to pull an unbounded row set (and unbounded target IN-list) into one
+// response. Every current caller passes a bounded range (dashboard: 90 days,
+// calendar: a month) or genuinely wants "everything" capped to a sane ceiling.
+const LIST_POSTS_LIMIT = 500;
+
 export async function listPostsWithTargets(
   clerkUserId: string,
   range?: { from: Date; to: Date },
@@ -93,7 +100,8 @@ export async function listPostsWithTargets(
     .select()
     .from(posts)
     .where(where)
-    .orderBy(desc(posts.scheduledAt));
+    .orderBy(desc(posts.scheduledAt))
+    .limit(LIST_POSTS_LIMIT);
   if (!rows.length) return [];
 
   const targets = await db
@@ -327,8 +335,18 @@ export async function getEngagementSummary(clerkUserId: string): Promise<{
   totalShares: number;
   postsWithMetrics: number;
 }> {
-  const rows = await db
-    .select({ metrics: postTargets.metrics })
+  // Summed in SQL rather than transferring every target's metrics JSON to sum
+  // in JS — this call is on the dashboard's hot path and the old approach grew
+  // with lifetime published-post count. Matches the sum-from-JSONB pattern
+  // already used by sumStepCostUsd/sumRunCostUsd in lib/repos/agent-runs.ts.
+  const [row] = await db
+    .select({
+      totalLikes: sql<string>`coalesce(sum((${postTargets.metrics}->>'likes')::numeric), 0)`,
+      totalComments: sql<string>`coalesce(sum((${postTargets.metrics}->>'comments')::numeric), 0)`,
+      totalViews: sql<string>`coalesce(sum((${postTargets.metrics}->>'views')::numeric), 0)`,
+      totalShares: sql<string>`coalesce(sum((${postTargets.metrics}->>'shares')::numeric), 0)`,
+      postsWithMetrics: count(),
+    })
     .from(postTargets)
     .innerJoin(posts, eq(postTargets.postId, posts.id))
     .where(
@@ -339,25 +357,12 @@ export async function getEngagementSummary(clerkUserId: string): Promise<{
       ),
     );
 
-  let totalLikes = 0;
-  let totalComments = 0;
-  let totalViews = 0;
-  let totalShares = 0;
-
-  for (const row of rows) {
-    if (!row.metrics) continue;
-    totalLikes += (row.metrics.likes ?? 0);
-    totalComments += (row.metrics.comments ?? 0);
-    totalViews += (row.metrics.views ?? 0);
-    totalShares += (row.metrics.shares ?? 0);
-  }
-
   return {
-    totalLikes,
-    totalComments,
-    totalViews,
-    totalShares,
-    postsWithMetrics: rows.length,
+    totalLikes: Number(row?.totalLikes ?? 0),
+    totalComments: Number(row?.totalComments ?? 0),
+    totalViews: Number(row?.totalViews ?? 0),
+    totalShares: Number(row?.totalShares ?? 0),
+    postsWithMetrics: row?.postsWithMetrics ?? 0,
   };
 }
 

@@ -1,0 +1,1 @@
+CREATE INDEX "generated_content_user_verdict_idx" ON "generated_content" USING btree ("clerk_user_id","review_verdict");

@@ -2,21 +2,9 @@ import { timingSafeEqual } from "node:crypto";
 
 import { NextResponse, type NextRequest } from "next/server";
 
-import { commentMatchesRule } from "@/lib/auto-reply/match";
 import { env } from "@/lib/env";
-import { enqueueCommentReply } from "@/lib/queue/jobs";
-import { listAccountsByPlatformId } from "@/lib/repos/accounts";
-import {
-  getActiveRulesForAccount,
-  ingestComment,
-  updateCommentEvent,
-} from "@/lib/repos/replies";
-import {
-  extractComments,
-  type ExtractedComment,
-  type WebhookPayload,
-} from "@/lib/webhooks/comments";
-import { reportError } from "@/lib/observability/report-error";
+import { enqueueCommentWebhook } from "@/lib/queue/jobs";
+import { extractComments, type WebhookPayload } from "@/lib/webhooks/comments";
 import { verifyMetaSignature } from "@/lib/webhooks/meta";
 
 export const runtime = "nodejs";
@@ -49,41 +37,6 @@ export async function GET(req: NextRequest) {
   return new NextResponse("forbidden", { status: 403 });
 }
 
-async function handleComment(c: ExtractedComment) {
-  // Route to every user that connected this external account (the lookup isn't
-  // unique on its own), applying each user's own rules.
-  const accounts = await listAccountsByPlatformId(c.platform, c.accountExternalId);
-  for (const account of accounts) {
-    if (account.status !== "active") continue;
-
-    const rules = await getActiveRulesForAccount(
-      account.clerkUserId,
-      account.platform,
-      account.id,
-    );
-    if (rules.length === 0) continue;
-
-    const event = await ingestComment({
-      socialAccountId: account.id,
-      postTargetId: null,
-      platform: account.platform,
-      externalCommentId: c.externalCommentId,
-      externalPostId: c.externalPostId,
-      author: c.author,
-      text: c.text,
-      commentedAt: c.createdAt,
-    });
-    if (!event) continue; // already ingested (dedupe shared with polling)
-
-    const rule = rules.find((r) => commentMatchesRule(c.text, r));
-    await updateCommentEvent(event.id, {
-      matchedRuleId: rule?.id ?? null,
-      status: rule ? "matched" : "skipped",
-    });
-    if (rule) await enqueueCommentReply(event.id);
-  }
-}
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ provider: string }> },
@@ -109,14 +62,10 @@ export async function POST(
     return NextResponse.json({ ok: true });
   }
 
-  for (const comment of extractComments(payload)) {
-    try {
-      await handleComment(comment);
-    } catch (error) {
-      reportError("comment webhook: handling failed", error, {
-        platform: comment.platform,
-      });
-    }
-  }
+  // Authenticate + parse only; the actual account/rule/DB work happens on the
+  // worker (worker/processors/comment-webhook.ts), off this request's per-query
+  // HTTP driver, so a comment burst can't slow this route past what the
+  // platform will tolerate before disabling the subscription.
+  await enqueueCommentWebhook(provider, extractComments(payload));
   return NextResponse.json({ ok: true });
 }
