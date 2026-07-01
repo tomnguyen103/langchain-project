@@ -34,6 +34,22 @@ export async function publishProcessor(job: Job): Promise<void> {
     return;
   }
 
+  // A worker crash between connector.publishNow() succeeding and the
+  // updatePostTarget(status: "published") write below leaves this job
+  // redeliverable by BullMQ even though the platform already has the post.
+  // Connectors aren't idempotent, so without this guard a redelivery would
+  // publish the same content twice.
+  if (target.status === "published") {
+    await updateScheduleStatus(QueueName.Publish, jobId, {
+      status: "completed",
+      finishedAt: new Date(),
+    });
+    logger.info("publish: already published, skipping redelivery", {
+      postTargetId,
+    });
+    return;
+  }
+
   await updatePostTarget(target.id, {
     status: "publishing",
     attemptCount: (target.attemptCount ?? 0) + 1,

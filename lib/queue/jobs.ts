@@ -2,6 +2,7 @@ import type { JobsOptions } from "bullmq";
 
 import { AgentName } from "@/lib/agents/types";
 import { deleteSchedule, recordSchedule } from "@/lib/repos/schedules";
+import { clearFinishedJob } from "./clear-finished-job";
 import {
   agentStepJobId,
   commentPollSchedulerId,
@@ -31,6 +32,8 @@ export async function enqueuePublish(opts: {
 }): Promise<string> {
   const delay = Math.max(0, opts.runAt.getTime() - Date.now());
   const jobId = publishJobId(opts.postTargetId);
+  const queue = getQueue(QueueName.Publish);
+  await clearFinishedJob(queue, jobId);
 
   // Record the durable ledger entry first; roll it back if enqueue fails so we
   // never leave a ledger row without a job (or vice-versa).
@@ -46,7 +49,7 @@ export async function enqueuePublish(opts: {
         status: "pending",
       }),
     enqueue: () =>
-      getQueue(QueueName.Publish).add(
+      queue.add(
         "publish",
         { postTargetId: opts.postTargetId } satisfies PublishJobData,
         {
@@ -82,6 +85,8 @@ export async function enqueueResearch(opts: {
   clerkUserId: string;
 }): Promise<string> {
   const jobId = researchJobId(opts.researchTopicId);
+  const queue = getQueue(QueueName.Research);
+  await clearFinishedJob(queue, jobId);
 
   await enqueueWithLedger({
     record: () =>
@@ -95,7 +100,7 @@ export async function enqueueResearch(opts: {
         status: "pending",
       }),
     enqueue: () =>
-      getQueue(QueueName.Research).add(
+      queue.add(
         "research",
         { researchTopicId: opts.researchTopicId } satisfies ResearchJobData,
         {

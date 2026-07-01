@@ -48,7 +48,16 @@ export async function reconcileProcessor(_job: Job): Promise<void> {
       });
       continue;
     }
-    if (job) continue;
+    if (job) {
+      // A `pending` ledger row whose job already finished `failed` is the same
+      // orphan as a missing job — the retry paths now clear a finished job
+      // before re-enqueuing (see lib/queue/clear-finished-job.ts), but this
+      // sweep is a second line of defense for any row that ends up stuck behind
+      // a dead job id. `completed` is NOT treated as an orphan: the work already
+      // happened, so orphaning it here would invite a duplicate retry.
+      const state = await job.getState().catch(() => null);
+      if (state !== "failed") continue;
+    }
 
     // Update the dependent target/post FIRST, then flip the ledger row — so if
     // the cascade throws, the row stays `pending` and the next sweep retries it,
