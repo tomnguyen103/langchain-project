@@ -1,3 +1,5 @@
+import { Lightbulb } from "lucide-react";
+
 import { requireUserId } from "@/lib/clerk";
 import type { Platform } from "@/db/schema";
 import { langsmithRunUrl } from "@/lib/observability/langsmith";
@@ -7,6 +9,7 @@ import { listSocialAccounts } from "@/lib/repos/accounts";
 import { listResearchTopics } from "@/lib/repos/research";
 import { listResearchWatches } from "@/lib/repos/research-watches";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { IdeaCard } from "@/components/research/idea-card";
 import { ResearchForm } from "@/components/research/research-form";
@@ -85,9 +88,11 @@ export default async function ResearchPage() {
 
         <TabsContent value="ideas">
           {ideas.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No ideas yet. Research a niche on the Topics tab to generate some.
-            </p>
+            <EmptyState
+              icon={Lightbulb}
+              title="No ideas yet"
+              description="Research a niche on the Topics tab to generate some."
+            />
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {ideas.map((idea) => (

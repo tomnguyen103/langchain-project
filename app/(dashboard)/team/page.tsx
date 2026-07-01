@@ -1,5 +1,8 @@
+import { Building2, Users } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { getCurrentRole } from "@/lib/auth/current-role";
 import { canManageTeam } from "@/lib/auth/roles";
@@ -28,15 +31,11 @@ export default async function TeamPage() {
       />
 
       {!orgId ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="font-medium">No workspace yet</p>
-            <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-              Create or switch to an organization to invite teammates and assign
-              roles. Solo accounts have full access by default.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Building2}
+          title="No workspace yet"
+          description="Create or switch to an organization to invite teammates and assign roles. Solo accounts have full access by default."
+        />
       ) : (
         <>
           {manage ? (
@@ -51,18 +50,15 @@ export default async function TeamPage() {
             </Card>
           ) : null}
 
-          <Card>
-            <CardContent className="p-0">
-              {members.length === 0 ? (
-                <div className="py-10 text-center">
-                  <p className="font-medium">No members assigned</p>
-                  <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-                    Members without an explicit app role fall back to their
-                    Clerk org role when it maps cleanly; otherwise they can
-                    only view the workspace.
-                  </p>
-                </div>
-              ) : (
+          {members.length === 0 ? (
+            <EmptyState
+              icon={Users}
+              title="No members assigned"
+              description="Members without an explicit app role fall back to their Clerk org role when it maps cleanly; otherwise they can only view the workspace."
+            />
+          ) : (
+            <Card>
+              <CardContent className="p-0">
                 <ul className="divide-y">
                   {members.map((member) => (
                     <li
@@ -83,9 +79,9 @@ export default async function TeamPage() {
                     </li>
                   ))}
                 </ul>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>

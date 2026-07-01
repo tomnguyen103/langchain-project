@@ -1,8 +1,10 @@
 import { format } from "date-fns";
 import Link from "next/link";
+import { ScrollText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { requireUserId } from "@/lib/clerk";
 import { listDisclosures } from "@/lib/repos/disclosure-ledger";
@@ -28,15 +30,11 @@ export default async function CompliancePage() {
       />
 
       {entries.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="font-medium">No disclosures yet</p>
-            <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-              When the agent publishes AI content with disclosure turned on, each
-              post is recorded here.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={ScrollText}
+          title="No disclosures yet"
+          description="When the agent publishes AI content with disclosure turned on, each post is recorded here."
+        />
       ) : (
         <Card>
           <CardContent className="p-0">

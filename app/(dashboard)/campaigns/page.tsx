@@ -1,9 +1,10 @@
-import { FileText } from "lucide-react";
+import { FileText, Megaphone } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { requireUserId } from "@/lib/clerk";
 import { recommendCampaignExperiments } from "@/lib/campaigns/recommendations";
@@ -155,14 +156,11 @@ export default async function CampaignsPage() {
       </Card>
 
       {campaigns.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center">
-            <p className="font-medium">No campaigns yet</p>
-            <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-              Create a brief, add source material, then start a source-to-draft run.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Megaphone}
+          title="No campaigns yet"
+          description="Create a brief, add source material, then start a source-to-draft run."
+        />
       ) : (
         <div className="space-y-4">
           {campaigns.map((campaign) => (

@@ -1,4 +1,12 @@
 import Link from "next/link";
+import {
+  Lock,
+  MessageCircle,
+  Plug,
+  ShieldCheck,
+  Sparkles,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { CommentEvent, CommentEventStatus, SocialAccount } from "@/db/schema";
 import { getPlanLimits } from "@/lib/billing/entitlements";
@@ -19,9 +27,9 @@ import { RuleForm, type ScopeOption } from "@/components/auto-reply/rule-form";
 import { RuleTable, type RuleView } from "@/components/auto-reply/rule-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   dismissReplyCopilotDraftAction,
@@ -71,26 +79,27 @@ function Heading() {
 }
 
 function Notice({
+  icon,
   title,
   body,
   cta,
 }: {
+  icon: LucideIcon;
   title: string;
   body: string;
   cta: { href: string; label: string };
 }) {
   return (
-    <Card>
-      <CardContent className="py-10 text-center">
-        <p className="font-medium">{title}</p>
-        <p className="text-muted-foreground mx-auto mt-1 max-w-md text-sm">
-          {body}
-        </p>
-        <Button asChild className="mt-4">
+    <EmptyState
+      icon={icon}
+      title={title}
+      description={body}
+      action={
+        <Button asChild>
           <Link href={cta.href}>{cta.label}</Link>
         </Button>
-      </CardContent>
-    </Card>
+      }
+    />
   );
 }
 
@@ -107,6 +116,7 @@ export default async function AutoReplyPage() {
       <div className="space-y-6">
         <Heading />
         <Notice
+          icon={Lock}
           title="Auto-reply is a Pro feature"
           body="Upgrade your plan to reply to comments automatically by keyword or with AI."
           cta={{ href: "/billing", label: "View plans" }}
@@ -126,6 +136,7 @@ export default async function AutoReplyPage() {
       <div className="space-y-6">
         <Heading />
         <Notice
+          icon={Plug}
           title="No comment-capable accounts"
           body="Connect a Facebook or Instagram account to start auto-replying to comments."
           cta={{ href: "/accounts", label: "Connect an account" }}
@@ -207,10 +218,11 @@ export default async function AutoReplyPage() {
 
         <TabsContent value="activity">
           {events.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No comments ingested yet. Once your published posts get comments,
-              matches and replies show up here.
-            </p>
+            <EmptyState
+              icon={MessageCircle}
+              title="No comments ingested yet"
+              description="Once your published posts get comments, matches and replies show up here."
+            />
           ) : (
             <div className="space-y-2">
               {events.map((e) => (
@@ -230,10 +242,11 @@ export default async function AutoReplyPage() {
             </p>
           </div>
           {escalations.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No escalated comments yet. When the triage classifier detects
-              abuse, complaints, or leads they appear here.
-            </p>
+            <EmptyState
+              icon={ShieldCheck}
+              title="No escalated comments yet"
+              description="When the triage classifier detects abuse, complaints, or leads they appear here."
+            />
           ) : (
             <div className="space-y-2">
               {escalations.map((e) => (
@@ -256,9 +269,11 @@ export default async function AutoReplyPage() {
             </form>
           </div>
           {copilotItems.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              No Copilot-eligible comments yet.
-            </p>
+            <EmptyState
+              icon={Sparkles}
+              title="No Copilot-eligible comments yet"
+              description="Leads and questions that need a draft-first reply will show up here."
+            />
           ) : (
             <div className="space-y-3">
               {copilotItems.map((item) => (

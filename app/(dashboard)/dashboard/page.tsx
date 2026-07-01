@@ -34,6 +34,14 @@ import { listRules } from "@/lib/repos/replies";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
@@ -263,22 +271,26 @@ export default async function OverviewPage() {
                 />
                 Enabled
               </label>
-              <select
+              <Select
                 name="frequency"
                 defaultValue={evergreenPreference?.frequency ?? "monthly"}
-                className="h-9 rounded-md border bg-background px-3 text-sm"
               >
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
+                <SelectTrigger size="sm" className="w-32" aria-label="Frequency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
               <label className="inline-flex items-center gap-2 text-sm">
                 Min interactions
-                <input
+                <Input
                   type="number"
                   name="minEngagement"
                   min={1}
                   defaultValue={evergreenPreference?.minEngagement ?? 1}
-                  className="h-9 w-24 rounded-md border bg-background px-3 text-sm"
+                  className="w-24"
                 />
               </label>
               <Button type="submit" size="sm">
