@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+
+import ipaddr from "ipaddr.js";
 
 type PublicAddress = { address: string; family: 4 | 6 };
 
@@ -8,35 +9,20 @@ export type AllowedWebhookDestination = {
   addresses: PublicAddress[];
 };
 
-function isPrivateIpv4(hostname: string): boolean {
-  const parts = hostname.split(".").map((part) => Number(part));
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part))) {
-    return false;
-  }
-  const [a, b] = parts;
-  if (a === undefined || b === undefined) return false;
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    a >= 224 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 198 && (b === 18 || b === 19))
-  );
-}
-
-function isPrivateIpv6(hostname: string): boolean {
-  const value = hostname.toLowerCase();
-  return (
-    value === "::1" ||
-    value === "::" ||
-    value.startsWith("fc") ||
-    value.startsWith("fd") ||
-    value.startsWith("fe80:")
-  );
+/**
+ * Classify a literal IP (v4 or v6) as private/non-routable via ipaddr.js
+ * rather than hand-rolled prefix checks. `process()` unwraps IPv4-mapped
+ * IPv6 (`::ffff:169.254.169.254`) down to the IPv4 address it actually
+ * routes to, so a private/link-local/loopback target can't be smuggled
+ * through that specific wrapper form past a naive prefix check. Other
+ * IPv6-embeds-IPv4 forms (NAT64 `64:ff9b::/96`, 6to4, Teredo, ...) are NOT
+ * unwrapped — they're blocked instead because this check is allowlist-based
+ * (only plain "unicast" passes `range()`), so any range ipaddr.js doesn't
+ * classify as ordinary public unicast fails closed rather than silently
+ * passing through.
+ */
+function isPrivateIp(literal: string): boolean {
+  return ipaddr.process(literal).range() !== "unicast";
 }
 
 export function isPrivateHostname(hostname: string): boolean {
@@ -48,10 +34,8 @@ export function isPrivateHostname(hostname: string): boolean {
   ) {
     return true;
   }
-  const ipVersion = isIP(normalized);
-  if (ipVersion === 4) return isPrivateIpv4(normalized);
-  if (ipVersion === 6) return isPrivateIpv6(normalized);
-  return false;
+  if (!ipaddr.isValid(normalized)) return false;
+  return isPrivateIp(normalized);
 }
 
 export function isAllowedWebhookUrl(value: string): boolean {

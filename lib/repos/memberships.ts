@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { memberships, type Membership, type WorkspaceRole } from "@/db/schema";
@@ -45,4 +45,59 @@ export async function upsertMembership(
       target: [memberships.clerkOrgId, memberships.clerkUserId],
       set: { role, updatedAt: new Date() },
     });
+}
+
+/**
+ * Change a member's role, but refuse if doing so would leave the org with
+ * zero owners. A plain read-then-write can't close this race: two concurrent
+ * demotions of two DIFFERENT owners could each see "another owner remains"
+ * from a stale snapshot and both proceed, jointly zeroing out ownership.
+ *
+ * `FOR UPDATE` locks the org's current owner rows as part of THIS ONE
+ * statement, so a second concurrent call blocks on those rows until the
+ * first commits, then re-evaluates against the now-current state. This
+ * works even over the app's Neon HTTP driver — which has no client-side
+ * multi-statement transactions (see db/index.ts's `runAtomicWrite`) — because
+ * it's a single round trip: the locking happens server-side within
+ * Postgres's execution of this one statement, not across separate client
+ * transactions. Verified under real concurrency in
+ * tests/integration/membership-last-owner.test.ts.
+ *
+ * The WHERE clause only gates the ON CONFLICT UPDATE branch — a brand-new
+ * membership (no prior row) always inserts unconditionally — so a 0-row
+ * result specifically means an existing owner's demotion was blocked.
+ *
+ * The locking CTE orders by `clerk_user_id` — without it, two concurrent
+ * calls locking the same rowset in no guaranteed order can deadlock (caught
+ * empirically: passed locally, then hit "deadlock detected" in CI's
+ * Postgres, a different-enough planner/data state to expose it). Every
+ * caller locking the same set of rows in the same deterministic order rules
+ * out the circular wait a deadlock needs.
+ */
+export async function upsertMembershipGuardingLastOwner(
+  clerkOrgId: string,
+  clerkUserId: string,
+  role: WorkspaceRole,
+): Promise<{ ok: true } | { ok: false; reason: "last_owner" }> {
+  const result = await db.execute<{ clerk_user_id: string }>(sql`
+    WITH locked_owners AS (
+      SELECT clerk_user_id
+      FROM memberships
+      WHERE clerk_org_id = ${clerkOrgId} AND role = 'owner'
+      ORDER BY clerk_user_id
+      FOR UPDATE
+    )
+    INSERT INTO memberships (clerk_org_id, clerk_user_id, role)
+    VALUES (${clerkOrgId}, ${clerkUserId}, ${role})
+    ON CONFLICT (clerk_org_id, clerk_user_id)
+    DO UPDATE SET role = excluded.role, updated_at = now()
+    WHERE
+      ${role} = 'owner'
+      OR NOT EXISTS (SELECT 1 FROM locked_owners WHERE clerk_user_id = ${clerkUserId})
+      OR EXISTS (SELECT 1 FROM locked_owners WHERE clerk_user_id != ${clerkUserId})
+    RETURNING clerk_user_id
+  `);
+  return result.rows.length > 0
+    ? { ok: true }
+    : { ok: false, reason: "last_owner" };
 }
