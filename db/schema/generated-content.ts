@@ -64,6 +64,9 @@ export const generatedContent = pgTable(
     index("generated_content_user_kind_idx").on(t.clerkUserId, t.kind),
     // Hot UI predicates: review queue (clerkUserId, reviewStatus) + run resume.
     index("generated_content_review_idx").on(t.clerkUserId, t.reviewStatus),
+    // The quality report's verdict breakdown (lib/repos/quality.ts) groups by
+    // this pair; without it, the count degrades to a full per-user scan.
+    index("generated_content_user_verdict_idx").on(t.clerkUserId, t.reviewVerdict),
     index("generated_content_run_idx").on(t.agentRunId),
     // Keep the gate's persisted score/verdict in their valid domains at the DB
     // layer, so a non-Castor write can't corrupt review-state assumptions.

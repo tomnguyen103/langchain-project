@@ -31,6 +31,10 @@ export enum QueueName {
   Evergreen = "evergreen",
   // External webhook delivery sweep.
   WebhookDelivery = "webhook-delivery",
+  // Inbound platform comment-webhook payloads (Meta), deferred off the HTTP
+  // request path so a burst of comments can't slow the route past what the
+  // platform will tolerate before disabling the subscription.
+  CommentWebhook = "comment-webhook",
 }
 
 const queueCache = new Map<QueueName, Queue>();

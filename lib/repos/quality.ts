@@ -1,4 +1,4 @@
-import { and, avg, count, desc, eq, inArray, isNotNull, isNull, or } from "drizzle-orm";
+import { and, avg, count, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { generatedContent } from "@/db/schema";
@@ -26,54 +26,20 @@ export type QualityReport = {
 export async function getQualityReport(clerkUserId: string): Promise<QualityReport> {
   const userWhere = eq(generatedContent.clerkUserId, clerkUserId);
 
-  const [
-    passRows,
-    reviewRows,
-    blockRows,
-    pendingVerdictRows,
-    pendingStatusRows,
-    heldRows,
-    approvedRows,
-    rejectedRows,
-    avgRows,
-    flagged,
-    analyticsRows,
-  ] = await Promise.all([
-    // Verdict counts
+  const [verdictGroups, statusGroups, avgRows, flagged, analyticsRows] = await Promise.all([
+    // Verdict counts, one grouped query instead of four (null = not yet judged).
     db
-      .select({ n: count() })
+      .select({ reviewVerdict: generatedContent.reviewVerdict, n: count() })
       .from(generatedContent)
-      .where(and(userWhere, eq(generatedContent.reviewVerdict, "pass"))),
-    db
-      .select({ n: count() })
-      .from(generatedContent)
-      .where(and(userWhere, eq(generatedContent.reviewVerdict, "review"))),
-    db
-      .select({ n: count() })
-      .from(generatedContent)
-      .where(and(userWhere, eq(generatedContent.reviewVerdict, "block"))),
-    db
-      .select({ n: count() })
-      .from(generatedContent)
-      .where(and(userWhere, isNull(generatedContent.reviewVerdict))),
+      .where(userWhere)
+      .groupBy(generatedContent.reviewVerdict),
 
-    // Status counts
+    // Status counts, one grouped query instead of four.
     db
-      .select({ n: count() })
+      .select({ reviewStatus: generatedContent.reviewStatus, n: count() })
       .from(generatedContent)
-      .where(and(userWhere, eq(generatedContent.reviewStatus, "pending"))),
-    db
-      .select({ n: count() })
-      .from(generatedContent)
-      .where(and(userWhere, eq(generatedContent.reviewStatus, "held"))),
-    db
-      .select({ n: count() })
-      .from(generatedContent)
-      .where(and(userWhere, eq(generatedContent.reviewStatus, "approved"))),
-    db
-      .select({ n: count() })
-      .from(generatedContent)
-      .where(and(userWhere, eq(generatedContent.reviewStatus, "rejected"))),
+      .where(userWhere)
+      .groupBy(generatedContent.reviewStatus),
 
     // Average brand safety score
     db
@@ -130,19 +96,33 @@ export async function getQualityReport(clerkUserId: string): Promise<QualityRepo
   const rawAvg = avgRows[0]?.avg;
   const avgScore = rawAvg != null ? Number(rawAvg) : null;
 
+  const verdictCounts = { pass: 0, review: 0, block: 0, pending: 0 };
+  for (const row of verdictGroups) {
+    // A null verdict means "not yet judged" — reported as pending, matching
+    // the original per-verdict query's isNull(reviewVerdict) branch.
+    switch (row.reviewVerdict) {
+      case "pass":
+        verdictCounts.pass = row.n;
+        break;
+      case "review":
+        verdictCounts.review = row.n;
+        break;
+      case "block":
+        verdictCounts.block = row.n;
+        break;
+      default:
+        verdictCounts.pending += row.n;
+    }
+  }
+
+  const statusCounts = { pending: 0, held: 0, approved: 0, rejected: 0 };
+  for (const row of statusGroups) {
+    statusCounts[row.reviewStatus] = row.n;
+  }
+
   return {
-    verdictCounts: {
-      pass: passRows[0]?.n ?? 0,
-      review: reviewRows[0]?.n ?? 0,
-      block: blockRows[0]?.n ?? 0,
-      pending: pendingVerdictRows[0]?.n ?? 0,
-    },
-    statusCounts: {
-      pending: pendingStatusRows[0]?.n ?? 0,
-      held: heldRows[0]?.n ?? 0,
-      approved: approvedRows[0]?.n ?? 0,
-      rejected: rejectedRows[0]?.n ?? 0,
-    },
+    verdictCounts,
+    statusCounts,
     avgScore,
     approvalAnalytics: summarizeApprovalAnalytics(analyticsRows),
     flagged,

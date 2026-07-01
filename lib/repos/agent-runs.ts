@@ -180,6 +180,34 @@ export async function listStepsForRun(runId: string): Promise<AgentStep[]> {
     .orderBy(asc(agentSteps.createdAt));
 }
 
+export type RunActivitySignal = {
+  stepCount: number;
+  latestStepUpdatedAt: Date | null;
+};
+
+/**
+ * A cheap aggregate ("has anything changed") used to avoid re-fetching every
+ * step's full row (including its potentially large input/summary/handoff/
+ * control JSONB) on every poll of a live run when nothing new happened.
+ * Steps are append-only (recordAgentStep only inserts, never updates), so a
+ * changed count or latest-step timestamp fully captures "a new step arrived."
+ */
+export async function getRunActivitySignal(
+  runId: string,
+): Promise<RunActivitySignal> {
+  const [row] = await db
+    .select({
+      stepCount: sql<number>`count(*)::int`,
+      latestStepUpdatedAt: sql<Date | null>`max(${agentSteps.updatedAt})`,
+    })
+    .from(agentSteps)
+    .where(eq(agentSteps.runId, runId));
+  return {
+    stepCount: row?.stepCount ?? 0,
+    latestStepUpdatedAt: row?.latestStepUpdatedAt ?? null,
+  };
+}
+
 /** Estimated LLM cost for one run, summed from recorded step summaries. */
 export async function sumStepCostUsd(runId: string): Promise<number> {
   const [row] = await db

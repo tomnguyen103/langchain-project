@@ -17,6 +17,7 @@ import {
 import { QueueName } from "@/lib/queue/queues";
 import { agentStepProcessor } from "./processors/agent-step";
 import { commentPollProcessor } from "./processors/comment-poll";
+import { commentWebhookProcessor } from "./processors/comment-webhook";
 import { evergreenProcessor } from "./processors/evergreen";
 import { metricsPollProcessor } from "./processors/metrics-poll";
 import { postingWindowsRefreshProcessor } from "./processors/posting-windows";
@@ -86,6 +87,7 @@ startWorker(QueueName.WebhookDelivery, webhookDeliveryProcessor, 1);
 // Orion: one worker routes every agent handoff by AgentName via getAgent(...).run.
 startWorker(QueueName.AgentStep, agentStepProcessor, 3);
 startWorker(QueueName.CommentPoll, commentPollProcessor, 5);
+startWorker(QueueName.CommentWebhook, commentWebhookProcessor, 5);
 startWorker(QueueName.Reply, replyProcessor, 5);
 startWorker(QueueName.Report, reportProcessor, 1);
 startWorker(QueueName.Seeding, seedingProcessor, 2);
