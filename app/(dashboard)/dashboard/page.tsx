@@ -275,7 +275,7 @@ export default async function OverviewPage() {
                 name="frequency"
                 defaultValue={evergreenPreference?.frequency ?? "monthly"}
               >
-                <SelectTrigger size="sm" className="w-32">
+                <SelectTrigger size="sm" className="w-32" aria-label="Frequency">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

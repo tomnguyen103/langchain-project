@@ -44,7 +44,7 @@ export default async function AccountsPage({
   });
 
   const connectButtons = (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap justify-center gap-2">
       {providers.map((p) => (
         <ConnectButton key={p.id} id={p.id} label={p.label} />
       ))}
@@ -75,13 +75,7 @@ export default async function AccountsPage({
           icon={Plug}
           title="No accounts connected yet"
           description="Connect a platform to start publishing. Instagram needs a Business/Creator account linked to a Facebook Page."
-          action={
-            <div className="flex flex-wrap justify-center gap-2">
-              {providers.map((p) => (
-                <ConnectButton key={p.id} id={p.id} label={p.label} />
-              ))}
-            </div>
-          }
+          action={connectButtons}
         />
       ) : (
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
