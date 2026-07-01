@@ -7,7 +7,10 @@ import { requireRole } from "@/lib/auth/current-role";
 import { isRole } from "@/lib/auth/roles";
 import { decideRoleChange } from "@/lib/auth/team-role-policy";
 import { getOrgId, isOrganizationMember } from "@/lib/clerk";
-import { listMemberships, upsertMembership } from "@/lib/repos/memberships";
+import {
+  listMemberships,
+  upsertMembershipGuardingLastOwner,
+} from "@/lib/repos/memberships";
 
 const SetRoleInput = z.object({
   clerkUserId: z.string().min(1),
@@ -20,6 +23,15 @@ const SetRoleInput = z.object({
  * revoke the owner role (no self-escalation), the last remaining owner can't
  * be demoted (no lockout), and the target must already be a real member of
  * the Clerk organization (no rows for arbitrary ids).
+ *
+ * The last-owner check happens twice: `decideRoleChange` below is a fast,
+ * in-memory pre-check against a `listMemberships` snapshot (gives a clean
+ * error immediately, no DB write attempted), but that snapshot can go stale
+ * under concurrency — two admins demoting two different owners at once could
+ * each see "another owner remains" and both pass. The actual write goes
+ * through `upsertMembershipGuardingLastOwner`, which re-validates the
+ * invariant against locked, current rows in the same statement, so it's the
+ * authoritative check either way.
  */
 export async function setMemberRoleAction(input: unknown): Promise<void> {
   const parsed = SetRoleInput.safeParse(input);
@@ -45,6 +57,13 @@ export async function setMemberRoleAction(input: unknown): Promise<void> {
     throw new Error("That user is not a member of this workspace.");
   }
 
-  await upsertMembership(orgId, targetUserId, nextRole);
+  const result = await upsertMembershipGuardingLastOwner(
+    orgId,
+    targetUserId,
+    nextRole,
+  );
+  if (!result.ok) {
+    throw new Error("A workspace must keep at least one owner.");
+  }
   revalidatePath("/team");
 }
