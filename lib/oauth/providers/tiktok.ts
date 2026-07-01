@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import type { ConnectedAccount, OAuthProvider } from "@/lib/platforms/types";
+import { expiresAtFromSeconds, parseScopes } from "../token-response";
 
 const SCOPES = ["user.info.basic", "video.publish"];
 
@@ -91,10 +92,8 @@ export const tiktokProvider: OAuthProvider = {
       avatarUrl,
       accessToken: token.access_token,
       refreshToken: token.refresh_token ?? null,
-      expiresAt: token.expires_in
-        ? new Date(Date.now() + token.expires_in * 1000)
-        : null,
-      scopes: token.scope ? token.scope.split(",") : SCOPES,
+      expiresAt: expiresAtFromSeconds(token.expires_in),
+      scopes: parseScopes(token.scope, SCOPES, ","),
     };
     return [account];
   },

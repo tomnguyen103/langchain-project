@@ -1,5 +1,6 @@
 import { env } from "@/lib/env";
 import type { ConnectedAccount, OAuthProvider } from "@/lib/platforms/types";
+import { expiresAtFromSeconds } from "../token-response";
 
 const SCOPES = ["openid", "profile", "email", "w_member_social"];
 
@@ -53,9 +54,12 @@ export const linkedinProvider: OAuthProvider = {
       throw new Error(`LinkedIn token exchange failed (${tokenRes.status})`);
     }
     const token = (await tokenRes.json()) as {
-      access_token: string;
+      access_token?: string;
       expires_in?: number;
     };
+    if (!token.access_token) {
+      throw new Error("LinkedIn token exchange returned no access token");
+    }
 
     const infoRes = await fetch("https://api.linkedin.com/v2/userinfo", {
       headers: { authorization: `Bearer ${token.access_token}` },
@@ -77,9 +81,7 @@ export const linkedinProvider: OAuthProvider = {
       displayName: info.name,
       avatarUrl: info.picture,
       accessToken: token.access_token,
-      expiresAt: token.expires_in
-        ? new Date(Date.now() + token.expires_in * 1000)
-        : null,
+      expiresAt: expiresAtFromSeconds(token.expires_in),
       scopes: SCOPES,
       metadata: { authorUrn: `urn:li:person:${info.sub}` },
     };

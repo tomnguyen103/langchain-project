@@ -1,5 +1,6 @@
 import type { Job } from "bullmq";
 
+import { isAuthRejection } from "@/lib/platforms/auth-rejection";
 import { getConnector, hasConnector } from "@/lib/platforms/registry";
 import {
   listAccountsNeedingRefresh,
@@ -14,18 +15,6 @@ const REFRESH_WINDOW_MS = 24 * 60 * 60 * 1000;
 // Fallback expiry when a connector's refresh returns no expiry — keeps the
 // account out of the immediate re-refresh loop without nulling the column.
 const SYNTHETIC_EXPIRY_MS = 60 * 24 * 60 * 60 * 1000; // 60 days
-
-/** Whether a refresh error is a definitive auth rejection (the provider says the
- *  refresh token is invalid) vs. a transient network/5xx error. */
-function isAuthRejection(error: unknown): boolean {
-  const status =
-    error && typeof error === "object"
-      ? (error as { status?: unknown }).status
-      : undefined;
-  if (status === 400 || status === 401 || status === 403) return true;
-  const message = error instanceof Error ? error.message.toLowerCase() : "";
-  return message.includes("invalid_grant") || message.includes("invalid_token");
-}
 
 /**
  * Proactively refresh social tokens nearing expiry. Connectors that can't

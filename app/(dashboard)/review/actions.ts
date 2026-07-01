@@ -6,7 +6,6 @@ import { refineDraftWithFeedback } from "@/lib/agent/refine-draft";
 import { orchestrator } from "@/lib/agents/orchestrator.runtime";
 import { AgentName } from "@/lib/agents/types";
 import { requireRole } from "@/lib/auth/current-role";
-import { isBudgetPauseStep } from "@/lib/billing/agent-budget";
 import { requireUserId } from "@/lib/clerk";
 import { getAgentRun, listStepsForRun } from "@/lib/repos/agent-runs";
 import {
@@ -24,6 +23,7 @@ import {
   restoreHeldDrafts,
   setReviewDecision,
 } from "@/lib/repos/content-reviews";
+import { decideRunApprovable } from "@/lib/reviews/approvable-run-policy";
 import { resolveReviewDecision } from "@/lib/reviews/resolve";
 
 /**
@@ -37,19 +37,13 @@ async function requireApprovableRun(
   userId: string,
 ): Promise<void> {
   await requireRole("approver");
-  const run = await getAgentRun(runId);
-  if (!run || run.clerkUserId !== userId) {
-    throw new Error("Run not found.");
-  }
-  if (run.status !== "awaiting_approval") {
-    throw new Error("This run is no longer awaiting approval.");
-  }
-  const steps = await listStepsForRun(runId);
-  const latestPaused = [...steps]
-    .reverse()
-    .find((step) => step.control?.pause === "awaiting_approval");
-  if (latestPaused && isBudgetPauseStep(latestPaused)) {
-    throw new Error("This run is waiting for budget approval.");
+  const [run, steps] = await Promise.all([
+    getAgentRun(runId),
+    listStepsForRun(runId),
+  ]);
+  const decision = decideRunApprovable({ userId, run, steps });
+  if (!decision.allowed) {
+    throw new Error(decision.reason);
   }
 }
 
