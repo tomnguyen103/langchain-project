@@ -66,6 +66,13 @@ export async function upsertMembership(
  * The WHERE clause only gates the ON CONFLICT UPDATE branch — a brand-new
  * membership (no prior row) always inserts unconditionally — so a 0-row
  * result specifically means an existing owner's demotion was blocked.
+ *
+ * The locking CTE orders by `clerk_user_id` — without it, two concurrent
+ * calls locking the same rowset in no guaranteed order can deadlock (caught
+ * empirically: passed locally, then hit "deadlock detected" in CI's
+ * Postgres, a different-enough planner/data state to expose it). Every
+ * caller locking the same set of rows in the same deterministic order rules
+ * out the circular wait a deadlock needs.
  */
 export async function upsertMembershipGuardingLastOwner(
   clerkOrgId: string,
@@ -77,6 +84,7 @@ export async function upsertMembershipGuardingLastOwner(
       SELECT clerk_user_id
       FROM memberships
       WHERE clerk_org_id = ${clerkOrgId} AND role = 'owner'
+      ORDER BY clerk_user_id
       FOR UPDATE
     )
     INSERT INTO memberships (clerk_org_id, clerk_user_id, role)
