@@ -13,6 +13,7 @@
  * touches real tenant data.
  */
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { after, before, describe, it } from "node:test";
 
 const HAS_DB =
@@ -28,9 +29,9 @@ describe("upsertMembershipGuardingLastOwner: last-owner race-safety", { skip }, 
   let schema: typeof import("@/db/schema");
   let orm: typeof import("drizzle-orm");
 
-  const orgId = `__lastowner_test_org_${Date.now()}__`;
-  const ownerA = `__lastowner_test_userA_${Date.now()}__`;
-  const ownerB = `__lastowner_test_userB_${Date.now()}__`;
+  const orgId = `__lastowner_test_org_${randomUUID()}__`;
+  const ownerA = `__lastowner_test_userA_${randomUUID()}__`;
+  const ownerB = `__lastowner_test_userB_${randomUUID()}__`;
 
   before(async () => {
     membershipsRepo = await import("@/lib/repos/memberships");
