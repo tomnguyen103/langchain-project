@@ -129,6 +129,87 @@ export const workspaceRoleEnum = pgEnum("workspace_role", [
   "viewer",
 ]);
 
+/** Lifecycle of one Trend Watch sweep enqueueing research for a due topic. */
+export const researchWatchRunStatusEnum = pgEnum("research_watch_run_status", [
+  "pending",
+  "enqueued",
+  "skipped",
+  "failed",
+]);
+
+/** Lifecycle of a Reply Copilot suggested reply. */
+export const replyCopilotStatusEnum = pgEnum("reply_copilot_status", [
+  "drafted",
+  "edited",
+  "approved",
+  "sent",
+  "dismissed",
+  "blocked",
+]);
+
+export const evergreenFrequencyEnum = pgEnum("evergreen_frequency", [
+  "weekly",
+  "monthly",
+]);
+
+/** What an integration token authorizes (A2A, the public read API, or MCP). */
+export const integrationTokenKindEnum = pgEnum("integration_token_kind", [
+  "a2a",
+  "public_api",
+  "mcp",
+]);
+
+export const integrationTokenStatusEnum = pgEnum("integration_token_status", [
+  "active",
+  "revoked",
+]);
+
+export const integrationAuditResultEnum = pgEnum("integration_audit_result", [
+  "allowed",
+  "denied",
+  "error",
+]);
+
+export const campaignStatusEnum = pgEnum("campaign_status", [
+  "draft",
+  "active",
+  "complete",
+  "archived",
+]);
+
+export const campaignSourceTypeEnum = pgEnum("campaign_source_type", [
+  "pasted_text",
+  "note",
+]);
+
+export const campaignExperimentStatusEnum = pgEnum("campaign_experiment_status", [
+  "draft",
+  "running",
+  "complete",
+  "paused",
+]);
+
+export const webhookDeliveryStatusEnum = pgEnum("webhook_delivery_status", [
+  "pending",
+  "sending",
+  "delivered",
+  "failed",
+]);
+
+export const approvalLinkStatusEnum = pgEnum("approval_link_status", [
+  "active",
+  "used",
+  "revoked",
+  "expired",
+]);
+
+/** Lifecycle of a tracked competitor (competitor watches, previously "roadmap status"). */
+export const competitorWatchStatusEnum = pgEnum("competitor_watch_status", [
+  "active",
+  "paused",
+  "archived",
+]);
+
 export type Platform = (typeof platformEnum.enumValues)[number];
 export type WorkspaceRole = (typeof workspaceRoleEnum.enumValues)[number];
 export type AccountStatus = (typeof accountStatusEnum.enumValues)[number];
@@ -140,3 +221,7 @@ export type CommentEventStatus =
   (typeof commentEventStatusEnum.enumValues)[number];
 export type AgentRunStatus = (typeof agentRunStatusEnum.enumValues)[number];
 export type AgentStepStatus = (typeof agentStepStatusEnum.enumValues)[number];
+export type ReplyCopilotStatus =
+  (typeof replyCopilotStatusEnum.enumValues)[number];
+export type IntegrationTokenKind =
+  (typeof integrationTokenKindEnum.enumValues)[number];

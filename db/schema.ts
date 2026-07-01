@@ -27,4 +27,13 @@ export * from "./schema/memberships";
 export * from "./schema/posting-windows";
 
 export * from "./schema/content-plans";
-export * from "./schema/roadmap";
+export * from "./schema/research-watch-runs";
+export * from "./schema/reply-copilot-drafts";
+export * from "./schema/evergreen-preferences";
+export * from "./schema/integration-tokens";
+export * from "./schema/campaigns";
+export * from "./schema/webhook-endpoints";
+export * from "./schema/approval-links";
+export * from "./schema/draft-review-comments";
+export * from "./schema/competitor-watches";
+export * from "./schema/attribution-links";
