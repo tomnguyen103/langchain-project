@@ -3,6 +3,7 @@ import { createHash, createHmac } from "node:crypto";
 import { env } from "@/lib/env";
 import type { OAuthProvider } from "@/lib/platforms/types";
 import { deriveSubKey } from "@/lib/utils/crypto";
+import { expiresAtFromSeconds, parseScopes } from "../token-response";
 
 // Domain-separated PKCE HMAC key — an HKDF sub-key of ENCRYPTION_KEY, so the
 // OAuth PKCE flow doesn't use the raw token-encryption key as its secret.
@@ -116,10 +117,8 @@ export const xProvider: OAuthProvider = {
         displayName: me.data.name ?? me.data.username,
         accessToken: token.access_token,
         refreshToken: token.refresh_token ?? null,
-        expiresAt: token.expires_in
-          ? new Date(Date.now() + token.expires_in * 1000)
-          : null,
-        scopes: token.scope ? token.scope.split(" ") : SCOPES,
+        expiresAt: expiresAtFromSeconds(token.expires_in),
+        scopes: parseScopes(token.scope, SCOPES),
         metadata: me.data.username ? { username: me.data.username } : undefined,
       },
     ];
