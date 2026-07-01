@@ -1,7 +1,7 @@
 // Must be first: loads .env.local before any module that reads process.env.
 import "./load-env";
 
-import { Worker, type Job, type Processor } from "bullmq";
+import { Worker, type Processor } from "bullmq";
 
 import { closeDbPool } from "@/db";
 import { connection } from "@/lib/queue/connection";
@@ -59,27 +59,8 @@ function startWorker(name: QueueName, processor: Processor, concurrency = 5) {
   workers.push(worker);
 }
 
-/**
- * Stub processor (logs only). Used where the real work runs elsewhere:
- * generate streams via the /api/generate route rather than this queue.
- */
-const stub =
-  (label: string): Processor =>
-  async (job: Job) => {
-    logger.info("stub processed job", {
-      label,
-      jobId: job.id,
-      // Log only the payload shape, never raw values (may carry tokens/PII).
-      dataKeys:
-        job.data && typeof job.data === "object"
-          ? Object.keys(job.data as Record<string, unknown>)
-          : undefined,
-    });
-  };
-
 startWorker(QueueName.Publish, publishProcessor, 5);
 startWorker(QueueName.PublishRepair, publishRepairProcessor, 1);
-startWorker(QueueName.Generate, stub("generate"), 2);
 startWorker(QueueName.Research, researchProcessor, 2);
 startWorker(QueueName.ResearchWatch, researchWatchProcessor, 1);
 startWorker(QueueName.Evergreen, evergreenProcessor, 1);
@@ -98,142 +79,41 @@ startWorker(QueueName.PostingWindowsRefresh, postingWindowsRefreshProcessor, 2);
 
 logger.info("worker process started", { queues: Object.values(QueueName) });
 
-// Ensure the global token-refresh schedule exists. Retry with backoff so a
-// brief Redis outage at boot doesn't leave scheduling disabled until a restart.
-async function ensureTokenRefreshScheduler(attempt = 1): Promise<void> {
+/**
+ * Register a periodic scheduler with retry-on-Redis-blip: a brief outage at
+ * boot shouldn't leave scheduling disabled until a restart. One retrying
+ * helper shared by every global scheduler below (was 7 copy-pasted
+ * near-identical functions, one per scheduler).
+ */
+async function ensureScheduler(
+  label: string,
+  register: () => Promise<void>,
+  attempt = 1,
+): Promise<void> {
   try {
-    await registerTokenRefresh();
-    logger.info("token-refresh scheduler registered");
+    await register();
+    logger.info(`${label} scheduler registered`);
   } catch (error) {
-    logger.error("failed to register token-refresh scheduler", {
+    logger.error(`failed to register ${label} scheduler`, {
       attempt,
       error: error instanceof Error ? error.message : String(error),
     });
     if (attempt < 10) {
       setTimeout(
-        () => void ensureTokenRefreshScheduler(attempt + 1),
+        () => void ensureScheduler(label, register, attempt + 1),
         Math.min(30_000, attempt * 5_000),
       );
     }
   }
 }
-void ensureTokenRefreshScheduler();
 
-// Same retry-on-Redis-blip guard for Rigel's daily report scheduler.
-async function ensureReportScheduler(attempt = 1): Promise<void> {
-  try {
-    await registerReportSchedule();
-    logger.info("report scheduler registered");
-  } catch (error) {
-    logger.error("failed to register report scheduler", {
-      attempt,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    if (attempt < 10) {
-      setTimeout(
-        () => void ensureReportScheduler(attempt + 1),
-        Math.min(30_000, attempt * 5_000),
-      );
-    }
-  }
-}
-void ensureReportScheduler();
-
-async function ensureResearchWatchScheduler(attempt = 1): Promise<void> {
-  try {
-    await registerResearchWatchSchedule();
-    logger.info("research-watch scheduler registered");
-  } catch (error) {
-    logger.error("failed to register research-watch scheduler", {
-      attempt,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    if (attempt < 10) {
-      setTimeout(
-        () => void ensureResearchWatchScheduler(attempt + 1),
-        Math.min(30_000, attempt * 5_000),
-      );
-    }
-  }
-}
-void ensureResearchWatchScheduler();
-
-async function ensurePublishRepairScheduler(attempt = 1): Promise<void> {
-  try {
-    await registerPublishRepairSchedule();
-    logger.info("publish-repair scheduler registered");
-  } catch (error) {
-    logger.error("failed to register publish-repair scheduler", {
-      attempt,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    if (attempt < 10) {
-      setTimeout(
-        () => void ensurePublishRepairScheduler(attempt + 1),
-        Math.min(30_000, attempt * 5_000),
-      );
-    }
-  }
-}
-void ensurePublishRepairScheduler();
-
-async function ensureEvergreenScheduler(attempt = 1): Promise<void> {
-  try {
-    await registerEvergreenSchedule();
-    logger.info("evergreen scheduler registered");
-  } catch (error) {
-    logger.error("failed to register evergreen scheduler", {
-      attempt,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    if (attempt < 10) {
-      setTimeout(
-        () => void ensureEvergreenScheduler(attempt + 1),
-        Math.min(30_000, attempt * 5_000),
-      );
-    }
-  }
-}
-void ensureEvergreenScheduler();
-
-async function ensureWebhookDeliveryScheduler(attempt = 1): Promise<void> {
-  try {
-    await registerWebhookDeliverySchedule();
-    logger.info("webhook-delivery scheduler registered");
-  } catch (error) {
-    logger.error("failed to register webhook-delivery scheduler", {
-      attempt,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    if (attempt < 10) {
-      setTimeout(
-        () => void ensureWebhookDeliveryScheduler(attempt + 1),
-        Math.min(30_000, attempt * 5_000),
-      );
-    }
-  }
-}
-void ensureWebhookDeliveryScheduler();
-
-// Same retry-on-Redis-blip guard for the ledger-reconciliation sweep.
-async function ensureReconcileScheduler(attempt = 1): Promise<void> {
-  try {
-    await registerReconcileSchedule();
-    logger.info("reconcile scheduler registered");
-  } catch (error) {
-    logger.error("failed to register reconcile scheduler", {
-      attempt,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    if (attempt < 10) {
-      setTimeout(
-        () => void ensureReconcileScheduler(attempt + 1),
-        Math.min(30_000, attempt * 5_000),
-      );
-    }
-  }
-}
-void ensureReconcileScheduler();
+void ensureScheduler("token-refresh", registerTokenRefresh);
+void ensureScheduler("report", registerReportSchedule);
+void ensureScheduler("research-watch", registerResearchWatchSchedule);
+void ensureScheduler("publish-repair", registerPublishRepairSchedule);
+void ensureScheduler("evergreen", registerEvergreenSchedule);
+void ensureScheduler("webhook-delivery", registerWebhookDeliverySchedule);
+void ensureScheduler("reconcile", registerReconcileSchedule);
 
 let isShuttingDown = false;
 
