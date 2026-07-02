@@ -34,18 +34,10 @@ import { listRules } from "@/lib/repos/replies";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
-import { repurposePost, saveEvergreenAutomation } from "./actions";
+import { EvergreenAutomationForm, RepurposeForm } from "./dashboard-forms";
 
 export default async function OverviewPage() {
   const userId = await requireUserId();
@@ -260,73 +252,10 @@ export default async function OverviewPage() {
           <CardTitle className="text-base">Evergreen automation</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={saveEvergreenAutomation} className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  name="enabled"
-                  className="h-4 w-4 accent-primary"
-                  defaultChecked={evergreenPreference?.enabled ?? false}
-                />
-                Enabled
-              </label>
-              <Select
-                name="frequency"
-                defaultValue={evergreenPreference?.frequency ?? "monthly"}
-              >
-                <SelectTrigger size="sm" className="w-32" aria-label="Frequency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
-              <label className="inline-flex items-center gap-2 text-sm">
-                Min interactions
-                <Input
-                  type="number"
-                  name="minEngagement"
-                  min={1}
-                  defaultValue={evergreenPreference?.minEngagement ?? 1}
-                  className="w-24"
-                />
-              </label>
-              <Button type="submit" size="sm">
-                Save
-              </Button>
-              {evergreenPreference?.nextRunAt ? (
-                <span className="text-muted-foreground text-xs">
-                  Next: {evergreenPreference.nextRunAt.toLocaleDateString()}
-                </span>
-              ) : null}
-            </div>
-            {evergreenPlatforms.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {evergreenPlatforms.map((platform) => {
-                  const selected = evergreenPreference?.platforms.length
-                    ? evergreenPreference.platforms.includes(platform)
-                    : true;
-                  return (
-                    <label
-                      key={platform}
-                      className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
-                    >
-                      <input
-                        type="checkbox"
-                        name="platform"
-                        value={platform}
-                        defaultChecked={selected}
-                        className="h-3.5 w-3.5 accent-primary"
-                      />
-                      {PLATFORM_META[platform].label}
-                    </label>
-                  );
-                })}
-              </div>
-            ) : null}
-          </form>
+          <EvergreenAutomationForm
+            evergreenPreference={evergreenPreference}
+            evergreenPlatforms={evergreenPlatforms}
+          />
         </CardContent>
       </Card>
 
@@ -352,12 +281,7 @@ export default async function OverviewPage() {
                   </div>
                   <p className="mt-1 line-clamp-1 text-sm">{w.body}</p>
                 </div>
-                <form action={repurposePost}>
-                  <input type="hidden" name="targetId" value={w.targetId} />
-                  <Button type="submit" size="sm" variant="outline">
-                    Repurpose
-                  </Button>
-                </form>
+                <RepurposeForm targetId={w.targetId} />
               </div>
             ))}
             <p className="text-muted-foreground pt-1 text-xs">

@@ -106,16 +106,27 @@ export async function startAgentRunAction(input: {
   }
 }
 
-export async function approveRunBudgetAction(runId: string): Promise<void> {
+export type ApproveRunBudgetState = { error: string | null };
+
+/**
+ * `runId` is pre-bound by the caller (`approveRunBudgetAction.bind(null,
+ * runId)`) so the resulting function matches useActionState's
+ * `(prevState, formData) => state` shape.
+ */
+export async function approveRunBudgetAction(
+  runId: string,
+  _prevState: ApproveRunBudgetState,
+  _formData: FormData,
+): Promise<ApproveRunBudgetState> {
   const userId = await requireUserId();
   await requireRole("admin");
 
   const run = await getAgentRun(runId);
   if (!run || run.clerkUserId !== userId) {
-    throw new Error("Run not found.");
+    return { error: "Run not found." };
   }
   if (run.status !== "awaiting_approval") {
-    throw new Error("This run is no longer awaiting approval.");
+    return { error: "This run is no longer awaiting approval." };
   }
 
   const steps = await listStepsForRun(runId);
@@ -123,12 +134,12 @@ export async function approveRunBudgetAction(runId: string): Promise<void> {
     .reverse()
     .find((step) => step.control?.pause === "awaiting_approval");
   if (!latestPaused || !isBudgetPauseStep(latestPaused)) {
-    throw new Error("This run is not paused for budget approval.");
+    return { error: "This run is not paused for budget approval." };
   }
 
   const handoff = latestPaused.handoff;
   if (!handoff || !AGENT_NAMES.has(handoff.to)) {
-    throw new Error("Budget approval has no resumable next step.");
+    return { error: "Budget approval has no resumable next step." };
   }
 
   const actualUsd = steps.reduce(
@@ -154,4 +165,5 @@ export async function approveRunBudgetAction(runId: string): Promise<void> {
   }
   revalidatePath(`/runs/${runId}`);
   revalidatePath("/review");
+  return { error: null };
 }

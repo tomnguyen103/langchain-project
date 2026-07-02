@@ -4,11 +4,10 @@ import { requireUserId } from "@/lib/clerk";
 import { PLATFORM_META } from "@/lib/platforms/constants";
 import { getContentPlan } from "@/lib/repos/content-plans";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import type { PlanSlot } from "@/db/schema";
-import { approvePlan } from "./actions";
+import { ApprovePlanButton } from "./approve-plan-button";
 
 export default async function PlanReviewPage({
   params,
@@ -61,12 +60,7 @@ export default async function PlanReviewPage({
       </Card>
 
       {isDraft && (
-        <form action={approvePlan}>
-          <input type="hidden" name="planId" value={plan.id} />
-          <Button type="submit" className="w-full sm:w-auto">
-            Approve all — start {slots.length} pipeline run{slots.length !== 1 ? "s" : ""}
-          </Button>
-        </form>
+        <ApprovePlanButton planId={plan.id} slotCount={slots.length} />
       )}
 
       {!isDraft && plan.status === "approved" && (

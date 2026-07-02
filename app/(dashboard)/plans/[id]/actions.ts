@@ -17,16 +17,23 @@ import { updateAgentRun } from "@/lib/repos/agent-runs";
 import { approveContentPlan, getContentPlan } from "@/lib/repos/content-plans";
 import type { PlanSlot } from "@/db/schema";
 
-export async function approvePlan(formData: FormData): Promise<void> {
+export type ApprovePlanState = { error: string | null };
+
+export async function approvePlan(
+  _prevState: ApprovePlanState,
+  formData: FormData,
+): Promise<ApprovePlanState> {
   const userId = await requireUserId();
   await requireRole("creator");
 
   const planId = formData.get("planId");
-  if (typeof planId !== "string" || !planId) throw new Error("Invalid plan.");
+  if (typeof planId !== "string" || !planId) return { error: "Invalid plan." };
 
   const plan = await getContentPlan(planId, userId);
-  if (!plan) throw new Error("Plan not found.");
-  if (plan.status !== "draft") throw new Error("Plan is already approved or cancelled.");
+  if (!plan) return { error: "Plan not found." };
+  if (plan.status !== "draft") {
+    return { error: "Plan is already approved or cancelled." };
+  }
   const limits = await getPlanLimits();
   const startedRuns: Array<{ runId: string; quotaPeriod: string }> = [];
 

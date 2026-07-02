@@ -17,14 +17,12 @@ import {
   suggestHashtags,
   transformForPlatform,
 } from "@/lib/campaigns/toolkit";
-import { PLATFORM_META } from "@/lib/platforms/constants";
 import { listSocialAccounts } from "@/lib/repos/accounts";
 import { getEngagementSummary } from "@/lib/repos/posts";
 import { listCampaignWorkspaces } from "@/lib/repos/campaigns";
 import { listCompetitorWatches } from "@/lib/repos/competitors";
 import {
   addCampaignSourceAction,
-  createCampaignAction,
   createAttributionLinkAction,
   createCampaignFromTemplateAction,
   createCampaignExperimentAction,
@@ -32,6 +30,7 @@ import {
   startCampaignSourceRunAction,
 } from "./actions";
 import { ApprovalLinkForm } from "./approval-link-form";
+import { CreateCampaignForm } from "./create-campaign-form";
 
 export default async function CampaignsPage() {
   const userId = await requireUserId();
@@ -63,32 +62,7 @@ export default async function CampaignsPage() {
           <CardTitle className="text-base">New campaign</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={createCampaignAction} className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-              <Input name="name" placeholder="Launch campaign" maxLength={120} />
-              <Input name="brief" placeholder="Audience, offer, constraints" />
-            </div>
-            {platforms.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {platforms.map((platform) => (
-                  <label
-                    key={platform}
-                    className="inline-flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
-                  >
-                    <input
-                      type="checkbox"
-                      name="platform"
-                      value={platform}
-                      defaultChecked
-                      className="h-3.5 w-3.5 accent-primary"
-                    />
-                    {PLATFORM_META[platform].label}
-                  </label>
-                ))}
-              </div>
-            ) : null}
-            <Button type="submit">Create campaign</Button>
-          </form>
+          <CreateCampaignForm platforms={platforms} />
         </CardContent>
       </Card>
 

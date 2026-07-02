@@ -9,14 +9,13 @@ import {
   WalletCards,
 } from "lucide-react";
 
-import { approveRunBudgetAction } from "@/app/(dashboard)/runs/actions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { runStatusBadge } from "@/components/runs/run-meta";
 import { RunLiveStatus } from "@/components/runs/run-live-status";
 import { StepList } from "@/components/runs/step-list";
+import { ApproveBudgetButton } from "./approve-budget-button";
 import { getCurrentRole } from "@/lib/auth/current-role";
 import {
   canApproveBudgetIncrease,
@@ -171,11 +170,10 @@ export default async function RunPage({
 
           {budgetPause && budget && suggestedBudget ? (
             canApproveBudget ? (
-              <form action={approveRunBudgetAction.bind(null, run.runId)}>
-                <Button type="submit" size="sm">
-                  Approve ${suggestedBudget.toFixed(2)} cap
-                </Button>
-              </form>
+              <ApproveBudgetButton
+                runId={run.runId}
+                suggestedBudget={suggestedBudget}
+              />
             ) : (
               <p className="text-muted-foreground text-xs">
                 Owner or admin approval is required to raise the budget.
