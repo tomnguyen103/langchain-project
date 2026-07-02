@@ -32,6 +32,7 @@ describe("atomic quota / rate-limit race-safety (F-C6)", { skip }, () => {
   let usageRepo: typeof import("@/lib/repos/usage");
   let rateLimitRepo: typeof import("@/lib/repos/rate-limits");
   let db: typeof import("@/db").db;
+  let closeDbPool: typeof import("@/db").closeDbPool;
   let schema: typeof import("@/db/schema");
   let orm: typeof import("drizzle-orm");
 
@@ -41,7 +42,7 @@ describe("atomic quota / rate-limit race-safety (F-C6)", { skip }, () => {
   before(async () => {
     usageRepo = await import("@/lib/repos/usage");
     rateLimitRepo = await import("@/lib/repos/rate-limits");
-    ({ db } = await import("@/db"));
+    ({ db, closeDbPool } = await import("@/db"));
     schema = await import("@/db/schema");
     orm = await import("drizzle-orm");
     await db
@@ -53,6 +54,7 @@ describe("atomic quota / rate-limit race-safety (F-C6)", { skip }, () => {
     await db
       .delete(schema.usage)
       .where(orm.eq(schema.usage.clerkUserId, userId));
+    await closeDbPool();
   });
 
   it("consumeUsage: exactly ONE of N concurrent consumes wins at limit=1", async () => {

@@ -27,6 +27,7 @@ const skip: boolean | string = HAS_DB
 describe("posts repo: tenant isolation", { skip }, () => {
   let postsRepo: typeof import("@/lib/repos/posts");
   let db: typeof import("@/db").db;
+  let closeDbPool: typeof import("@/db").closeDbPool;
   let schema: typeof import("@/db/schema");
   let orm: typeof import("drizzle-orm");
 
@@ -36,7 +37,7 @@ describe("posts repo: tenant isolation", { skip }, () => {
 
   before(async () => {
     postsRepo = await import("@/lib/repos/posts");
-    ({ db } = await import("@/db"));
+    ({ db, closeDbPool } = await import("@/db"));
     schema = await import("@/db/schema");
     orm = await import("drizzle-orm");
 
@@ -51,6 +52,7 @@ describe("posts repo: tenant isolation", { skip }, () => {
     await db
       .delete(schema.posts)
       .where(orm.inArray(schema.posts.clerkUserId, [userA, userB]));
+    await closeDbPool();
   });
 
   it("createPostWithTargets + getPostWithTargets round-trips for the owner", async () => {

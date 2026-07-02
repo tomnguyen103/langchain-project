@@ -89,6 +89,16 @@ export async function upsertMembership(
  *     leaving zero owners. `FOR UPDATE`'s EvalPlanQual re-read is what a
  *     read gated by an unrelated lock does not get for free.
  *
+ * Matching the index's own predicate keeps both concurrent calls on the same
+ * scan, which makes them lock in the same order in practice — but Postgres
+ * gives no formal guarantee of that, and the race trial still deadlocks
+ * occasionally under real concurrency. Rather than a fourth attempt at
+ * eliminating the race (attempt #1 shows that's not a matter of just adding
+ * the right clause), the retry below is Postgres's own documented answer to
+ * `FOR UPDATE` deadlocks: the detector safely aborts one side, and that side
+ * retries. A retried call re-reads the now-committed state, so it's not
+ * susceptible to the staleness bug that sank attempt #2.
+ *
  * The WHERE clause only gates the ON CONFLICT UPDATE branch — a brand-new
  * membership (no prior row) always inserts unconditionally — so a 0-row
  * result specifically means an existing owner's demotion was blocked.
@@ -98,28 +108,42 @@ export async function upsertMembershipGuardingLastOwner(
   clerkUserId: string,
   role: WorkspaceRole,
 ): Promise<{ ok: true } | { ok: false; reason: "last_owner" }> {
-  const result = await db.execute<{ clerk_user_id: string }>(sql`
-    WITH locked AS (
-      SELECT clerk_user_id, role
-      FROM memberships
-      WHERE clerk_org_id = ${clerkOrgId}
-      FOR UPDATE
-    )
-    INSERT INTO memberships (clerk_org_id, clerk_user_id, role)
-    VALUES (${clerkOrgId}, ${clerkUserId}, ${role})
-    ON CONFLICT (clerk_org_id, clerk_user_id)
-    DO UPDATE SET role = excluded.role, updated_at = now()
-    WHERE
-      ${role} = 'owner'
-      OR NOT EXISTS (
-        SELECT 1 FROM locked WHERE clerk_user_id = ${clerkUserId} AND role = 'owner'
-      )
-      OR EXISTS (
-        SELECT 1 FROM locked WHERE clerk_user_id != ${clerkUserId} AND role = 'owner'
-      )
-    RETURNING clerk_user_id
-  `);
-  return result.rows.length > 0
-    ? { ok: true }
-    : { ok: false, reason: "last_owner" };
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const result = await db.execute<{ clerk_user_id: string }>(sql`
+        WITH locked AS (
+          SELECT clerk_user_id, role
+          FROM memberships
+          WHERE clerk_org_id = ${clerkOrgId}
+          FOR UPDATE
+        )
+        INSERT INTO memberships (clerk_org_id, clerk_user_id, role)
+        VALUES (${clerkOrgId}, ${clerkUserId}, ${role})
+        ON CONFLICT (clerk_org_id, clerk_user_id)
+        DO UPDATE SET role = excluded.role, updated_at = now()
+        WHERE
+          ${role} = 'owner'
+          OR NOT EXISTS (
+            SELECT 1 FROM locked WHERE clerk_user_id = ${clerkUserId} AND role = 'owner'
+          )
+          OR EXISTS (
+            SELECT 1 FROM locked WHERE clerk_user_id != ${clerkUserId} AND role = 'owner'
+          )
+        RETURNING clerk_user_id
+      `);
+      return result.rows.length > 0
+        ? { ok: true }
+        : { ok: false, reason: "last_owner" };
+    } catch (error) {
+      const pgCode = (error instanceof Error ? error.cause : undefined) as
+        | { code?: string }
+        | undefined;
+      if (pgCode?.code !== "40P01" || attempt >= MAX_ATTEMPTS) throw error;
+      // Deadlock detected (40P01) — Postgres already aborted this
+      // transaction; a short jitter avoids retrying in lockstep with
+      // whichever concurrent call it collided with.
+      await new Promise((r) => setTimeout(r, Math.random() * 20));
+    }
+  }
 }
