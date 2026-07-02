@@ -6,6 +6,11 @@ on:
   push:
     branches: [main]
 
+# Least-privilege default — this workflow only builds/tests, it never needs
+# to write to the repo, issues, PRs, etc.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

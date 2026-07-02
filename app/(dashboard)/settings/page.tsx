@@ -131,7 +131,12 @@ export default async function SettingsPage({
         <TabsContent value="brand-safety" className="space-y-6">
           <p className="text-muted-foreground text-sm">
             Set your brand voice and guardrails. The review agent (Castor)
-            uses these to score every draft before it&apos;s scheduled.
+            uses these to score every draft before it&apos;s scheduled — see
+            those scores on the{" "}
+            <Link href="/governance?tab=quality" className="underline">
+              quality dashboard
+            </Link>
+            .
           </p>
           <BrandProfileForm
             initial={{

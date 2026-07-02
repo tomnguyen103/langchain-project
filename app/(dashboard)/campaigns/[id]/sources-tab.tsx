@@ -1,8 +1,5 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import type { CampaignSource } from "@/db/schema";
-import { addCampaignSourceAction, startCampaignSourceRunAction } from "../actions";
+import { AddSourceForm, StartSourceRunButton } from "./source-forms";
 
 export function SourcesTab({
   campaignId,
@@ -13,18 +10,7 @@ export function SourcesTab({
 }) {
   return (
     <div className="space-y-4">
-      <form action={addCampaignSourceAction} className="space-y-3">
-        <input type="hidden" name="campaignId" value={campaignId} />
-        <Input name="title" placeholder="Source title" />
-        <Textarea
-          name="sourceText"
-          rows={4}
-          placeholder="Paste webinar notes, a blog post, sales notes, or a transcript excerpt"
-        />
-        <Button type="submit" size="sm" variant="outline">
-          Add source
-        </Button>
-      </form>
+      <AddSourceForm campaignId={campaignId} />
 
       {sources.length > 0 ? (
         <div className="space-y-2">
@@ -41,13 +27,7 @@ export function SourcesTab({
                   </span>
                 ) : null}
               </span>
-              <form action={startCampaignSourceRunAction}>
-                <input type="hidden" name="campaignId" value={campaignId} />
-                <input type="hidden" name="sourceId" value={source.id} />
-                <Button type="submit" size="sm">
-                  Start run
-                </Button>
-              </form>
+              <StartSourceRunButton campaignId={campaignId} sourceId={source.id} />
             </div>
           ))}
         </div>

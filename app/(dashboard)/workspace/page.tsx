@@ -50,7 +50,7 @@ export default async function WorkspacePage({
     <div className="space-y-6">
       <PageHeader
         eyebrow="Settings"
-        title="Workspace admin"
+        title="Org admin"
         description="Manage brand workspaces and teammate roles."
         actions={
           <>

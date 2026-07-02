@@ -112,17 +112,22 @@ export async function createCampaignFromTemplateAction(
   revalidatePath("/campaigns");
 }
 
-export async function addCampaignSourceAction(formData: FormData): Promise<void> {
+export type AddCampaignSourceState = { error: string | null };
+
+export async function addCampaignSourceAction(
+  _prevState: AddCampaignSourceState,
+  formData: FormData,
+): Promise<AddCampaignSourceState> {
   const userId = await requireUserId();
   await requireRole("creator");
   const campaignId = String(formData.get("campaignId") ?? "");
   const campaign = await getUserCampaign(campaignId, userId);
-  if (!campaign) throw new Error("Campaign not found.");
+  if (!campaign) return { error: "Campaign not found." };
 
   const title = String(formData.get("title") ?? "").trim();
   const sourceText = String(formData.get("sourceText") ?? "").trim();
-  if (!title) throw new Error("Name the source.");
-  if (sourceText.length < 20) throw new Error("Add more source detail.");
+  if (!title) return { error: "Name the source." };
+  if (sourceText.length < 20) return { error: "Add more source detail." };
 
   const source = await createCampaignSource({
     clerkUserId: userId,
@@ -143,16 +148,20 @@ export async function addCampaignSourceAction(formData: FormData): Promise<void>
   });
   revalidatePath(`/campaigns/${campaign.id}`);
   revalidatePath("/campaigns");
+  return { error: null };
 }
 
+export type StartCampaignSourceRunState = { error: string | null };
+
 export async function startCampaignSourceRunAction(
+  _prevState: StartCampaignSourceRunState,
   formData: FormData,
-): Promise<void> {
+): Promise<StartCampaignSourceRunState> {
   const userId = await requireUserId();
   await requireRole("creator");
   const limits = await getPlanLimits();
   if (!limits.research) {
-    throw new Error("Campaign repurposing is a Pro feature. Upgrade to use it.");
+    return { error: "Campaign repurposing is a Pro feature. Upgrade to use it." };
   }
 
   const campaignId = String(formData.get("campaignId") ?? "");
@@ -162,7 +171,7 @@ export async function startCampaignSourceRunAction(
     getUserCampaignSource(sourceId, userId),
   ]);
   if (!campaign || !source || source.campaignId !== campaign.id) {
-    throw new Error("Campaign source not found.");
+    return { error: "Campaign source not found." };
   }
 
   const platforms = campaign.platforms;
@@ -202,6 +211,7 @@ export async function startCampaignSourceRunAction(
   revalidatePath(`/campaigns/${campaign.id}`);
   revalidatePath("/campaigns");
   revalidatePath("/runs");
+  return { error: null };
 }
 
 export async function createCampaignExperimentAction(
