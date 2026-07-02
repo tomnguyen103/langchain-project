@@ -3,6 +3,7 @@ import {
   Briefcase,
   Calendar,
   CreditCard,
+  FileText,
   LayoutDashboard,
   Megaphone,
   MessageSquare,
@@ -33,6 +34,7 @@ export const navGroups: NavGroup[] = [
       { href: "/create", label: "Create", icon: PenSquare },
       { href: "/calendar", label: "Calendar", icon: Calendar },
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/posts", label: "Posts", icon: FileText },
     ],
   },
   {

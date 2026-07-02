@@ -89,6 +89,35 @@ export async function getUserCampaign(
   return row;
 }
 
+/** One campaign with its sources/experiments/attribution links, for the detail page. */
+export async function getUserCampaignWorkspace(
+  id: string,
+  clerkUserId: string,
+): Promise<CampaignWorkspace | undefined> {
+  const campaign = await getUserCampaign(id, clerkUserId);
+  if (!campaign) return undefined;
+
+  const [sources, experiments, links] = await Promise.all([
+    db
+      .select()
+      .from(campaignSources)
+      .where(eq(campaignSources.campaignId, id))
+      .orderBy(desc(campaignSources.createdAt)),
+    db
+      .select()
+      .from(campaignExperiments)
+      .where(eq(campaignExperiments.campaignId, id))
+      .orderBy(desc(campaignExperiments.createdAt)),
+    db
+      .select()
+      .from(attributionLinks)
+      .where(eq(attributionLinks.campaignId, id))
+      .orderBy(desc(attributionLinks.createdAt)),
+  ]);
+
+  return { ...campaign, sources, experiments, attributionLinks: links };
+}
+
 export async function createCampaignSource(
   data: NewCampaignSource,
 ): Promise<CampaignSource> {
