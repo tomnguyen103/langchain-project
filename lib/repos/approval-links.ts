@@ -52,9 +52,17 @@ export async function getApprovalPortalByToken(
   return { ...row, sources };
 }
 
-export async function markApprovalLinkUsed(id: string): Promise<void> {
-  await db
+/**
+ * Atomically claim a link for use: the UPDATE only matches a row still
+ * `active`, so of two concurrent submissions for the same token only one can
+ * win. Returns false if the link was already used (or claimed by a
+ * concurrent request) by the time this runs.
+ */
+export async function markApprovalLinkUsed(id: string): Promise<boolean> {
+  const rows = await db
     .update(approvalLinks)
     .set({ status: "used", usedAt: new Date(), updatedAt: new Date() })
-    .where(eq(approvalLinks.id, id));
+    .where(and(eq(approvalLinks.id, id), eq(approvalLinks.status, "active")))
+    .returning({ id: approvalLinks.id });
+  return rows.length > 0;
 }

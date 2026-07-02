@@ -13,38 +13,46 @@ import {
   saveLearnedMemoryAction,
 } from "./actions";
 
+type TopicRow = { id: string; value: string };
+
+function newTopicRow(value = ""): TopicRow {
+  return { id: crypto.randomUUID(), value };
+}
+
 export function LearnedMemoryForm({
   initialTopics,
 }: {
   initialTopics: string[];
 }) {
-  const [topics, setTopics] = useState(() =>
-    initialTopics.length > 0 ? initialTopics : [""],
+  const [topics, setTopics] = useState<TopicRow[]>(() =>
+    initialTopics.length > 0 ? initialTopics.map(newTopicRow) : [newTopicRow()],
   );
   const [pending, startTransition] = useTransition();
 
-  function updateTopic(index: number, value: string) {
+  function updateTopic(id: string, value: string) {
     setTopics((current) =>
-      current.map((topic, i) => (i === index ? value : topic)),
+      current.map((row) => (row.id === id ? { ...row, value } : row)),
     );
   }
 
-  function removeTopic(index: number) {
+  function removeTopic(id: string) {
     setTopics((current) => {
-      const next = current.filter((_, i) => i !== index);
-      return next.length > 0 ? next : [""];
+      const next = current.filter((row) => row.id !== id);
+      return next.length > 0 ? next : [newTopicRow()];
     });
   }
 
   function addTopic() {
-    setTopics((current) => [...current, ""]);
+    setTopics((current) => [...current, newTopicRow()]);
   }
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
     startTransition(async () => {
       try {
-        await saveLearnedMemoryAction({ topics: topics.join("\n") });
+        await saveLearnedMemoryAction({
+          topics: topics.map((row) => row.value).join("\n"),
+        });
         toast.success("Learned memory saved.");
       } catch (error) {
         toast.error(
@@ -58,7 +66,7 @@ export function LearnedMemoryForm({
     startTransition(async () => {
       try {
         await clearLearnedMemoryAction();
-        setTopics([""]);
+        setTopics([newTopicRow()]);
         toast.success("Learned memory cleared.");
       } catch (error) {
         toast.error(
@@ -73,14 +81,14 @@ export function LearnedMemoryForm({
       <div className="space-y-2">
         <Label>Learned topics</Label>
         <div className="space-y-2">
-          {topics.map((topic, index) => (
+          {topics.map((row, index) => (
             <div
-              key={index}
+              key={row.id}
               className="flex items-center gap-2 rounded-lg border p-2"
             >
               <Input
-                value={topic}
-                onChange={(event) => updateTopic(index, event.target.value)}
+                value={row.value}
+                onChange={(event) => updateTopic(row.id, event.target.value)}
                 aria-label={`Learned topic ${index + 1}`}
                 placeholder="Topic or theme"
               />
@@ -88,7 +96,7 @@ export function LearnedMemoryForm({
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => removeTopic(index)}
+                onClick={() => removeTopic(row.id)}
                 aria-label={`Remove learned topic ${index + 1}`}
               >
                 <X className="size-4" />

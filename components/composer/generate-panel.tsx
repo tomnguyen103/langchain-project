@@ -36,8 +36,14 @@ export function GeneratePanel({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ topic, platforms }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? "Generation failed");
+      let data: { drafts?: Record<string, string>; error?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        // Non-JSON response body (e.g. a gateway error page) — fall through
+        // to the generic "Generation failed" message below.
+      }
+      if (!res.ok) throw new Error(data.error ?? "Generation failed");
       onGenerated(data.drafts as Record<string, string>);
       toast.success("Generated captions for each platform.");
     } catch (error) {
