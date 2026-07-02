@@ -35,7 +35,14 @@ export function RunLiveStatus({
     );
 
     source.addEventListener("snapshot", (event: MessageEvent) => {
-      const next = JSON.parse(event.data) as RunLiveSnapshot;
+      let next: RunLiveSnapshot;
+      try {
+        next = JSON.parse(event.data) as RunLiveSnapshot;
+      } catch {
+        setStreamError("Received a malformed run update.");
+        setConnection("error");
+        return;
+      }
       setSnapshot(next);
       setStreamError(null);
       setConnection(next.final ? "closed" : "live");
@@ -53,9 +60,14 @@ export function RunLiveStatus({
     });
 
     source.addEventListener("run-error", (event) => {
-      const payload = JSON.parse((event as MessageEvent).data) as {
-        message?: string;
-      };
+      let payload: { message?: string } = {};
+      try {
+        payload = JSON.parse((event as MessageEvent).data) as {
+          message?: string;
+        };
+      } catch {
+        // Non-JSON payload — fall through to the generic message below.
+      }
       setStreamError(payload.message ?? "Run stream ended.");
       setConnection("error");
       source.close();

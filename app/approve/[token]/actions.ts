@@ -20,7 +20,9 @@ export async function decideApprovalLinkAction(
     throw new Error("Email does not match this approval link.");
   }
 
-  await markApprovalLinkUsed(portal.link.id);
+  const claimed = await markApprovalLinkUsed(portal.link.id);
+  if (!claimed) throw new Error("This approval link has already been used.");
+
   if (decision === "approve") {
     await updateCampaign(portal.campaign.id, portal.link.clerkUserId, {
       status: "active",
