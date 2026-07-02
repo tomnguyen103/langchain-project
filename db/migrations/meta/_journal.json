@@ -225,6 +225,13 @@
       "when": 1782947996534,
       "tag": "0031_petite_mac_gargan",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782949093976,
+      "tag": "0032_broken_nextwave",
+      "breakpoints": true
     }
   ]
 }
