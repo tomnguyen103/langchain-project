@@ -143,4 +143,74 @@ describe("content-reviews: human-review-gate scoping", { skip }, () => {
       "must approve only the caller's own still-held draft",
     );
   });
+
+  it("respondHeldDraft: replaces the body, records the note, clears the decision stamp, and stays held", async () => {
+    const id = await createHeldDraft(ownerA);
+
+    const changed = await reviewsRepo.respondHeldDraft(
+      id,
+      agentRunId,
+      ownerA,
+      "Revised draft body.",
+      "Make it punchier.",
+    );
+    assert.deepEqual(changed, [id]);
+
+    const [row] = await db
+      .select()
+      .from(schema.generatedContent)
+      .where(orm.eq(schema.generatedContent.id, id));
+    assert.equal(row.content, "Revised draft body.");
+    assert.equal(row.reviewerNote, "Make it punchier.");
+    assert.equal(row.reviewStatus, "held", "must stay held for a fresh look");
+    assert.equal(row.reviewedAt, null);
+    assert.equal(row.reviewedBy, null);
+  });
+
+  it("respondHeldDraft: cannot respond to an already-decided draft", async () => {
+    const id = await createHeldDraft(ownerA);
+    await reviewsRepo.acceptHeldDraft(id, agentRunId, ownerA);
+
+    const changed = await reviewsRepo.respondHeldDraft(
+      id,
+      agentRunId,
+      ownerA,
+      "Should not apply.",
+      "Should not apply.",
+    );
+    assert.deepEqual(changed, []);
+  });
+
+  it("restoreHeldDrafts: reverts an approved draft back to held (failed-resume compensation)", async () => {
+    const id = await createHeldDraft(ownerA);
+    await reviewsRepo.acceptHeldDraft(id, agentRunId, ownerA);
+
+    await reviewsRepo.restoreHeldDrafts([id], ownerA);
+
+    const [row] = await db
+      .select()
+      .from(schema.generatedContent)
+      .where(orm.eq(schema.generatedContent.id, id));
+    assert.equal(row.reviewStatus, "held");
+    assert.equal(row.accepted, false);
+    assert.equal(row.reviewedAt, null);
+    assert.equal(row.reviewedBy, null);
+  });
+
+  it("restoreHeldDrafts: does not resurrect a rejected draft back to held", async () => {
+    const id = await createHeldDraft(ownerA);
+    await reviewsRepo.rejectHeldDraft(id, agentRunId, ownerA);
+
+    await reviewsRepo.restoreHeldDrafts([id], ownerA);
+
+    const [row] = await db
+      .select({ reviewStatus: schema.generatedContent.reviewStatus })
+      .from(schema.generatedContent)
+      .where(orm.eq(schema.generatedContent.id, id));
+    assert.equal(
+      row.reviewStatus,
+      "rejected",
+      "restore must only apply to approved drafts, never reopen a rejection",
+    );
+  });
 });
