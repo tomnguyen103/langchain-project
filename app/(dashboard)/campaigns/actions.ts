@@ -142,6 +142,7 @@ export async function addCampaignSourceAction(formData: FormData): Promise<void>
     },
   });
   revalidatePath(`/campaigns/${campaign.id}`);
+  revalidatePath("/campaigns");
 }
 
 export async function startCampaignSourceRunAction(
@@ -199,6 +200,7 @@ export async function startCampaignSourceRunAction(
     payload: { runId, campaignId: campaign.id, sourceId: source.id },
   });
   revalidatePath(`/campaigns/${campaign.id}`);
+  revalidatePath("/campaigns");
   revalidatePath("/runs");
 }
 
@@ -223,6 +225,7 @@ export async function createCampaignExperimentAction(
     status: "draft",
   });
   revalidatePath(`/campaigns/${campaign.id}`);
+  revalidatePath("/campaigns");
 }
 
 export async function createCampaignApprovalLinkAction(input: {
@@ -278,6 +281,7 @@ export async function createAttributionLinkAction(
     trackedUrl,
   });
   revalidatePath(`/campaigns/${campaign.id}`);
+  revalidatePath("/campaigns");
 }
 
 export async function createCompetitorWatchAction(
