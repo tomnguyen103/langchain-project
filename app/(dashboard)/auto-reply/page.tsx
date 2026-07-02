@@ -33,10 +33,10 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import {
   dismissReplyCopilotDraftAction,
-  prepareReplyCopilotDraftsAction,
   saveReplyCopilotDraftAction,
   sendReplyCopilotDraftAction,
 } from "./actions";
+import { PrepareSuggestionsButton } from "./prepare-suggestions-button";
 
 const accountName = (a: SocialAccount) =>
   a.displayName ?? a.handle ?? a.platformAccountId;
@@ -262,11 +262,7 @@ export default async function AutoReplyPage() {
               Draft-first replies for leads and questions. Abuse and complaints
               are held for manual review in the source platform.
             </p>
-            <form action={prepareReplyCopilotDraftsAction}>
-              <Button type="submit" size="sm">
-                Prepare suggestions
-              </Button>
-            </form>
+            <PrepareSuggestionsButton />
           </div>
           {copilotItems.length === 0 ? (
             <EmptyState

@@ -42,13 +42,18 @@ function platformsFromForm(formData: FormData): Platform[] {
     .filter((value) => VALID_PLATFORMS.has(value)) as Platform[];
 }
 
-export async function createCampaignAction(formData: FormData): Promise<void> {
+export type CreateCampaignState = { error: string | null };
+
+export async function createCampaignAction(
+  _prevState: CreateCampaignState,
+  formData: FormData,
+): Promise<CreateCampaignState> {
   const userId = await requireUserId();
   await requireRole("creator");
   const name = String(formData.get("name") ?? "").trim();
   const brief = String(formData.get("brief") ?? "").trim();
   const platforms = platformsFromForm(formData);
-  if (!name) throw new Error("Name the campaign.");
+  if (!name) return { error: "Name the campaign." };
 
   const campaign = await createCampaign({
     clerkUserId: userId,
@@ -63,6 +68,7 @@ export async function createCampaignAction(formData: FormData): Promise<void> {
     payload: { campaignId: campaign.id, name: campaign.name },
   });
   revalidatePath("/campaigns");
+  return { error: null };
 }
 
 export async function createCampaignFromTemplateAction(

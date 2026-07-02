@@ -5,10 +5,9 @@ import { listDraftPosts, listPostsWithTargets } from "@/lib/repos/posts";
 import { listContentPlans } from "@/lib/repos/content-plans";
 import { CalendarGrid } from "@/components/calendar/calendar-grid";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import type { CalendarPost } from "@/components/calendar/types";
-import { generatePlan } from "./actions";
+import { GeneratePlanButton } from "./generate-plan-button";
 
 export default async function CalendarPage() {
   const userId = await requireUserId();
@@ -42,13 +41,7 @@ export default async function CalendarPage() {
         eyebrow="Workspace"
         title="Calendar"
         description="Everything you've scheduled and published."
-        actions={
-          <form action={generatePlan}>
-            <Button type="submit" variant="outline" size="sm">
-              Plan 2 weeks
-            </Button>
-          </form>
-        }
+        actions={<GeneratePlanButton />}
       />
 
       {draftPlans.length > 0 && (

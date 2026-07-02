@@ -167,12 +167,17 @@ export async function deleteRuleAction(id: string): Promise<void> {
   revalidatePath("/auto-reply");
 }
 
-export async function prepareReplyCopilotDraftsAction(): Promise<void> {
+export type PrepareReplyCopilotDraftsState = { error: string | null };
+
+export async function prepareReplyCopilotDraftsAction(
+  _prevState: PrepareReplyCopilotDraftsState,
+  _formData: FormData,
+): Promise<PrepareReplyCopilotDraftsState> {
   const userId = await requireUserId();
   await requireRole("creator");
   const limits = await getPlanLimits();
   if (!limits.autoReply) {
-    throw new Error("Auto-reply is a Pro feature. Upgrade to use it.");
+    return { error: "Auto-reply is a Pro feature. Upgrade to use it." };
   }
 
   const items = await listReplyCopilotInbox(userId);
@@ -202,6 +207,7 @@ export async function prepareReplyCopilotDraftsAction(): Promise<void> {
       }),
   );
   revalidatePath("/auto-reply");
+  return { error: null };
 }
 
 export async function saveReplyCopilotDraftAction(

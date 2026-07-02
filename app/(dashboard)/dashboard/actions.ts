@@ -21,32 +21,37 @@ import { PLATFORM_META } from "@/lib/platforms/constants";
 const RECYCLE_GAP_MS = 30 * 24 * 60 * 60_000;
 const PLATFORMS = new Set<string>(platformEnum.enumValues);
 
+export type RepurposePostState = { error: string | null };
+
 /**
  * Kick off a repurpose run for a published post target. Skips Vega (research)
  * and starts at Lyra (content generation) with a "re-angle" prompt, so the
  * recycled draft is fresh but grounded in the original's proven hook.
  */
-export async function repurposePost(formData: FormData): Promise<void> {
+export async function repurposePost(
+  _prevState: RepurposePostState,
+  formData: FormData,
+): Promise<RepurposePostState> {
   const userId = await requireUserId();
   await requireRole("creator");
 
   const limits = await getPlanLimits();
   if (!limits.research) {
-    throw new Error("Repurposing is a Pro feature. Upgrade to use it.");
+    return { error: "Repurposing is a Pro feature. Upgrade to use it." };
   }
 
   const targetId = formData.get("targetId");
   if (typeof targetId !== "string" || !targetId) {
-    throw new Error("Invalid target.");
+    return { error: "Invalid target." };
   }
 
   const target = await getUserPostTarget(targetId, userId);
-  if (!target) throw new Error("Post not found.");
+  if (!target) return { error: "Post not found." };
   if (
     !target.publishedAt ||
     Date.now() - target.publishedAt.getTime() < RECYCLE_GAP_MS
   ) {
-    throw new Error("Only posts published at least 30 days ago can be refreshed.");
+    return { error: "Only posts published at least 30 days ago can be refreshed." };
   }
 
   const estimate = estimateAgentRunCostUsd({
@@ -74,16 +79,20 @@ export async function repurposePost(formData: FormData): Promise<void> {
     },
     limits,
   });
+  return { error: null };
 }
 
+export type SaveEvergreenState = { error: string | null };
+
 export async function saveEvergreenAutomation(
+  _prevState: SaveEvergreenState,
   formData: FormData,
-): Promise<void> {
+): Promise<SaveEvergreenState> {
   const userId = await requireUserId();
   await requireRole("creator");
   const limits = await getPlanLimits();
   if (!limits.research) {
-    throw new Error("Evergreen automation is a Pro feature. Upgrade to use it.");
+    return { error: "Evergreen automation is a Pro feature. Upgrade to use it." };
   }
 
   const enabled = formData.get("enabled") === "on";
@@ -109,4 +118,5 @@ export async function saveEvergreenAutomation(
     nextRunAt: enabled ? nextEvergreenRunAt(frequency) : null,
   });
   revalidatePath("/dashboard");
+  return { error: null };
 }
