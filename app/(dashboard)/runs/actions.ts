@@ -164,6 +164,6 @@ export async function approveRunBudgetAction(
     throw error;
   }
   revalidatePath(`/runs/${runId}`);
-  revalidatePath("/review");
+  revalidatePath("/governance");
   return { error: null };
 }

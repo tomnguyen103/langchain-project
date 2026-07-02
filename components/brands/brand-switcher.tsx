@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { switchBrandAction } from "@/app/(dashboard)/brands/actions";
+import { switchBrandAction } from "@/app/(dashboard)/workspace/brand-actions";
 
 interface BrandSwitcherProps {
   brands: Array<Pick<Brand, "id" | "name">>;

@@ -116,7 +116,7 @@ export function RunLiveStatus({
             </span>
           </p>
           <Button asChild size="sm">
-            <Link href="/review">Open review queue</Link>
+            <Link href="/governance?tab=queue">Open review queue</Link>
           </Button>
         </div>
       ) : null}
