@@ -65,5 +65,5 @@ export async function setMemberRoleAction(input: unknown): Promise<void> {
   if (!result.ok) {
     throw new Error("A workspace must keep at least one owner.");
   }
-  revalidatePath("/team");
+  revalidatePath("/workspace");
 }

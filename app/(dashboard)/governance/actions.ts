@@ -87,7 +87,7 @@ export async function acceptDraftAction(
   await requireApprovableRun(runId, userId);
   await acceptHeldDraft(contentId, runId, userId);
   await maybeResolveRun(runId, userId);
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }
 
 /** Reject one held draft, then resolve the run if nothing is left to review. */
@@ -99,7 +99,7 @@ export async function rejectDraftAction(
   await requireApprovableRun(runId, userId);
   await rejectHeldDraft(contentId, runId, userId);
   await maybeResolveRun(runId, userId);
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }
 
 /**
@@ -114,7 +114,7 @@ export async function ignoreDraftAction(
   await requireApprovableRun(runId, userId);
   await rejectHeldDraft(contentId, runId, userId, "Ignored by reviewer");
   await maybeResolveRun(runId, userId);
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }
 
 /** Edit one held draft's body in place; it stays held for an explicit Accept. */
@@ -133,7 +133,7 @@ export async function editDraftAction(
   if (changed.length === 0) {
     throw new Error("This draft is no longer editable.");
   }
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }
 
 /**
@@ -175,7 +175,7 @@ export async function respondDraftAction(
   if (changed.length === 0) {
     throw new Error("This draft is no longer held for review.");
   }
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }
 
 export async function addDraftCommentAction(
@@ -197,7 +197,7 @@ export async function addDraftCommentAction(
   if (!comment) {
     throw new Error("This draft is no longer held for review.");
   }
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }
 
 export async function resolveDraftCommentAction(
@@ -216,7 +216,7 @@ export async function resolveDraftCommentAction(
   if (updated.length === 0) {
     throw new Error("Comment not found.");
   }
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }
 
 /**
@@ -243,7 +243,7 @@ export async function approveRunAction(runId: string): Promise<void> {
     await restoreHeldDrafts(heldIds, userId);
     throw error;
   }
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }
 
 /** Reject a run's held drafts and finalize it as rejected (atomic). */
@@ -251,5 +251,5 @@ export async function rejectRunAction(runId: string): Promise<void> {
   const userId = await requireUserId();
   await requireApprovableRun(runId, userId);
   await finalizeRunRejected(runId, userId);
-  revalidatePath("/review");
+  revalidatePath("/governance");
 }

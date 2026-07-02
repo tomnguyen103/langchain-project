@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/shared/page-header";
 import { requireUserId } from "@/lib/clerk";
 import { topicsFromLearnedMemory } from "@/lib/brand/learned-notes";
@@ -18,6 +19,17 @@ import { DisclosurePolicyForm } from "./disclosure-policy-form";
 import { IntegrationTokensForm } from "./integration-tokens-form";
 import { LearnedMemoryForm } from "./learned-memory-form";
 import { WebhookEndpointsForm } from "./webhook-endpoints-form";
+
+const TABS = ["brand-safety", "ai-disclosure", "integrations"] as const;
+type SettingsTab = (typeof TABS)[number];
+
+function isSettingsTab(value: string | undefined): value is SettingsTab {
+  return TABS.includes(value as SettingsTab);
+}
+
+function firstValue(v: string | string[] | undefined) {
+  return Array.isArray(v) ? v[0] : v;
+}
 
 function LearnedMemoryCard({
   memory,
@@ -82,8 +94,18 @@ function VoiceHistoryCard({ entries }: { entries: VoiceHistoryEntry[] }) {
   );
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const userId = await requireUserId();
+  const sp = await searchParams;
+  const requestedTab = firstValue(sp.tab);
+  const defaultTab: SettingsTab = isSettingsTab(requestedTab)
+    ? requestedTab
+    : "brand-safety";
+
   const [profile, disclosure, integrationTokens, webhookEndpoints] = await Promise.all([
     getBrandProfile(userId),
     getDisclosurePolicy(userId),
@@ -92,98 +114,103 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-10 p-4 sm:p-6">
-      <section className="space-y-6">
-        <PageHeader
-          eyebrow="Settings"
-          title="Brand safety"
-          description="Set your brand voice and guardrails. The review agent (Castor) uses these to score every draft before it's scheduled."
-        />
-        <BrandProfileForm
-          initial={{
-            voice: profile.voice,
-            bannedTerms: profile.bannedTerms.join(", "),
-            policyRules: formatOrgPolicyRules(profile.policyRules),
-            policyPacks: profile.policyPacks,
-            autoPublishEnabled: profile.autoPublishEnabled,
-            autoPublishThreshold: profile.autoPublishThreshold,
-          }}
-        />
-        <LearnedMemoryCard memory={profile.learnedMemory} />
-        <VoiceHistoryCard entries={profile.voiceHistory} />
-      </section>
+    <div className="mx-auto w-full max-w-2xl space-y-6 p-4 sm:p-6">
+      <PageHeader
+        eyebrow="Settings"
+        title="Settings"
+        description="Brand voice and guardrails, AI-content disclosure, and integration access."
+      />
 
-      <section className="space-y-6">
-        <header className="space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">
-            AI-content disclosure
-          </h2>
+      <Tabs defaultValue={defaultTab}>
+        <TabsList>
+          <TabsTrigger value="brand-safety">Brand safety</TabsTrigger>
+          <TabsTrigger value="ai-disclosure">AI disclosure</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="brand-safety" className="space-y-6">
           <p className="text-muted-foreground text-sm">
-            Label AI-generated posts to meet platform and regional rules (e.g. EU
-            AI Act Art. 50, CA SB 942). Every labeled post is recorded on your{" "}
-            <Link href="/compliance" className="underline">
+            Set your brand voice and guardrails. The review agent (Castor)
+            uses these to score every draft before it&apos;s scheduled.
+          </p>
+          <BrandProfileForm
+            initial={{
+              voice: profile.voice,
+              bannedTerms: profile.bannedTerms.join(", "),
+              policyRules: formatOrgPolicyRules(profile.policyRules),
+              policyPacks: profile.policyPacks,
+              autoPublishEnabled: profile.autoPublishEnabled,
+              autoPublishThreshold: profile.autoPublishThreshold,
+            }}
+          />
+          <LearnedMemoryCard memory={profile.learnedMemory} />
+          <VoiceHistoryCard entries={profile.voiceHistory} />
+        </TabsContent>
+
+        <TabsContent value="ai-disclosure" className="space-y-6">
+          <p className="text-muted-foreground text-sm">
+            Label AI-generated posts to meet platform and regional rules (e.g.
+            EU AI Act Art. 50, CA SB 942). Every labeled post is recorded on
+            your{" "}
+            <Link href="/governance?tab=compliance" className="underline">
               compliance ledger
             </Link>
             .
           </p>
-        </header>
-        <DisclosurePolicyForm
-          initial={{
-            labelAiContent: disclosure.labelAiContent,
-            disclosureText: disclosure.disclosureText ?? "",
-            jurisdiction: disclosure.jurisdiction ?? "",
-          }}
-        />
-      </section>
+          <DisclosurePolicyForm
+            initial={{
+              labelAiContent: disclosure.labelAiContent,
+              disclosureText: disclosure.disclosureText ?? "",
+              jurisdiction: disclosure.jurisdiction ?? "",
+            }}
+          />
+        </TabsContent>
 
-      <section className="space-y-6">
-        <header className="space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">
-            Integration tokens
-          </h2>
+        <TabsContent value="integrations" className="space-y-6">
           <p className="text-muted-foreground text-sm">
-            Scoped A2A bearer tokens for external agent clients.
+            Scoped A2A bearer tokens and outbound webhooks for external agent
+            clients.
           </p>
-        </header>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">A2A access</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <IntegrationTokensForm
-              tokens={integrationTokens.map((token) => ({
-                id: token.id,
-                name: token.name,
-                kind: token.kind,
-                scopes: token.scopes,
-                status: token.status,
-                createdAt: token.createdAt.toISOString(),
-                lastUsedAt: token.lastUsedAt?.toISOString() ?? null,
-              }))}
-            />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">
-              Webhook endpoints
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <WebhookEndpointsForm
-              endpoints={webhookEndpoints.map((endpoint) => ({
-                id: endpoint.id,
-                name: endpoint.name,
-                url: endpoint.url,
-                eventTypes: endpoint.eventTypes,
-                enabled: endpoint.enabled,
-                lastDeliveredAt:
-                  endpoint.lastDeliveredAt?.toISOString() ?? null,
-              }))}
-            />
-          </CardContent>
-        </Card>
-      </section>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">A2A access</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <IntegrationTokensForm
+                tokens={integrationTokens.map((token) => ({
+                  id: token.id,
+                  name: token.name,
+                  kind: token.kind,
+                  scopes: token.scopes,
+                  status: token.status,
+                  createdAt: token.createdAt.toISOString(),
+                  lastUsedAt: token.lastUsedAt?.toISOString() ?? null,
+                }))}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">
+                Webhook endpoints
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <WebhookEndpointsForm
+                endpoints={webhookEndpoints.map((endpoint) => ({
+                  id: endpoint.id,
+                  name: endpoint.name,
+                  url: endpoint.url,
+                  eventTypes: endpoint.eventTypes,
+                  enabled: endpoint.enabled,
+                  lastDeliveredAt:
+                    endpoint.lastDeliveredAt?.toISOString() ?? null,
+                }))}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

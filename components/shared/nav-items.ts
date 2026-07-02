@@ -3,7 +3,6 @@ import {
   Briefcase,
   Calendar,
   CreditCard,
-  FileCheck,
   LayoutDashboard,
   Megaphone,
   MessageSquare,
@@ -11,9 +10,7 @@ import {
   Search,
   Settings,
   Share2,
-  ShieldAlert,
   ShieldCheck,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,8 +20,10 @@ export type NavGroup = { label: string; items: NavItem[] };
 // Navigation is consumed as groups (see DashboardNav); there is no flat export.
 
 /**
- * Sidebar navigation, grouped by job-to-be-done. The mono group labels and the
- * grouping give the 15 destinations a scannable hierarchy.
+ * Sidebar navigation, grouped by job-to-be-done. Review, Quality, and
+ * Compliance live together under Governance (tabs); Brands and Team live
+ * together under Workspace (tabs) — see app/(dashboard)/governance and
+ * app/(dashboard)/workspace.
  */
 export const navGroups: NavGroup[] = [
   {
@@ -47,17 +46,14 @@ export const navGroups: NavGroup[] = [
   {
     label: "Governance",
     items: [
-      { href: "/review", label: "Review", icon: ShieldCheck },
-      { href: "/quality", label: "Quality", icon: ShieldAlert },
+      { href: "/governance", label: "Governance", icon: ShieldCheck },
       { href: "/runs", label: "Runs", icon: Activity },
-      { href: "/compliance", label: "Compliance", icon: FileCheck },
     ],
   },
   {
     label: "Settings",
     items: [
-      { href: "/brands", label: "Brands", icon: Briefcase },
-      { href: "/team", label: "Team", icon: Users },
+      { href: "/workspace", label: "Workspace", icon: Briefcase },
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/settings", label: "Settings", icon: Settings },
     ],

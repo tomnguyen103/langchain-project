@@ -42,7 +42,7 @@ export async function createBrandAction(data: {
     }
     throw err;
   }
-  revalidatePath("/brands");
+  revalidatePath("/workspace");
   return {};
 }
 
@@ -56,7 +56,7 @@ export async function updateBrandAction(
   if (trimmed.name !== undefined) trimmed.name = trimmed.name.trim();
   const updated = await updateBrand(id, userId, trimmed);
   if (!updated) return;
-  revalidatePath("/brands");
+  revalidatePath("/workspace");
 }
 
 export async function deleteBrandAction(id: string): Promise<void> {
@@ -64,5 +64,5 @@ export async function deleteBrandAction(id: string): Promise<void> {
   await requireRole("creator");
   const deleted = await deleteBrand(id, userId);
   if (!deleted) return;
-  revalidatePath("/brands");
+  revalidatePath("/workspace");
 }

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { createBrandAction, deleteBrandAction, updateBrandAction } from "./actions";
+import { createBrandAction, deleteBrandAction, updateBrandAction } from "./brand-actions";
 
 export function CreateBrandForm() {
   const [name, setName] = useState("");

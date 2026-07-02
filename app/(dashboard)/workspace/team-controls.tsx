@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROLES, type Role } from "@/lib/auth/roles";
 
-import { setMemberRoleAction } from "./actions";
+import { setMemberRoleAction } from "./team-actions";
 
 const SELECT_CLASS =
   "border-input bg-background h-9 rounded-md border px-2 text-sm";
