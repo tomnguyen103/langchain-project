@@ -96,14 +96,25 @@ async function resolveTenant(req: NextRequest): Promise<A2aAuth | null> {
     }
   }
 
-  // Multi-tenant mode
+  // Multi-tenant mode. Checks every candidate (no early exit) and compares
+  // each with timingSafeEqual, same as the single-tenant path below, so a
+  // caller can't use response timing to learn how close a guess is or which
+  // position in the map it matched.
   if (TENANT_TOKEN_MAP) {
-    return bearer && Object.hasOwn(TENANT_TOKEN_MAP, bearer)
-      ? {
-          clerkUserId: TENANT_TOKEN_MAP[bearer],
-          scopes: ENV_A2A_SCOPES,
-          source: "env",
-        }
+    if (!bearer) return null;
+    const provided = Buffer.from(bearer);
+    let matchedUserId: string | null = null;
+    for (const [candidate, userId] of Object.entries(TENANT_TOKEN_MAP)) {
+      const expected = Buffer.from(candidate);
+      if (
+        provided.length === expected.length &&
+        timingSafeEqual(provided, expected)
+      ) {
+        matchedUserId = userId;
+      }
+    }
+    return matchedUserId
+      ? { clerkUserId: matchedUserId, scopes: ENV_A2A_SCOPES, source: "env" }
       : null;
   }
 

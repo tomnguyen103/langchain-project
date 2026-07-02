@@ -55,7 +55,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "Settings",
     items: [
-      { href: "/workspace", label: "Workspace", icon: Briefcase },
+      { href: "/workspace", label: "Org", icon: Briefcase },
       { href: "/billing", label: "Billing", icon: CreditCard },
       { href: "/settings", label: "Settings", icon: Settings },
     ],

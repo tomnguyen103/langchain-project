@@ -10,12 +10,10 @@ import {
   MessageCircle,
   PenSquare,
   Plug,
-  RotateCw,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
-import { retryTarget } from "@/app/(dashboard)/posts/actions";
 import { accountNeedsAttention, evaluateAccountHealth } from "@/lib/accounts/health";
 import { decidePublishTargetRecovery } from "@/lib/agents/recovery";
 import { requireUserId } from "@/lib/clerk";
@@ -38,6 +36,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { OnboardingWizard } from "@/components/dashboard/onboarding-wizard";
 import { EvergreenAutomationForm, RepurposeForm } from "./dashboard-forms";
+import { RetryTargetButton } from "./retry-target-button";
 
 export default async function OverviewPage() {
   const userId = await requireUserId();
@@ -355,12 +354,7 @@ export default async function OverviewPage() {
                       <Link href={`/posts/${t.postId}`}>Details</Link>
                     </Button>
                     {decision.canRetry && (
-                      <form action={retryTarget.bind(null, t.id)}>
-                        <Button type="submit" size="sm">
-                          <RotateCw className="size-3.5" />
-                          Retry
-                        </Button>
-                      </form>
+                      <RetryTargetButton targetId={t.id} />
                     )}
                   </div>
                 </div>
