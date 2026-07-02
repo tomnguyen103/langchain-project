@@ -9,7 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"lib/**/*.test.ts\"",
-    "test:integration": "tsx --test \"tests/integration/**/*.test.ts\"",
+    "test:integration": "tsx --test --test-concurrency=1 \"tests/integration/**/*.test.ts\"",
     "eval:brand-safety": "tsx evals/brand-safety/run.ts",
     "eval:gate": "tsx evals/brand-safety/gate.ts",
     "worker": "tsx worker/index.ts",

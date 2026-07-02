@@ -3,9 +3,13 @@
  * (CodeRabbit finding on PR #65: a plain read-then-write last-owner check
  * lets two concurrent demotions of two DIFFERENT owners each see "another
  * owner remains" from a stale snapshot and both proceed, jointly zeroing out
- * ownership). The `FOR UPDATE`-locked CTE can only be proven correct under
- * GENUINE concurrency, so — like tests/integration/quota-concurrency.test.ts
- * — this needs a real Postgres and is deliberately not part of `npm test`.
+ * ownership). This isn't a theoretical test — the race trial below caught two
+ * real, different bugs in two earlier implementations (a deadlock under CI's
+ * Postgres, then a staleness bug in the fix for that deadlock) before this
+ * one; see the doc comment on lib/repos/memberships.ts's
+ * upsertMembershipGuardingLastOwner for the full history. Needs a real
+ * Postgres, like tests/integration/quota-concurrency.test.ts, and is
+ * deliberately not part of `npm test`.
  *
  *   DATABASE_URL=postgres://user:pass@host/db DB_DRIVER=node-postgres npm run test:integration
  *
