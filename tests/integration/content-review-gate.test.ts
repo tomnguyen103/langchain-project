@@ -32,6 +32,7 @@ const skip: boolean | string = HAS_DB
 describe("content-reviews: human-review-gate scoping", { skip }, () => {
   let reviewsRepo: typeof import("@/lib/repos/content-reviews");
   let db: typeof import("@/db").db;
+  let closeDbPool: typeof import("@/db").closeDbPool;
   let schema: typeof import("@/db/schema");
   let orm: typeof import("drizzle-orm");
 
@@ -41,7 +42,7 @@ describe("content-reviews: human-review-gate scoping", { skip }, () => {
 
   before(async () => {
     reviewsRepo = await import("@/lib/repos/content-reviews");
-    ({ db } = await import("@/db"));
+    ({ db, closeDbPool } = await import("@/db"));
     schema = await import("@/db/schema");
     orm = await import("drizzle-orm");
   });
@@ -65,6 +66,7 @@ describe("content-reviews: human-review-gate scoping", { skip }, () => {
       .where(
         orm.inArray(schema.generatedContent.clerkUserId, [ownerA, ownerB]),
       );
+    await closeDbPool();
   });
 
   it("acceptHeldDraft: a different tenant cannot accept another tenant's held draft", async () => {

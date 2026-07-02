@@ -30,6 +30,7 @@ const skip: boolean | string = HAS_DB
 describe("upsertMembershipGuardingLastOwner: last-owner race-safety", { skip }, () => {
   let membershipsRepo: typeof import("@/lib/repos/memberships");
   let db: typeof import("@/db").db;
+  let closeDbPool: typeof import("@/db").closeDbPool;
   let schema: typeof import("@/db/schema");
   let orm: typeof import("drizzle-orm");
 
@@ -39,7 +40,7 @@ describe("upsertMembershipGuardingLastOwner: last-owner race-safety", { skip }, 
 
   before(async () => {
     membershipsRepo = await import("@/lib/repos/memberships");
-    ({ db } = await import("@/db"));
+    ({ db, closeDbPool } = await import("@/db"));
     schema = await import("@/db/schema");
     orm = await import("drizzle-orm");
   });
@@ -66,6 +67,7 @@ describe("upsertMembershipGuardingLastOwner: last-owner race-safety", { skip }, 
     await db
       .delete(schema.memberships)
       .where(orm.eq(schema.memberships.clerkOrgId, orgId));
+    await closeDbPool();
   });
 
   it("blocks demoting the sole remaining owner", async () => {

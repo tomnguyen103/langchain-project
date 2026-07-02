@@ -29,6 +29,7 @@ const skip: boolean | string = HAS_DB
 describe("markApprovalLinkUsed: single-use race-safety", { skip }, () => {
   let approvalLinksRepo: typeof import("@/lib/repos/approval-links");
   let db: typeof import("@/db").db;
+  let closeDbPool: typeof import("@/db").closeDbPool;
   let schema: typeof import("@/db/schema");
   let orm: typeof import("drizzle-orm");
 
@@ -36,7 +37,7 @@ describe("markApprovalLinkUsed: single-use race-safety", { skip }, () => {
 
   before(async () => {
     approvalLinksRepo = await import("@/lib/repos/approval-links");
-    ({ db } = await import("@/db"));
+    ({ db, closeDbPool } = await import("@/db"));
     schema = await import("@/db/schema");
     orm = await import("drizzle-orm");
   });
@@ -59,6 +60,7 @@ describe("markApprovalLinkUsed: single-use race-safety", { skip }, () => {
     await db
       .delete(schema.approvalLinks)
       .where(orm.eq(schema.approvalLinks.clerkUserId, clerkUserId));
+    await closeDbPool();
   });
 
   it("claims an active link exactly once", async () => {
