@@ -6,7 +6,6 @@ import { connection } from "./connection";
 export enum QueueName {
   Publish = "publish",
   Research = "research",
-  Generate = "generate",
   CommentPoll = "comment-poll",
   Reply = "reply",
   TokenRefresh = "token-refresh",

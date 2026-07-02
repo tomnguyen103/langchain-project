@@ -53,26 +53,45 @@ export async function upsertMembership(
  * demotions of two DIFFERENT owners could each see "another owner remains"
  * from a stale snapshot and both proceed, jointly zeroing out ownership.
  *
- * `FOR UPDATE` locks the org's current owner rows as part of THIS ONE
- * statement, so a second concurrent call blocks on those rows until the
- * first commits, then re-evaluates against the now-current state. This
- * works even over the app's Neon HTTP driver — which has no client-side
- * multi-statement transactions (see db/index.ts's `runAtomicWrite`) — because
- * it's a single round trip: the locking happens server-side within
- * Postgres's execution of this one statement, not across separate client
- * transactions. Verified under real concurrency in
- * tests/integration/membership-last-owner.test.ts.
+ * Locks EVERY row for the org (not just owner rows, and with no ORDER BY) via
+ * `FOR UPDATE` in the `locked` CTE, then answers the owner-count question
+ * from that locked set. `FOR UPDATE` gives two guarantees a plain read can't:
+ * (1) a second concurrent call blocks until the first's statement (and thus
+ * its transaction — auto-commit, so it releases the instant this one
+ * statement finishes) completes, and (2) Postgres's EvalPlanQual mechanism
+ * re-fetches the LATEST committed version of a row it blocked on, so the
+ * `owner_count`/`EXISTS` checks against `locked` see the post-commit state,
+ * not a stale snapshot. This works even over the app's Neon HTTP driver —
+ * which has no client-side multi-statement transactions (see db/index.ts's
+ * `runAtomicWrite`) — because it's a single round trip: the locking and the
+ * fresh re-read both happen server-side within Postgres's execution of this
+ * one statement.
+ *
+ * Two earlier versions of this function were each wrong in a different way,
+ * both caught by tests/integration/membership-last-owner.test.ts's
+ * concurrent-race trials against a real Postgres, not by reasoning about the
+ * SQL:
+ *  1. `FOR UPDATE` scoped to `role = 'owner' ORDER BY clerk_user_id` — passed
+ *     locally, then hit a real "deadlock detected" in CI. `ORDER BY` only
+ *     guarantees OUTPUT order, not the order rows are locked during the scan,
+ *     so two concurrent calls could still lock in conflicting orders. Locking
+ *     every org row via the plain `clerk_org_id` predicate (matching
+ *     memberships_org_idx directly, no extra filter or sort to perturb the
+ *     plan) gives both concurrent calls the same scan — and thus the same
+ *     lock-acquisition order — deterministically.
+ *  2. A single `pg_advisory_xact_lock` per org, with the owner-count read
+ *     forced (via CROSS JOIN) to depend on it. This closes the deadlock
+ *     (only one lock resource, no ordering to conflict) but reintroduces the
+ *     staleness bug: an advisory lock has no connection to MVCC row
+ *     visibility, so the read after unblocking still used the snapshot from
+ *     the START of the statement — before the other transaction committed.
+ *     Both concurrent demotes read "another owner remains" and succeeded,
+ *     leaving zero owners. `FOR UPDATE`'s EvalPlanQual re-read is what a
+ *     read gated by an unrelated lock does not get for free.
  *
  * The WHERE clause only gates the ON CONFLICT UPDATE branch — a brand-new
  * membership (no prior row) always inserts unconditionally — so a 0-row
  * result specifically means an existing owner's demotion was blocked.
- *
- * The locking CTE orders by `clerk_user_id` — without it, two concurrent
- * calls locking the same rowset in no guaranteed order can deadlock (caught
- * empirically: passed locally, then hit "deadlock detected" in CI's
- * Postgres, a different-enough planner/data state to expose it). Every
- * caller locking the same set of rows in the same deterministic order rules
- * out the circular wait a deadlock needs.
  */
 export async function upsertMembershipGuardingLastOwner(
   clerkOrgId: string,
@@ -80,11 +99,10 @@ export async function upsertMembershipGuardingLastOwner(
   role: WorkspaceRole,
 ): Promise<{ ok: true } | { ok: false; reason: "last_owner" }> {
   const result = await db.execute<{ clerk_user_id: string }>(sql`
-    WITH locked_owners AS (
-      SELECT clerk_user_id
+    WITH locked AS (
+      SELECT clerk_user_id, role
       FROM memberships
-      WHERE clerk_org_id = ${clerkOrgId} AND role = 'owner'
-      ORDER BY clerk_user_id
+      WHERE clerk_org_id = ${clerkOrgId}
       FOR UPDATE
     )
     INSERT INTO memberships (clerk_org_id, clerk_user_id, role)
@@ -93,8 +111,12 @@ export async function upsertMembershipGuardingLastOwner(
     DO UPDATE SET role = excluded.role, updated_at = now()
     WHERE
       ${role} = 'owner'
-      OR NOT EXISTS (SELECT 1 FROM locked_owners WHERE clerk_user_id = ${clerkUserId})
-      OR EXISTS (SELECT 1 FROM locked_owners WHERE clerk_user_id != ${clerkUserId})
+      OR NOT EXISTS (
+        SELECT 1 FROM locked WHERE clerk_user_id = ${clerkUserId} AND role = 'owner'
+      )
+      OR EXISTS (
+        SELECT 1 FROM locked WHERE clerk_user_id != ${clerkUserId} AND role = 'owner'
+      )
     RETURNING clerk_user_id
   `);
   return result.rows.length > 0
